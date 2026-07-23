@@ -151,8 +151,52 @@
     $('accountBtn').addEventListener('click',()=>session?$('dashboard').scrollIntoView({behavior:'smooth'}):openModal('authModal'));
     $('addShopBtn').addEventListener('click',()=>{if(!session)return openModal('authModal');$('shopForm').reset();$('shopFormTitle').textContent='เพิ่มร้านของฉัน';openModal('shopModal');});
     $('searchBtn').addEventListener('click',renderShops);$('searchInput').addEventListener('input',renderShops);
-    $('authForm').addEventListener('submit',async ev=>{ev.preventDefault();if(!db)return alert('ยังไม่ได้ตั้งค่า Supabase');const fd=new FormData(ev.currentTarget);const {error}=await db.auth.signInWithPassword({email:fd.get('email'),password:fd.get('password')});if(error)return alert(error.message);closeModal('authModal');await refreshAuth();});
-    $('signUpBtn').addEventListener('click',async()=>{if(!db)return alert('ยังไม่ได้ตั้งค่า Supabase');const fd=new FormData($('authForm'));const {error}=await db.auth.signUp({email:fd.get('email'),password:fd.get('password')});if(error)return alert(error.message);alert('สมัครสำเร็จ กรุณาตรวจอีเมลยืนยันบัญชี แล้วกลับมาเข้าสู่ระบบ');});
+    $('authForm').addEventListener('submit',async ev=>{
+      ev.preventDefault();
+      if(!db)return alert('ยังไม่ได้ตั้งค่า Supabase');
+      const form=ev.currentTarget;
+      if(!form.reportValidity())return;
+      const fd=new FormData(form);
+      const email=String(fd.get('email')||'').trim();
+      const password=String(fd.get('password')||'');
+      if(!email||password.length<6)return alert('กรุณากรอกอีเมลและรหัสผ่านอย่างน้อย 6 ตัว');
+      const btn=form.querySelector('button[type=submit]');
+      btn.disabled=true;btn.textContent='กำลังเข้าสู่ระบบ...';
+      try{
+        const {error}=await db.auth.signInWithPassword({email,password});
+        if(error)throw error;
+        closeModal('authModal');
+        await refreshAuth();
+      }catch(err){alert('เข้าสู่ระบบไม่สำเร็จ: '+err.message);}
+      finally{btn.disabled=false;btn.textContent='เข้าสู่ระบบ';}
+    });
+    $('signUpBtn').addEventListener('click',async()=>{
+      if(!db)return alert('ยังไม่ได้ตั้งค่า Supabase');
+      const form=$('authForm');
+      if(!form.reportValidity())return;
+      const fd=new FormData(form);
+      const email=String(fd.get('email')||'').trim();
+      const password=String(fd.get('password')||'');
+      if(!email||password.length<6)return alert('กรุณากรอกอีเมลและรหัสผ่านอย่างน้อย 6 ตัว');
+      const btn=$('signUpBtn');
+      btn.disabled=true;btn.textContent='กำลังสมัคร...';
+      try{
+        const {data,error}=await db.auth.signUp({
+          email,
+          password,
+          options:{emailRedirectTo:window.location.origin}
+        });
+        if(error)throw error;
+        if(data.session){
+          alert('สมัครสมาชิกสำเร็จ และเข้าสู่ระบบแล้ว');
+          closeModal('authModal');
+          await refreshAuth();
+        }else{
+          alert('สมัครสมาชิกสำเร็จ กรุณาเปิดอีเมลเพื่อยืนยันบัญชี แล้วกลับมาเข้าสู่ระบบ');
+        }
+      }catch(err){alert('สมัครสมาชิกไม่สำเร็จ: '+err.message);}
+      finally{btn.disabled=false;btn.textContent='สมัครสมาชิก';}
+    });
     $('signOutBtn').addEventListener('click',async()=>{await db.auth.signOut();session=null;profile=null;updateAccountUI();window.scrollTo({top:0,behavior:'smooth'});});
     $('shopForm').addEventListener('submit',submitShop);
     $('nearBtn').addEventListener('click',()=>navigator.geolocation?navigator.geolocation.getCurrentPosition(p=>{const ll=[p.coords.latitude,p.coords.longitude];L.marker(ll).addTo(map).bindPopup('ตำแหน่งของคุณ').openPopup();map.setView(ll,17);$('map').scrollIntoView({behavior:'smooth'});},()=>alert('กรุณาอนุญาต Location ใน Safari')):alert('อุปกรณ์ไม่รองรับ Location'));
