@@ -51,7 +51,7 @@
 
   async function loadPublicShops(){
     if(!db){ shops=DEMO; showNotice('กำลังแสดงข้อมูลตัวอย่าง — กรุณาใส่ Supabase URL และ Anon Key ใน config.js'); renderShops(); return; }
-    const {data,error}=await db.from('market_shops').select('*, category:categories(id,name,icon)').eq('status','approved').order('featured',{ascending:false}).order('created_at',{ascending:false});
+    const {data,error}=await db.from('market_shops').select('*, category:market_categories(id,name,icon)').eq('status','approved').order('featured',{ascending:false}).order('created_at',{ascending:false});
     if(error) throw error;
     shops=data||[]; hideNotice(); renderShops();
   }
@@ -102,12 +102,12 @@
 
   async function loadDashboard(){
     if(!db||!session)return;
-    const {data:mine,error}=await db.from('market_shops').select('*, category:categories(id,name,icon)').eq('owner_id',session.user.id).order('created_at',{ascending:false});
+    const {data:mine,error}=await db.from('market_shops').select('*, category:market_categories(id,name,icon)').eq('owner_id',session.user.id).order('created_at',{ascending:false});
     if(error) showNotice(error.message,true);
     $('myShopGrid').innerHTML=(mine||[]).length?(mine||[]).map(s=>shopCard(s,true)).join(''):'<p>ยังไม่มีร้านในบัญชีนี้</p>';
     $('adminPanel').classList.toggle('hidden',profile?.role!=='admin');
     if(profile?.role==='admin'){
-      const {data:pending}=await db.from('market_shops').select('*, category:categories(id,name,icon)').eq('status','pending').order('created_at');
+      const {data:pending}=await db.from('market_shops').select('*, category:market_categories(id,name,icon)').eq('status','pending').order('created_at');
       $('pendingGrid').innerHTML=(pending||[]).length?(pending||[]).map(s=>shopCard(s,true)).join(''):'<p>ไม่มีร้านรออนุมัติ</p>';
     }
   }
