@@ -1,33 +1,40 @@
-# ตลาดกระทุ่มแบน Version 2
+# ตลาดกระทุ่มแบน — เว็บรวมร้านค้า
 
-เว็บไซต์รวมร้านค้าแบบ Static HTML/CSS/JavaScript เชื่อมฐานข้อมูล Supabase และ Deploy อัตโนมัติผ่าน Netlify
+เว็บนี้เป็น Static Website ใช้งานบน Netlify ได้โดยไม่ต้องมี Build command และเชื่อมฐานข้อมูล Supabase เพื่อให้เจ้าของร้านส่งข้อมูลจากหน้าเว็บได้จริง
 
-## ฟังก์ชันที่มี
-- ค้นหาและกรองตามหมวดหมู่
-- ร้านแนะนำ / เปิดอยู่ตอนนี้ / ร้านโปรด
-- เรียงร้านตามชื่อ ร้านใหม่ และระยะทาง
-- ร้านใกล้ฉันด้วย Location
-- หน้ารายละเอียดร้าน พร้อมโทร LINE Facebook TikTok เว็บไซต์ แชร์ และนำทาง
-- แผนที่ OpenStreetMap
-- ฟอร์มส่งร้านใหม่เข้าสถานะรอตรวจสอบ
-- รองรับมือถือและ iPad
+## เปิดระบบรับร้านค้า (ทำครั้งเดียว)
 
-## อัปโหลด GitHub บน iPad
-1. แตกไฟล์ ZIP ในแอป Files
-2. เข้า repository `snowtee68/talad-kratumbaen`
-3. กด Add file > Upload files
-4. เลือก 6 ไฟล์: `index.html`, `styles.css`, `app.js`, `config.js`, `supabase.sql`, `README.md`
-5. อย่าเลือกไฟล์ ZIP
-6. กด Commit changes
-7. Netlify จะอัปเดตภายในประมาณ 1–3 นาที
+1. เข้า Supabase และสร้าง Project
+2. เปิด **SQL Editor** → **New query**
+3. เปิดไฟล์ `supabase.sql` คัดลอกทั้งหมดไปวาง แล้วกด **Run**
+4. ไปที่ **Project Settings → API**
+5. คัดลอก **Project URL** และ **anon public key**
+6. เปิด `config.js` แล้วแทนค่า 2 จุดนี้:
 
-## ตั้งค่า Supabase
-1. เปิด Supabase > SQL Editor
-2. วางเนื้อหาจาก `supabase.sql` แล้วกด Run
-3. ไป Project Settings > API
-4. คัดลอก Project URL และ anon public key
-5. แก้ `config.js` โดยห้ามใช้ service_role key
+```js
+window.APP_CONFIG = {
+  SUPABASE_URL: "https://YOUR_PROJECT.supabase.co",
+  SUPABASE_ANON_KEY: "YOUR_ANON_PUBLIC_KEY"
+};
+```
+
+7. อัปโหลดไฟล์ทั้งหมดขึ้น GitHub แล้วรอ Netlify Deploy
+
+## การทำงาน
+
+- เจ้าของร้านกด **+ เพิ่มร้านของฉัน** และส่งแบบฟอร์ม
+- ระบบบันทึกข้อมูลลงตาราง `shops` โดยตั้ง `approved = false`
+- ร้านยังไม่แสดงทันที เพื่อป้องกันสแปม
+- เจ้าของเว็บเข้า Supabase → **Table Editor → shops** → เปลี่ยน `approved` เป็น `true`
+- เมื่อรีเฟรชเว็บไซต์ ร้านนั้นจะแสดงให้ทุกคนเห็น
+
+## ความปลอดภัย
+
+Anon key สามารถอยู่ในเว็บได้ เพราะ Row Level Security จำกัดสิทธิ์ไว้แล้ว: บุคคลทั่วไปอ่านได้เฉพาะร้านที่อนุมัติ และเพิ่มได้เฉพาะร้านที่ยังไม่อนุมัติ บุคคลทั่วไปแก้ไขหรือลบร้านไม่ได้
 
 ## Netlify
+
+- Branch: `main`
+- Base directory: เว้นว่าง
 - Build command: เว้นว่าง
-- Publish directory: `.`
+- Publish directory: เว้นว่าง
