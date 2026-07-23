@@ -1,0 +1,25 @@
+-- อัปเกรด Phase 2.2: เวลาเปิด-ปิดรายวัน + ตำแหน่ง + บริการของร้าน
+-- รันไฟล์นี้เพียงครั้งเดียวใน Supabase > SQL Editor
+
+alter table public.market_shops
+  add column if not exists zone text,
+  add column if not exists lock_number text,
+  add column if not exists floor text,
+  add column if not exists landmark text,
+  add column if not exists email text,
+  add column if not exists instagram text,
+  add column if not exists opening_hours jsonb not null default '{}'::jsonb,
+  add column if not exists temporarily_closed boolean not null default false,
+  add column if not exists open_24_hours boolean not null default false,
+  add column if not exists delivery boolean not null default false,
+  add column if not exists lineman boolean not null default false,
+  add column if not exists grab boolean not null default false,
+  add column if not exists shopeefood boolean not null default false,
+  add column if not exists qr_payment boolean not null default false,
+  add column if not exists card_payment boolean not null default false,
+  add column if not exists parking boolean not null default false,
+  add column if not exists pet_friendly boolean not null default false,
+  add column if not exists wheelchair_accessible boolean not null default false;
+
+comment on column public.market_shops.opening_hours is
+'JSON รายวัน เช่น {"mon":{"closed":false,"open":"09:00","close":"20:00"}}';
