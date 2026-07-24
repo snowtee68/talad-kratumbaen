@@ -42,6 +42,19 @@
     </div>
   </section>
 
+
+  <section class="container section marketplace-section">
+    <div class="section-head"><div><span class="eyebrow red">ดีลจากร้านค้า</span><h2>🔥 โปรโมชั่นวันนี้</h2></div><span>กดดูร้านและเงื่อนไขได้ทันที</span></div>
+    <div id="promotionGrid" class="promo-grid"></div>
+  </section>
+
+  <section class="recommended-section">
+    <div class="container section">
+      <div class="section-head"><div><span class="eyebrow">คัดสรรสำหรับคุณ</span><h2>⭐ ร้านแนะนำ</h2></div><span>พิจารณาจากคะแนน รีวิว โปรโมชั่น และร้านเด่น</span></div>
+      <div id="recommendedGrid" class="grid"></div>
+    </div>
+  </section>
+
   <section class="container section">
     <div class="section-head"><div><span class="eyebrow red">ร้านค้าในตลาด</span><h2>ค้นพบร้านใกล้ตัวคุณ</h2></div><span id="resultCount">กำลังโหลด...</span></div>
     <div id="notice" class="notice hidden"></div>
@@ -72,6 +85,13 @@
 <fieldset class="full services-box"><legend>บริการและสิ่งอำนวยความสะดวก</legend><div class="check-grid"><label class="check"><input type="checkbox" name="delivery"> มีบริการเดลิเวอรี</label><label class="check"><input type="checkbox" name="lineman"> LINE MAN</label><label class="check"><input type="checkbox" name="grab"> Grab</label><label class="check"><input type="checkbox" name="shopeefood"> ShopeeFood</label><label class="check"><input type="checkbox" name="qr_payment"> รับ QR Payment</label><label class="check"><input type="checkbox" name="card_payment"> รับบัตร</label><label class="check"><input type="checkbox" name="parking"> มีที่จอดรถ</label><label class="check"><input type="checkbox" name="pet_friendly"> สัตว์เลี้ยงเข้าได้</label><label class="check"><input type="checkbox" name="wheelchair_accessible"> รถเข็นเข้าได้</label></div><div class="delivery-url-grid"><label>ลิงก์สั่ง LINE MAN<input name="lineman_url" type="url" placeholder="https://wongn.ai/..."></label><label>ลิงก์สั่ง GrabFood<input name="grab_url" type="url" placeholder="https://r.grab.com/..."></label><label>ลิงก์สั่ง ShopeeFood<input name="shopeefood_url" type="url" placeholder="https://shopee.co.th/universal-link/..."></label></div><small class="form-help">นำลิงก์หน้าร้านจากแอปเดลิเวอรีมาวาง ลูกค้าจะกดสั่งจากหน้าร้านได้ทันที</small></fieldset>
 <label class="full">รูปหน้าปก<input name="cover" type="file" accept="image/*"></label>
 </div><button type="submit" class="primary submit">บันทึกข้อมูลร้าน</button></form></div></div>
+
+
+<div id="shopDetailModal" class="modal hidden"><div class="backdrop" data-close="shopDetailModal"></div><div class="modal-card"><button class="close" data-close="shopDetailModal">×</button><h2 id="detailTitle">รายละเอียดร้าน</h2><div id="detailSummary"></div><div class="review-head"><h3>รีวิวจากลูกค้า</h3><button id="openReviewBtn" class="primary">⭐ เขียนรีวิว</button></div><div id="reviewList" class="review-list"></div></div></div>
+
+<div id="reviewModal" class="modal hidden"><div class="backdrop" data-close="reviewModal"></div><div class="modal-card small"><button class="close" data-close="reviewModal">×</button><h2>รีวิว <span id="reviewShopName"></span></h2><p>แบ่งปันประสบการณ์จริงเพื่อช่วยคนในชุมชนตัดสินใจ</p><form id="reviewForm"><input id="reviewShopId" name="shop_id" type="hidden"><label>คะแนน<select name="rating" required><option value="5">★★★★★ 5 — ดีมาก</option><option value="4">★★★★☆ 4 — ดี</option><option value="3">★★★☆☆ 3 — ปานกลาง</option><option value="2">★★☆☆☆ 2 — ควรปรับปรุง</option><option value="1">★☆☆☆☆ 1 — ไม่พอใจ</option></select></label><label>ความคิดเห็น<textarea name="comment" rows="5" maxlength="1000" placeholder="เล่าถึงสินค้า บริการ บรรยากาศ หรือสิ่งที่ประทับใจ" required></textarea></label><button type="submit" class="primary submit">ส่งรีวิว</button></form></div></div>
+
+<div id="promotionModal" class="modal hidden"><div class="backdrop" data-close="promotionModal"></div><div class="modal-card small"><button class="close" data-close="promotionModal">×</button><h2>เพิ่มโปรโมชั่น</h2><p>ร้าน: <b id="promotionShopName"></b></p><form id="promotionForm"><input name="shop_id" type="hidden"><label>หัวข้อโปรโมชั่น<input name="title" maxlength="120" placeholder="เช่น ซื้อ 2 แถม 1" required></label><label>ข้อความเด่น<input name="discount_text" maxlength="40" placeholder="เช่น ลด 20%"></label><label>รายละเอียด<textarea name="description" rows="4" maxlength="1000"></textarea></label><label>ลิงก์รูปโปรโมชั่น<input name="image_url" type="url" placeholder="https://..."></label><div class="form-grid"><label>เริ่มใช้<input name="starts_at" type="datetime-local"></label><label>สิ้นสุด<input name="ends_at" type="datetime-local"></label></div><button type="submit" class="primary submit">เผยแพร่โปรโมชั่น</button></form></div></div>
 
 <div id="resetPasswordModal" class="modal hidden"><div class="backdrop" data-close="resetPasswordModal"></div><div class="modal-card small"><button class="close" data-close="resetPasswordModal">×</button><h2>ตั้งรหัสผ่านใหม่</h2><p>กรอกรหัสผ่านใหม่อย่างน้อย 6 ตัว แล้วกดบันทึกเพียงครั้งเดียว</p><form id="resetPasswordForm"><label>รหัสผ่านใหม่<input name="new_password" type="password" minlength="6" required></label><label>ยืนยันรหัสผ่านใหม่<input name="confirm_password" type="password" minlength="6" required></label><button type="submit" class="primary submit">บันทึกรหัสผ่านใหม่</button></form></div></div>
 

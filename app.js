@@ -9,7 +9,7 @@
   const db = configured ? supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY) : null;
   const DEMO = [{id:'demo',name:'Snowtee ตลาดกระทุ่มแบน',description:'เครื่องดื่ม ไอศกรีมซอฟต์เสิร์ฟ และเบเกอรี่ บรรยากาศริมคลอง',category:{name:'เครื่องดื่ม'},address:'ตลาดกระทุ่มแบน จังหวัดสมุทรสาคร',phone:'0642211876',facebook:'https://facebook.com/snowtee68',line:'snowtee68',latitude:13.6549,longitude:100.2639,status:'approved',featured:true,cover_url:null}];
 
-  let shops = [], categories = [], currentCategory = 'all', session = null, profile = null;
+  let shops = [], categories = [], promotions = [], reviewStats = {}, currentCategory = 'all', session = null, profile = null;
   let map, miniMap, mapMarkers = [], miniMarkers = [];
   const $ = id => document.getElementById(id);
 
@@ -112,7 +112,230 @@
     if(!db){ shops=DEMO; showNotice('กำลังแสดงข้อมูลตัวอย่าง — กรุณาใส่ Supabase URL และ Anon Key ใน config.js'); renderShops(); return; }
     const {data,error}=await db.from('market_shops').select('*, category:market_categories(id,name,icon)').eq('status','approved').order('featured',{ascending:false}).order('created_at',{ascending:false});
     if(error) throw error;
-    shops=data||[]; hideNotice(); renderShops();
+    shops=data||[]; hideNotice(); renderShops(); renderRecommended();
+  }
+
+
+  function formatThaiDate(value){
+    if(!value)return '';
+    return new Intl.DateTimeFormat('th-TH',{day:'numeric',month:'short',year:'numeric'}).format(new Date(value));
+  }
+
+  function activePromotionForShop(shopId){
+    const now=new Date();
+    return promotions.find(p=>{
+      if(p.shop_id!==shopId||p.active===false)return false;
+      const start=p.starts_at?new Date(p.starts_at):null;
+      const end=p.ends_at?new Date(p.ends_at):null;
+      return (!start||start<=now)&&(!end||end>=now);
+    });
+  }
+
+  function ratingForShop(shopId){
+    return reviewStats[shopId]||{average:0,count:0};
+  }
+
+  function stars(value){
+    const rounded=Math.round(Number(value)||0);
+    return '★'.repeat(rounded)+'☆'.repeat(Math.max(0,5-rounded));
+  }
+
+  async function loadPromotions(){
+    if(!db){promotions=[];renderPromotions();return;}
+    const {data,error}=await db
+      .from('market_promotions')
+      .select('*, shop:market_shops(id,name,cover_url,status)')
+      .eq('active',true)
+      .order('featured',{ascending:false})
+      .order('created_at',{ascending:false});
+    if(error){
+      console.warn('Promotions are not ready:',error.message);
+      promotions=[];
+    }else{
+      const now=new Date();
+      promotions=(data||[]).filter(p=>{
+        const shopApproved=p.shop?.status==='approved';
+        const start=p.starts_at?new Date(p.starts_at):null;
+        const end=p.ends_at?new Date(p.ends_at):null;
+        return shopApproved&&(!start||start<=now)&&(!end||end>=now);
+      });
+    }
+    renderPromotions();
+    renderRecommended();
+  }
+
+  async function loadReviewStats(){
+    if(!db){reviewStats={};return;}
+    const {data,error}=await db
+      .from('market_reviews')
+      .select('shop_id,rating')
+      .eq('status','approved');
+    if(error){
+      console.warn('Reviews are not ready:',error.message);
+      reviewStats={};
+      return;
+    }
+    const grouped={};
+    (data||[]).forEach(r=>{
+      grouped[r.shop_id] ||= {sum:0,count:0};
+      grouped[r.shop_id].sum+=Number(r.rating)||0;
+      grouped[r.shop_id].count+=1;
+    });
+    reviewStats={};
+    Object.entries(grouped).forEach(([shopId,v])=>{
+      reviewStats[shopId]={average:v.count?v.sum/v.count:0,count:v.count};
+    });
+  }
+
+  function promotionCard(p){
+    const shopName=p.shop?.name||'ร้านค้าในตลาด';
+    const image=p.image_url||p.shop?.cover_url;
+    const dateText=p.ends_at?`ถึง ${formatThaiDate(p.ends_at)}`:'ตรวจสอบเงื่อนไขกับร้าน';
+    return `<article class="promo-card" data-shop-id="${esc(p.shop_id)}">
+      <div class="promo-image">${image?`<img src="${esc(image)}" alt="${esc(p.title)}" loading="lazy">`:'<span>🔥</span>'}
+        ${p.discount_text?`<b>${esc(p.discount_text)}</b>`:''}
+      </div>
+      <div class="promo-body">
+        <small>${esc(shopName)}</small>
+        <h3>${esc(p.title)}</h3>
+        <p>${esc(p.description||'โปรโมชั่นพิเศษจากร้านค้าในตลาดกระทุ่มแบน')}</p>
+        <div class="promo-foot"><span>⏰ ${esc(dateText)}</span><button data-action="details" data-shop-id="${esc(p.shop_id)}">ดูร้าน</button></div>
+      </div>
+    </article>`;
+  }
+
+  function renderPromotions(){
+    const box=$('promotionGrid');
+    if(!box)return;
+    box.innerHTML=promotions.length
+      ? promotions.slice(0,8).map(promotionCard).join('')
+      : '<div class="empty-inline">ยังไม่มีโปรโมชั่นที่เปิดใช้งาน</div>';
+  }
+
+  function recommendedShops(){
+    return [...shops].sort((a,b)=>{
+      const ar=ratingForShop(a.id),br=ratingForShop(b.id);
+      const ap=activePromotionForShop(a.id)?1:0,bp=activePromotionForShop(b.id)?1:0;
+      const as=(a.featured?100:0)+(ap*25)+(ar.average*10)+Math.min(ar.count,20);
+      const bs=(b.featured?100:0)+(bp*25)+(br.average*10)+Math.min(br.count,20);
+      return bs-as;
+    }).slice(0,6);
+  }
+
+  function renderRecommended(){
+    const box=$('recommendedGrid');
+    if(!box)return;
+    const list=recommendedShops();
+    box.innerHTML=list.length?list.map(s=>shopCard(s)).join(''):'<div class="empty-inline">ยังไม่มีร้านแนะนำ</div>';
+  }
+
+  async function openShopDetails(shopId){
+    const shop=shops.find(s=>s.id===shopId);
+    if(!shop)return;
+    const promo=activePromotionForShop(shopId);
+    const rating=ratingForShop(shopId);
+    $('detailTitle').textContent=shop.name;
+    $('detailSummary').innerHTML=`
+      ${shop.cover_url?`<img class="detail-cover" src="${esc(shop.cover_url)}" alt="${esc(shop.name)}">`:''}
+      <div class="detail-rating"><b>${rating.average?rating.average.toFixed(1):'ยังไม่มีคะแนน'}</b>
+      <span>${rating.count?`${stars(rating.average)} (${rating.count} รีวิว)`:'เป็นคนแรกที่รีวิวร้านนี้'}</span></div>
+      <p>${esc(shop.description||'ร้านค้าในตลาดกระทุ่มแบน')}</p>
+      ${promo?`<div class="detail-promo"><b>🔥 ${esc(promo.title)}</b><span>${esc(promo.description||'')}</span></div>`:''}
+    `;
+    $('reviewShopId').value=shopId;
+    $('reviewShopName').textContent=shop.name;
+    openModal('shopDetailModal');
+    await loadShopReviews(shopId);
+  }
+
+  async function loadShopReviews(shopId){
+    const box=$('reviewList');
+    box.innerHTML='<p>กำลังโหลดรีวิว...</p>';
+    if(!db){box.innerHTML='<p>ยังไม่มีรีวิว</p>';return;}
+    const {data,error}=await db
+      .from('market_reviews')
+      .select('*')
+      .eq('shop_id',shopId)
+      .eq('status','approved')
+      .order('created_at',{ascending:false})
+      .limit(50);
+    if(error){box.innerHTML=`<p>${esc(error.message)}</p>`;return;}
+    box.innerHTML=(data||[]).length?(data||[]).map(r=>`
+      <article class="review-item">
+        <div><b>${esc(r.reviewer_name||'สมาชิกตลาด')}</b><span>${stars(r.rating)} ${Number(r.rating).toFixed(1)}</span></div>
+        <p>${esc(r.comment||'')}</p>
+        <small>${formatThaiDate(r.created_at)}</small>
+      </article>`).join(''):'<p class="empty-inline">ยังไม่มีรีวิว เป็นคนแรกที่แสดงความคิดเห็นได้เลย</p>';
+  }
+
+  async function openPromotionForm(shopId){
+    if(!session)return openModal('authModal');
+    const form=$('promotionForm');
+    form.reset();
+    form.elements.shop_id.value=shopId;
+    const shop=shops.find(s=>s.id===shopId);
+    $('promotionShopName').textContent=shop?.name||'ร้านของฉัน';
+    openModal('promotionModal');
+  }
+
+  async function submitPromotion(ev){
+    ev.preventDefault();
+    if(!db||!session)return;
+    const form=ev.currentTarget,fd=new FormData(form);
+    const shopId=String(fd.get('shop_id')||'');
+    const payload={
+      shop_id:shopId,
+      owner_id:session.user.id,
+      title:String(fd.get('title')||'').trim(),
+      description:fd.get('description')||null,
+      discount_text:fd.get('discount_text')||null,
+      image_url:fd.get('image_url')||null,
+      starts_at:fd.get('starts_at')?new Date(fd.get('starts_at')).toISOString():new Date().toISOString(),
+      ends_at:fd.get('ends_at')?new Date(fd.get('ends_at')).toISOString():null,
+      active:true
+    };
+    const btn=form.querySelector('button[type=submit]');
+    btn.disabled=true;btn.textContent='กำลังบันทึก...';
+    try{
+      const {error}=await db.from('market_promotions').insert(payload);
+      if(error)throw error;
+      closeModal('promotionModal');form.reset();
+      showNotice('เพิ่มโปรโมชั่นแล้ว และแสดงบนหน้าเว็บไซต์ทันที');
+      await loadPromotions();
+    }catch(err){alert('เพิ่มโปรโมชั่นไม่สำเร็จ: '+friendlyAuthError(err.message));}
+    finally{btn.disabled=false;btn.textContent='เผยแพร่โปรโมชั่น';}
+  }
+
+  async function submitReview(ev){
+    ev.preventDefault();
+    if(!db)return;
+    if(!session){
+      closeModal('reviewModal');
+      openModal('authModal');
+      return alert('กรุณาเข้าสู่ระบบก่อนเขียนรีวิว');
+    }
+    const form=ev.currentTarget,fd=new FormData(form);
+    const shopId=String(fd.get('shop_id')||'');
+    const payload={
+      shop_id:shopId,
+      user_id:session.user.id,
+      reviewer_name:profile?.display_name||session.user.email?.split('@')[0]||'สมาชิกตลาด',
+      rating:Number(fd.get('rating')),
+      comment:String(fd.get('comment')||'').trim(),
+      status:'approved'
+    };
+    const btn=form.querySelector('button[type=submit]');
+    btn.disabled=true;btn.textContent='กำลังส่งรีวิว...';
+    try{
+      const {error}=await db.from('market_reviews').upsert(payload,{onConflict:'shop_id,user_id'});
+      if(error)throw error;
+      closeModal('reviewModal');form.reset();
+      showNotice('บันทึกรีวิวของคุณแล้ว ขอบคุณที่ช่วยแนะนำร้านในชุมชน');
+      await loadReviewStats();
+      await loadShopReviews(shopId);
+      renderShops();renderRecommended();
+    }catch(err){alert('ส่งรีวิวไม่สำเร็จ: '+friendlyAuthError(err.message));}
+    finally{btn.disabled=false;btn.textContent='ส่งรีวิว';}
   }
 
   function filteredShops(){
@@ -126,7 +349,8 @@
     const cover=s.cover_url?`<img src="${esc(s.cover_url)}" alt="${esc(s.name)}" loading="lazy" onerror="this.remove()">`:'';
     const status=dashboard?`<span class="status-pill ${s.status==='approved'?'approved':''}">${s.status==='approved'?'เผยแพร่แล้ว':s.status==='rejected'?'ไม่อนุมัติ':'รอตรวจสอบ'}</span>`:'';
     const state=openState(s), loc=[s.zone,s.lock_number,s.floor].filter(Boolean).join(' • '), badges=serviceBadges(s);
-    return `<article class="card" data-id="${esc(s.id)}"><div class="card-img">${cover}<span class="tag">${esc(category)}</span></div><div class="card-body"><div style="display:flex;justify-content:space-between;gap:10px;align-items:start"><h3>${esc(s.name)}</h3>${status}</div><p>${esc(s.description||'ร้านค้าในตลาดกระทุ่มแบน')}</p><div class="meta">📍 ${esc(s.address||'ตลาดกระทุ่มแบน')}</div>${loc?`<div class="location-line">🏪 ${esc(loc)}</div>`:''}<div class="open-badge ${state.open===false?'closed':''}">${state.open===true?'🟢':state.open===false?'🔴':'🕒'} ${esc(state.text)}</div>${badges?`<div class="service-badges">${badges}</div>`:''}<div class="links"><a class="go" href="${go}" target="_blank" rel="noopener">🧭 นำทาง</a>${s.phone?`<a href="tel:${esc(s.phone)}">📞 โทร</a>`:''}${s.facebook?`<a href="${link(s.facebook,'facebook')}" target="_blank" rel="noopener">Facebook</a>`:''}${s.line?`<a href="${link(s.line,'line')}" target="_blank" rel="noopener">LINE</a>`:''}</div>${(s.lineman_url||s.grab_url||s.shopeefood_url)?`<div class="delivery-links">${s.lineman_url?`<a class="order-btn lineman" href="${esc(safeExternalUrl(s.lineman_url))}" target="_blank" rel="noopener noreferrer">สั่ง LINE MAN</a>`:''}${s.grab_url?`<a class="order-btn grab" href="${esc(safeExternalUrl(s.grab_url))}" target="_blank" rel="noopener noreferrer">สั่ง GrabFood</a>`:''}${s.shopeefood_url?`<a class="order-btn shopee" href="${esc(safeExternalUrl(s.shopeefood_url))}" target="_blank" rel="noopener noreferrer">สั่ง ShopeeFood</a>`:''}</div>`:''}${dashboard?`<div class="admin-actions"><button data-action="edit">แก้ไข</button>${profile?.role==='admin'&&s.status!=='approved'?'<button data-action="approve">อนุมัติ</button>':''}${profile?.role==='admin'?'<button data-action="reject">ไม่อนุมัติ</button>':''}</div>`:''}</div></article>`;
+    const rating=ratingForShop(s.id), promo=activePromotionForShop(s.id);
+    return `<article class="card" data-id="${esc(s.id)}"><div class="card-img">${cover}<span class="tag">${esc(category)}</span>${promo?`<span class="promo-ribbon">🔥 ${esc(promo.discount_text||'มีโปรโมชั่น')}</span>`:''}</div><div class="card-body"><div style="display:flex;justify-content:space-between;gap:10px;align-items:start"><h3>${esc(s.name)}</h3>${status}</div><div class="rating-line"><span>${stars(rating.average)}</span><b>${rating.count?rating.average.toFixed(1):'ใหม่'}</b><small>${rating.count?`(${rating.count})`:'ยังไม่มีรีวิว'}</small></div><p>${esc(s.description||'ร้านค้าในตลาดกระทุ่มแบน')}</p><div class="meta">📍 ${esc(s.address||'ตลาดกระทุ่มแบน')}</div>${loc?`<div class="location-line">🏪 ${esc(loc)}</div>`:''}<div class="open-badge ${state.open===false?'closed':''}">${state.open===true?'🟢':state.open===false?'🔴':'🕒'} ${esc(state.text)}</div>${badges?`<div class="service-badges">${badges}</div>`:''}<div class="links"><a class="go" href="${go}" target="_blank" rel="noopener">🧭 นำทาง</a>${s.phone?`<a href="tel:${esc(s.phone)}">📞 โทร</a>`:''}${s.facebook?`<a href="${link(s.facebook,'facebook')}" target="_blank" rel="noopener">Facebook</a>`:''}${s.line?`<a href="${link(s.line,'line')}" target="_blank" rel="noopener">LINE</a>`:''}</div>${(s.lineman_url||s.grab_url||s.shopeefood_url)?`<div class="delivery-links">${s.lineman_url?`<a class="order-btn lineman" href="${esc(safeExternalUrl(s.lineman_url))}" target="_blank" rel="noopener noreferrer">สั่ง LINE MAN</a>`:''}${s.grab_url?`<a class="order-btn grab" href="${esc(safeExternalUrl(s.grab_url))}" target="_blank" rel="noopener noreferrer">สั่ง GrabFood</a>`:''}${s.shopeefood_url?`<a class="order-btn shopee" href="${esc(safeExternalUrl(s.shopeefood_url))}" target="_blank" rel="noopener noreferrer">สั่ง ShopeeFood</a>`:''}</div>`:''}<div class="community-actions"><button data-action="details">ดูรายละเอียด</button><button data-action="review">⭐ รีวิว</button></div>${dashboard?`<div class="admin-actions"><button data-action="edit">แก้ไข</button><button data-action="promotion">+ โปรโมชั่น</button>${profile?.role==='admin'&&s.status!=='approved'?'<button data-action="approve">อนุมัติ</button>':''}${profile?.role==='admin'?`<button data-action="feature">${s.featured?'ยกเลิกแนะนำ':'แนะนำร้าน'}</button><button data-action="reject">ไม่อนุมัติ</button>`:''}</div>`:''}</div></article>`;
   }
 
   function renderShops(){
@@ -209,6 +433,13 @@
     const {data,error}=await db.from('market_shops').select('*').eq('id',id).single();if(error)return alert(error.message);
     const f=$('shopForm');Object.entries(data).forEach(([k,v])=>{if(!f.elements[k]||k==='cover'||k==='opening_hours')return;if(f.elements[k].type==='checkbox')f.elements[k].checked=Boolean(v);else f.elements[k].value=v??'';});fillOpeningHours(f,data.opening_hours||{});$('shopFormTitle').textContent='แก้ไขข้อมูลร้าน';openModal('shopModal');
   }
+  async function setFeatured(id,featured){
+    const {error}=await db.from('market_shops').update({featured}).eq('id',id);
+    if(error)return alert(error.message);
+    await Promise.all([loadDashboard(),loadPublicShops()]);
+    renderRecommended();
+  }
+
   async function setStatus(id,status){
     const {error}=await db.from('market_shops').update({status}).eq('id',id);if(error)return alert(error.message);await Promise.all([loadDashboard(),loadPublicShops()]);
   }
@@ -318,8 +549,31 @@
       window.scrollTo({top:0,behavior:'smooth'});
     });
     $('shopForm').addEventListener('submit',submitShop);
+    $('promotionForm').addEventListener('submit',submitPromotion);
+    $('reviewForm').addEventListener('submit',submitReview);
+    $('openReviewBtn').addEventListener('click',()=>{closeModal('shopDetailModal');openModal('reviewModal');});
     $('nearBtn').addEventListener('click',()=>navigator.geolocation?navigator.geolocation.getCurrentPosition(p=>{const ll=[p.coords.latitude,p.coords.longitude];L.marker(ll).addTo(map).bindPopup('ตำแหน่งของคุณ').openPopup();map.setView(ll,17);$('map').scrollIntoView({behavior:'smooth'});},()=>alert('กรุณาอนุญาต Location ใน Safari')):alert('อุปกรณ์ไม่รองรับ Location'));
-    document.addEventListener('click',ev=>{const card=ev.target.closest('.card[data-id]');if(!card)return;const action=ev.target.dataset.action;if(action==='edit')editShop(card.dataset.id);if(action==='approve')setStatus(card.dataset.id,'approved');if(action==='reject')setStatus(card.dataset.id,'rejected');});
+    document.addEventListener('click',ev=>{
+      const action=ev.target.dataset.action;
+      const explicitShopId=ev.target.dataset.shopId;
+      const card=ev.target.closest('.card[data-id]');
+      const shopId=explicitShopId||card?.dataset.id;
+      if(!action||!shopId)return;
+      if(action==='edit')editShop(shopId);
+      if(action==='approve')setStatus(shopId,'approved');
+      if(action==='reject')setStatus(shopId,'rejected');
+      if(action==='feature'){
+        const shop=shops.find(s=>s.id===shopId);
+        setFeatured(shopId,!shop?.featured);
+      }
+      if(action==='promotion')openPromotionForm(shopId);
+      if(action==='details')openShopDetails(shopId);
+      if(action==='review'){
+        $('reviewShopId').value=shopId;
+        $('reviewShopName').textContent=shops.find(s=>s.id===shopId)?.name||'ร้านค้า';
+        openModal('reviewModal');
+      }
+    });
     if(db)db.auth.onAuthStateChange((event)=>{
       if(event==='PASSWORD_RECOVERY')setTimeout(()=>openModal('resetPasswordModal'),0);
       setTimeout(refreshAuth,0);
@@ -328,7 +582,7 @@
 
   async function start(){
     renderHoursEditor();initMaps();bindEvents();
-    try{await loadCategories();await loadPublicShops();await refreshAuth();await handleRecoveryLink();}
+    try{await loadCategories();await loadReviewStats();await loadPublicShops();await loadPromotions();renderShops();renderRecommended();await refreshAuth();await handleRecoveryLink();}
     catch(err){console.error(err);showNotice('เกิดข้อผิดพลาด: '+err.message,true);}
   }
   start();
