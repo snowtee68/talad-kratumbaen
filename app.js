@@ -9,7 +9,7 @@
   const db = configured ? supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY) : null;
   const DEMO = [{id:'demo',name:'Snowtee ตลาดกระทุ่มแบน',description:'เครื่องดื่ม ไอศกรีมซอฟต์เสิร์ฟ และเบเกอรี่ บรรยากาศริมคลอง',category:{name:'เครื่องดื่ม'},address:'ตลาดกระทุ่มแบน จังหวัดสมุทรสาคร',phone:'0642211876',facebook:'https://facebook.com/snowtee68',line:'snowtee68',latitude:13.6549,longitude:100.2639,status:'approved',featured:true,cover_url:null}];
 
-  let shops = [], categories = [], promotions = [], reviewStats = {}, currentCategory = 'all', session = null, profile = null;
+  let shops = [], categories = [], promotions = [], reviewStats = {}, currentCategory = 'all', session = null, profile = null, visibleShopCount = 10, shopSort = 'recommended', shopOnlyOpen = false, shopOnlyPromo = false;
   let map, miniMap, mapMarkers = [], miniMarkers = [];
   const $ = id => document.getElementById(id);
 
@@ -208,7 +208,7 @@
     const box=$('promotionGrid');
     if(!box)return;
     box.innerHTML=promotions.length
-      ? promotions.slice(0,8).map(promotionCard).join('')
+      ? promotions.slice(0,6).map(promotionCard).join('')
       : '<div class="empty-inline">ยังไม่มีโปรโมชั่นที่เปิดใช้งาน</div>';
   }
 
@@ -340,7 +340,30 @@
 
   function filteredShops(){
     const q=$('searchInput').value.trim().toLowerCase();
-    return shops.filter(s => (currentCategory==='all'||s.category_id===currentCategory) && (!q||[s.name,s.description,s.address,s.category?.name].filter(Boolean).join(' ').toLowerCase().includes(q)));
+    let list=shops.filter(s=>{
+      if(currentCategory!=='all'&&s.category_id!==currentCategory)return false;
+      if(q&&![s.name,s.description,s.address,s.category?.name].filter(Boolean).join(' ').toLowerCase().includes(q))return false;
+      if(shopOnlyOpen&&openState(s).open!==true)return false;
+      if(shopOnlyPromo&&!activePromotionForShop(s.id))return false;
+      return true;
+    });
+
+    list.sort((a,b)=>{
+      const ar=ratingForShop(a.id),br=ratingForShop(b.id);
+      if(shopSort==='rating')return (br.average-ar.average)||(br.count-ar.count);
+      if(shopSort==='newest')return new Date(b.created_at||0)-new Date(a.created_at||0);
+      if(shopSort==='name')return String(a.name||'').localeCompare(String(b.name||''),'th');
+      const ap=activePromotionForShop(a.id)?1:0,bp=activePromotionForShop(b.id)?1:0;
+      const as=(a.featured?100:0)+(ap*25)+(ar.average*10)+Math.min(ar.count,20);
+      const bs=(b.featured?100:0)+(bp*25)+(br.average*10)+Math.min(br.count,20);
+      return bs-as;
+    });
+    return list;
+  }
+
+  function resetShopList(){
+    visibleShopCount=10;
+    renderShops();
   }
 
   function shopCard(s, dashboard=false){
@@ -355,10 +378,18 @@
 
   function renderShops(){
     const list=filteredShops();
-    $('shopGrid').innerHTML=list.map(s=>shopCard(s)).join('');
-    $('resultCount').textContent=`พบ ${list.length} ร้าน`;
+    const shown=list.slice(0,visibleShopCount);
+    $('shopGrid').innerHTML=shown.map(s=>shopCard(s)).join('');
+    $('resultCount').textContent=`พบ ${list.length} ร้าน • แสดง ${shown.length} ร้าน`;
     $('shopCount').textContent=shops.length;
     $('emptyState').classList.toggle('hidden',list.length>0);
+
+    const moreBtn=$('loadMoreBtn');
+    if(moreBtn){
+      moreBtn.classList.toggle('hidden',shown.length>=list.length);
+      moreBtn.textContent=`ดูร้านเพิ่มเติม (${Math.min(10,list.length-shown.length)} ร้าน)`;
+    }
+
     renderPins(list);
   }
 
@@ -460,7 +491,7 @@
     document.querySelectorAll('[data-close]').forEach(x=>x.addEventListener('click',()=>closeModal(x.dataset.close)));
     $('accountBtn').addEventListener('click',()=>session?$('dashboard').scrollIntoView({behavior:'smooth'}):openModal('authModal'));
     $('addShopBtn').addEventListener('click',()=>{if(!session)return openModal('authModal');$('shopForm').reset();fillOpeningHours($('shopForm'),{});$('shopFormTitle').textContent='เพิ่มร้านของฉัน';openModal('shopModal');});
-    $('searchBtn').addEventListener('click',renderShops);$('searchInput').addEventListener('input',renderShops);
+    $('searchBtn').addEventListener('click',resetShopList);$('searchInput').addEventListener('input',resetShopList);
     $('authForm').addEventListener('submit',async ev=>{
       ev.preventDefault();
       if(!db)return alert('ยังไม่ได้ตั้งค่า Supabase');
@@ -552,6 +583,26 @@
     $('promotionForm').addEventListener('submit',submitPromotion);
     $('reviewForm').addEventListener('submit',submitReview);
     $('openReviewBtn').addEventListener('click',()=>{closeModal('shopDetailModal');openModal('reviewModal');});
+    $('loadMoreBtn').addEventListener('click',()=>{
+      visibleShopCount+=10;
+      renderShops();
+    });
+    $('shopSort').addEventListener('change',ev=>{
+      shopSort=ev.target.value;
+      resetShopList();
+    });
+    $('onlyOpenBtn').addEventListener('click',ev=>{
+      shopOnlyOpen=!shopOnlyOpen;
+      ev.currentTarget.classList.toggle('active',shopOnlyOpen);
+      ev.currentTarget.setAttribute('aria-pressed',String(shopOnlyOpen));
+      resetShopList();
+    });
+    $('onlyPromoBtn').addEventListener('click',ev=>{
+      shopOnlyPromo=!shopOnlyPromo;
+      ev.currentTarget.classList.toggle('active',shopOnlyPromo);
+      ev.currentTarget.setAttribute('aria-pressed',String(shopOnlyPromo));
+      resetShopList();
+    });
     $('nearBtn').addEventListener('click',()=>navigator.geolocation?navigator.geolocation.getCurrentPosition(p=>{const ll=[p.coords.latitude,p.coords.longitude];L.marker(ll).addTo(map).bindPopup('ตำแหน่งของคุณ').openPopup();map.setView(ll,17);$('map').scrollIntoView({behavior:'smooth'});},()=>alert('กรุณาอนุญาต Location ใน Safari')):alert('อุปกรณ์ไม่รองรับ Location'));
     document.addEventListener('click',ev=>{
       const action=ev.target.dataset.action;
