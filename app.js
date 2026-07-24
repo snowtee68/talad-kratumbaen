@@ -186,16 +186,23 @@
     ev.preventDefault();
     if(!db)return alert('ยังไม่ได้ตั้งค่า Supabase ใน config.js');
     if(!session){closeModal('shopModal');openModal('authModal');return;}
-    const form=ev.currentTarget, fd=new FormData(form), id=fd.get('id')||crypto.randomUUID(), file=fd.get('cover');
-    const payload={name:fd.get('name').trim(),category_id:fd.get('category_id'),description:fd.get('description')||null,address:fd.get('address')||null,zone:fd.get('zone')||null,lock_number:fd.get('lock_number')||null,floor:fd.get('floor')||null,landmark:fd.get('landmark')||null,phone:fd.get('phone')||null,email:fd.get('email')||null,line:fd.get('line')||null,facebook:fd.get('facebook')||null,tiktok:fd.get('tiktok')||null,instagram:fd.get('instagram')||null,website:fd.get('website')||null,latitude:fd.get('latitude')?Number(fd.get('latitude')):null,longitude:fd.get('longitude')?Number(fd.get('longitude')):null,opening_hours:readOpeningHours(form),temporarily_closed:form.elements.temporarily_closed.checked,open_24_hours:form.elements.open_24_hours.checked,delivery:form.elements.delivery.checked,lineman:form.elements.lineman.checked,grab:form.elements.grab.checked,shopeefood:form.elements.shopeefood.checked,lineman_url:fd.get('lineman_url')||null,grab_url:fd.get('grab_url')||null,shopeefood_url:fd.get('shopeefood_url')||null,qr_payment:form.elements.qr_payment.checked,card_payment:form.elements.card_payment.checked,parking:form.elements.parking.checked,pet_friendly:form.elements.pet_friendly.checked,wheelchair_accessible:form.elements.wheelchair_accessible.checked,owner_id:session.user.id,status:'pending'};
+    const form=ev.currentTarget, fd=new FormData(form);
+    const existingId=String(fd.get('id')||'').trim();
+    const id=existingId||crypto.randomUUID();
+    const file=fd.get('cover');
+    const payload={name:String(fd.get('name')||'').trim(),category_id:fd.get('category_id'),description:fd.get('description')||null,address:fd.get('address')||null,zone:fd.get('zone')||null,lock_number:fd.get('lock_number')||null,floor:fd.get('floor')||null,landmark:fd.get('landmark')||null,phone:fd.get('phone')||null,email:fd.get('email')||null,line:fd.get('line')||null,facebook:fd.get('facebook')||null,tiktok:fd.get('tiktok')||null,instagram:fd.get('instagram')||null,website:fd.get('website')||null,latitude:fd.get('latitude')?Number(fd.get('latitude')):null,longitude:fd.get('longitude')?Number(fd.get('longitude')):null,opening_hours:readOpeningHours(form),temporarily_closed:form.elements.temporarily_closed.checked,open_24_hours:form.elements.open_24_hours.checked,delivery:form.elements.delivery.checked,lineman:form.elements.lineman.checked,grab:form.elements.grab.checked,shopeefood:form.elements.shopeefood.checked,lineman_url:fd.get('lineman_url')||null,grab_url:fd.get('grab_url')||null,shopeefood_url:fd.get('shopeefood_url')||null,qr_payment:form.elements.qr_payment.checked,card_payment:form.elements.card_payment.checked,parking:form.elements.parking.checked,pet_friendly:form.elements.pet_friendly.checked,wheelchair_accessible:form.elements.wheelchair_accessible.checked,owner_id:session.user.id};
     const btn=form.querySelector('button[type=submit]');btn.disabled=true;btn.textContent='กำลังบันทึก...';
     try{
       if(file&&file.size)payload.cover_url=await uploadCover(file,id);
-      const existing=fd.get('id');
-      const result=existing?await db.from('market_shops').update(payload).eq('id',existing):await db.from('market_shops').insert({...payload,id});
+      const result=existingId
+        ? await db.from('market_shops').update(payload).eq('id',existingId).eq('owner_id',session.user.id)
+        : await db.from('market_shops').insert({...payload,id,status:'pending'});
       if(result.error)throw result.error;
-      form.reset();closeModal('shopModal');showNotice('บันทึกข้อมูลแล้ว และกำลังรอแอดมินตรวจสอบ');await loadDashboard();
-    }catch(err){alert('บันทึกไม่สำเร็จ: '+err.message);}finally{btn.disabled=false;btn.textContent='บันทึกข้อมูลร้าน';}
+      form.reset();closeModal('shopModal');
+      showNotice(existingId?'บันทึกการแก้ไขแล้ว สถานะการอนุมัติเดิมยังคงอยู่':'เพิ่มร้านแล้ว และกำลังรอแอดมินตรวจสอบ');
+      await Promise.all([loadDashboard(),loadPublicShops()]);
+    }catch(err){alert('บันทึกไม่สำเร็จ: '+friendlyAuthError(err.message));}
+    finally{btn.disabled=false;btn.textContent='บันทึกข้อมูลร้าน';}
   }
 
   async function editShop(id){
@@ -209,11 +216,12 @@
   function isRecoveryLink(){
     const hash=new URLSearchParams(window.location.hash.replace(/^#/,''));
     const query=new URLSearchParams(window.location.search);
-    return hash.get('type')==='recovery'||query.get('type')==='recovery';
+    return hash.get('type')==='recovery'||query.get('type')==='recovery'||query.has('code');
   }
 
   async function handleRecoveryLink(){
     if(!db||!isRecoveryLink())return;
+    await new Promise(resolve=>setTimeout(resolve,150));
     openModal('resetPasswordModal');
   }
 
@@ -276,7 +284,8 @@
       const btn=$('forgotPasswordBtn');
       btn.disabled=true; btn.textContent='กำลังส่งอีเมล...';
       try{
-        const {error}=await db.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin});
+        const resetRedirect=`${window.location.origin}${window.location.pathname}`;
+        const {error}=await db.auth.resetPasswordForEmail(email,{redirectTo:resetRedirect});
         if(error)throw error;
         alert('ส่งลิงก์ตั้งรหัสผ่านใหม่แล้ว กรุณาตรวจสอบอีเมล');
       }catch(err){alert('ส่งอีเมลไม่สำเร็จ: '+friendlyAuthError(err.message));}
@@ -293,18 +302,28 @@
       try{
         const {error}=await db.auth.updateUser({password});
         if(error)throw error;
-        alert('เปลี่ยนรหัสผ่านเรียบร้อยแล้ว');
-        closeModal('resetPasswordModal');
+        alert('เปลี่ยนรหัสผ่านเรียบร้อยแล้ว กรุณาเข้าสู่ระบบด้วยรหัสผ่านใหม่');
+        form.reset();closeModal('resetPasswordModal');
         history.replaceState(null,'',window.location.pathname);
-        await refreshAuth();
+        await db.auth.signOut();session=null;profile=null;updateAccountUI();openModal('authModal');
       }catch(err){alert('เปลี่ยนรหัสผ่านไม่สำเร็จ: '+friendlyAuthError(err.message));}
       finally{btn.disabled=false;btn.textContent='บันทึกรหัสผ่านใหม่';}
     });
-    $('signOutBtn').addEventListener('click',async()=>{await db.auth.signOut();session=null;profile=null;updateAccountUI();window.scrollTo({top:0,behavior:'smooth'});});
+    $('signOutBtn').addEventListener('click',async()=>{
+      if(!db)return;
+      const {error}=await db.auth.signOut();
+      if(error)return alert('ออกจากระบบไม่สำเร็จ: '+friendlyAuthError(error.message));
+      session=null;profile=null;updateAccountUI();
+      await loadPublicShops();
+      window.scrollTo({top:0,behavior:'smooth'});
+    });
     $('shopForm').addEventListener('submit',submitShop);
     $('nearBtn').addEventListener('click',()=>navigator.geolocation?navigator.geolocation.getCurrentPosition(p=>{const ll=[p.coords.latitude,p.coords.longitude];L.marker(ll).addTo(map).bindPopup('ตำแหน่งของคุณ').openPopup();map.setView(ll,17);$('map').scrollIntoView({behavior:'smooth'});},()=>alert('กรุณาอนุญาต Location ใน Safari')):alert('อุปกรณ์ไม่รองรับ Location'));
     document.addEventListener('click',ev=>{const card=ev.target.closest('.card[data-id]');if(!card)return;const action=ev.target.dataset.action;if(action==='edit')editShop(card.dataset.id);if(action==='approve')setStatus(card.dataset.id,'approved');if(action==='reject')setStatus(card.dataset.id,'rejected');});
-    if(db)db.auth.onAuthStateChange(()=>setTimeout(refreshAuth,0));
+    if(db)db.auth.onAuthStateChange((event)=>{
+      if(event==='PASSWORD_RECOVERY')setTimeout(()=>openModal('resetPasswordModal'),0);
+      setTimeout(refreshAuth,0);
+    });
   }
 
   async function start(){
