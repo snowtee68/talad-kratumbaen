@@ -1,118 +1,17 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#b31217">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#b31217" />
+  <meta name="description" content="ตลาดกระทุ่มแบนออนไลน์ รวมร้านค้า โปรโมชั่น และกิจกรรมในชุมชน" />
   <title>ตลาดกระทุ่มแบน</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<header class="site-header">
-  <div class="container nav">
-    <a class="brand" href="#top"><span class="logo">ต</span><span><b>ตลาดกระทุ่มแบน</b><small>ศูนย์รวมร้านค้าในชุมชน</small></span></a>
-    <div class="nav-actions">
-      <button id="nearBtn" class="ghost">📍 ร้านใกล้ฉัน</button>
-      <button id="accountBtn" class="ghost">เข้าสู่ระบบ</button>
-      <button id="addShopBtn" class="primary">+ เพิ่มร้าน</button>
-    </div>
-  </div>
-</header>
-
-<main id="top">
-  <section class="hero">
-    <div class="container hero-grid">
-      <div>
-        <span class="eyebrow">ตลาดของคนกระทุ่มแบน</span>
-        <h1>ค้นหาร้านง่าย<br><em>ช่วยกันให้ตลาดคึกคัก</em></h1>
-        <p>รวมร้านอาหาร เครื่องดื่ม แฟชั่น และบริการ พร้อมแผนที่ เบอร์โทร และเส้นทาง</p>
-        <div class="search-box"><span>🔎</span><input id="searchInput" placeholder="ค้นหาชื่อร้าน สินค้า หรือหมวดหมู่"><button id="searchBtn">ค้นหา</button></div>
-        <div id="categoryButtons" class="chips"></div>
-      </div>
-      <div class="hero-card">
-        <span>ร้านที่เผยแพร่แล้ว</span>
-        <strong id="shopCount">0</strong>
-        <small>ร้านค้า</small>
-        <div id="miniMap"></div>
-      </div>
-    </div>
-  </section>
-
-
-  <section class="container section marketplace-section">
-    <div class="section-head"><div><span class="eyebrow red">ดีลจากร้านค้า</span><h2>🔥 โปรโมชั่นวันนี้</h2></div><span>กดดูร้านและเงื่อนไขได้ทันที</span></div>
-    <div id="promotionGrid" class="promo-grid"></div>
-  </section>
-
-  <section class="recommended-section">
-    <div class="container section">
-      <div class="section-head"><div><span class="eyebrow">คัดสรรสำหรับคุณ</span><h2>⭐ ร้านแนะนำ</h2></div><span>พิจารณาจากคะแนน รีวิว โปรโมชั่น และร้านเด่น</span></div>
-      <div id="recommendedGrid" class="grid"></div>
-    </div>
-  </section>
-
-  <section class="container section">
-    <div class="section-head"><div><span class="eyebrow red">ร้านค้าในตลาด</span><h2>ค้นพบร้านใกล้ตัวคุณ</h2></div><span id="resultCount">กำลังโหลด...</span></div>
-    <div class="shop-toolbar">
-      <div class="quick-filters" aria-label="ตัวกรองร้านค้า">
-        <button id="onlyOpenBtn" type="button" aria-pressed="false">🟢 เปิดอยู่</button>
-        <button id="onlyPromoBtn" type="button" aria-pressed="false">🔥 มีโปรโมชั่น</button>
-      </div>
-      <label class="sort-control">เรียงตาม
-        <select id="shopSort">
-          <option value="recommended">ร้านแนะนำ</option>
-          <option value="rating">คะแนนสูง</option>
-          <option value="newest">ร้านใหม่ล่าสุด</option>
-          <option value="name">ชื่อร้าน ก–ฮ</option>
-        </select>
-      </label>
-    </div>
-    <div id="notice" class="notice hidden"></div>
-    <div id="shopGrid" class="grid"></div>
-    <div class="load-more-wrap"><button id="loadMoreBtn" class="load-more hidden" type="button">ดูร้านเพิ่มเติม</button></div>
-    <div id="emptyState" class="empty hidden"><div>🔍</div><h3>ยังไม่พบร้านที่ค้นหา</h3><p>ลองเปลี่ยนคำค้น หมวดหมู่ หรือตัวกรอง</p></div>
-  </section>
-
-  <section class="map-section"><div class="container"><span class="eyebrow">แผนที่ร้านค้า</span><h2>กดหมุดเพื่อดูรายละเอียดร้าน</h2><div id="map"></div></div></section>
-
-  <section id="dashboard" class="container section hidden">
-    <div class="section-head"><div><span class="eyebrow red">บัญชีของฉัน</span><h2 id="dashboardTitle">ร้านของฉัน</h2></div><button id="signOutBtn" class="danger">ออกจากระบบ</button></div>
-    <div id="adminPanel" class="hidden"><h3>ร้านที่รออนุมัติ</h3><div id="pendingGrid" class="grid compact"></div></div>
-    <h3>ร้านที่ฉันดูแล</h3><div id="myShopGrid" class="grid compact"></div>
-  </section>
-</main>
-
-<footer><div class="container">ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ</div></footer>
-
-<div id="authModal" class="modal hidden"><div class="backdrop" data-close="authModal"></div><div class="modal-card small"><button class="close" data-close="authModal">×</button><h2>เข้าสู่ระบบ / สมัครสมาชิก</h2><p>เจ้าของร้านต้องเข้าสู่ระบบก่อนเพิ่มหรือแก้ไขร้าน</p><form id="authForm"><label>อีเมล<input name="email" type="email" required></label><label>รหัสผ่าน<input name="password" type="password" minlength="6" required></label><div class="row"><button type="submit" class="primary">เข้าสู่ระบบ</button><button type="button" id="signUpBtn" class="ghost">สมัครสมาชิก</button></div><button type="button" id="forgotPasswordBtn" class="text-button">ลืมรหัสผ่าน</button></form></div></div>
-
-<div id="shopModal" class="modal hidden"><div class="backdrop" data-close="shopModal"></div><div class="modal-card"><button class="close" data-close="shopModal">×</button><h2 id="shopFormTitle">เพิ่มร้านของฉัน</h2><p>ข้อมูลจะรอการตรวจสอบก่อนเผยแพร่</p><form id="shopForm"><input type="hidden" name="id"><div class="form-grid">
-<label>ชื่อร้าน *<input name="name" required></label><label>หมวดหมู่ *<select name="category_id" id="categorySelect" required></select></label>
-<label class="full">รายละเอียดร้าน<textarea name="description" rows="3"></textarea></label><label class="full">ที่อยู่<input name="address"></label>
-<label>โซนตลาด<input name="zone" placeholder="เช่น โซน A"></label><label>เลขล็อก<input name="lock_number" placeholder="เช่น A-12"></label><label>ชั้น<input name="floor" placeholder="เช่น ชั้น 1"></label><label>จุดสังเกต<input name="landmark"></label>
-<label>เบอร์โทร<input name="phone"></label><label>อีเมลร้าน<input name="email" type="email"></label><label>LINE<input name="line"></label><label>Facebook<input name="facebook"></label><label>TikTok<input name="tiktok"></label><label>Instagram<input name="instagram"></label><label class="full">เว็บไซต์<input name="website" type="url"></label>
-<label>ละติจูด<input name="latitude" type="number" step="any"></label><label>ลองจิจูด<input name="longitude" type="number" step="any"></label>
-<fieldset class="full hours-box"><legend>เวลาเปิด–ปิดรายวัน</legend><div class="toggle-row"><label class="check"><input type="checkbox" name="temporarily_closed"> ปิดร้านชั่วคราว</label><label class="check"><input type="checkbox" name="open_24_hours"> เปิด 24 ชั่วโมงทุกวัน</label></div><div id="hoursRows" class="hours-list"></div></fieldset>
-<fieldset class="full services-box"><legend>บริการและสิ่งอำนวยความสะดวก</legend><div class="check-grid"><label class="check"><input type="checkbox" name="delivery"> มีบริการเดลิเวอรี</label><label class="check"><input type="checkbox" name="lineman"> LINE MAN</label><label class="check"><input type="checkbox" name="grab"> Grab</label><label class="check"><input type="checkbox" name="shopeefood"> ShopeeFood</label><label class="check"><input type="checkbox" name="qr_payment"> รับ QR Payment</label><label class="check"><input type="checkbox" name="card_payment"> รับบัตร</label><label class="check"><input type="checkbox" name="parking"> มีที่จอดรถ</label><label class="check"><input type="checkbox" name="pet_friendly"> สัตว์เลี้ยงเข้าได้</label><label class="check"><input type="checkbox" name="wheelchair_accessible"> รถเข็นเข้าได้</label></div><div class="delivery-url-grid"><label>ลิงก์สั่ง LINE MAN<input name="lineman_url" type="url" placeholder="https://wongn.ai/..."></label><label>ลิงก์สั่ง GrabFood<input name="grab_url" type="url" placeholder="https://r.grab.com/..."></label><label>ลิงก์สั่ง ShopeeFood<input name="shopeefood_url" type="url" placeholder="https://shopee.co.th/universal-link/..."></label></div><small class="form-help">นำลิงก์หน้าร้านจากแอปเดลิเวอรีมาวาง ลูกค้าจะกดสั่งจากหน้าร้านได้ทันที</small></fieldset>
-<label class="full">รูปหน้าปก<input name="cover" type="file" accept="image/*"></label>
-</div><button type="submit" class="primary submit">บันทึกข้อมูลร้าน</button></form></div></div>
-
-
-<div id="shopDetailModal" class="modal hidden"><div class="backdrop" data-close="shopDetailModal"></div><div class="modal-card"><button class="close" data-close="shopDetailModal">×</button><h2 id="detailTitle">รายละเอียดร้าน</h2><div id="detailSummary"></div><div class="review-head"><h3>รีวิวจากลูกค้า</h3><button id="openReviewBtn" class="primary">⭐ เขียนรีวิว</button></div><div id="reviewList" class="review-list"></div></div></div>
-
-<div id="reviewModal" class="modal hidden"><div class="backdrop" data-close="reviewModal"></div><div class="modal-card small"><button class="close" data-close="reviewModal">×</button><h2>รีวิว <span id="reviewShopName"></span></h2><p>แบ่งปันประสบการณ์จริงเพื่อช่วยคนในชุมชนตัดสินใจ</p><form id="reviewForm"><input id="reviewShopId" name="shop_id" type="hidden"><label>คะแนน<select name="rating" required><option value="5">★★★★★ 5 — ดีมาก</option><option value="4">★★★★☆ 4 — ดี</option><option value="3">★★★☆☆ 3 — ปานกลาง</option><option value="2">★★☆☆☆ 2 — ควรปรับปรุง</option><option value="1">★☆☆☆☆ 1 — ไม่พอใจ</option></select></label><label>ความคิดเห็น<textarea name="comment" rows="5" maxlength="1000" placeholder="เล่าถึงสินค้า บริการ บรรยากาศ หรือสิ่งที่ประทับใจ" required></textarea></label><button type="submit" class="primary submit">ส่งรีวิว</button></form></div></div>
-
-<div id="promotionModal" class="modal hidden"><div class="backdrop" data-close="promotionModal"></div><div class="modal-card small"><button class="close" data-close="promotionModal">×</button><h2>เพิ่มโปรโมชั่น</h2><p>ร้าน: <b id="promotionShopName"></b></p><form id="promotionForm"><input name="shop_id" type="hidden"><label>หัวข้อโปรโมชั่น<input name="title" maxlength="120" placeholder="เช่น ซื้อ 2 แถม 1" required></label><label>ข้อความเด่น<input name="discount_text" maxlength="40" placeholder="เช่น ลด 20%"></label><label>รายละเอียด<textarea name="description" rows="4" maxlength="1000"></textarea></label><label>ลิงก์รูปโปรโมชั่น<input name="image_url" type="url" placeholder="https://..."></label><div class="form-grid"><label>เริ่มใช้<input name="starts_at" type="datetime-local"></label><label>สิ้นสุด<input name="ends_at" type="datetime-local"></label></div><button type="submit" class="primary submit">เผยแพร่โปรโมชั่น</button></form></div></div>
-
-<div id="resetPasswordModal" class="modal hidden"><div class="backdrop" data-close="resetPasswordModal"></div><div class="modal-card small"><button class="close" data-close="resetPasswordModal">×</button><h2>ตั้งรหัสผ่านใหม่</h2><p>กรอกรหัสผ่านใหม่อย่างน้อย 6 ตัว แล้วกดบันทึกเพียงครั้งเดียว</p><form id="resetPasswordForm"><label>รหัสผ่านใหม่<input name="new_password" type="password" minlength="6" required></label><label>ยืนยันรหัสผ่านใหม่<input name="confirm_password" type="password" minlength="6" required></label><button type="submit" class="primary submit">บันทึกรหัสผ่านใหม่</button></form></div></div>
-
-<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-<script src="config.js"></script>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="app.js"></script>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
 </body>
 </html>
