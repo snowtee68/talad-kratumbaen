@@ -1,0 +1,7 @@
+import { useEffect, useState } from 'react'
+import { isSupabaseConfigured, supabase } from '../lib/supabase'
+export default function Profile(){const [email,setEmail]=useState('');const [password,setPassword]=useState('');const [user,setUser]=useState(null);const [msg,setMsg]=useState('')
+useEffect(()=>{if(supabase){supabase.auth.getUser().then(({data})=>setUser(data.user));const {data}=supabase.auth.onAuthStateChange((_e,s)=>setUser(s?.user||null));return()=>data.subscription.unsubscribe()}},[])
+const login=async e=>{e.preventDefault();if(!isSupabaseConfigured){setMsg('ยังไม่ได้ตั้งค่า Supabase');return}const {error}=await supabase.auth.signInWithPassword({email,password});setMsg(error?.message||'เข้าสู่ระบบแล้ว')}
+if(user)return <section className="page section narrow"><div className="profile-card"><div className="avatar large">{user.email?.[0]?.toUpperCase()}</div><h1>บัญชีของฉัน</h1><p>{user.email}</p><button className="secondary-button" onClick={()=>supabase.auth.signOut()}>ออกจากระบบ</button></div></section>
+return <section className="page section narrow"><div className="page-title"><small>สำหรับเจ้าของร้านและสมาชิก</small><h1>เข้าสู่ระบบ</h1></div><form className="form-card" onSubmit={login}><label>อีเมล<input type="email" value={email} onChange={e=>setEmail(e.target.value)} required/></label><label>รหัสผ่าน<input type="password" value={password} onChange={e=>setPassword(e.target.value)} required/></label><button className="primary-button">เข้าสู่ระบบ</button>{msg&&<p className="form-message">{msg}</p>}</form></section>}
