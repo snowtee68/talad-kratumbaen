@@ -228,9 +228,27 @@
   function renderPromotions(){
     const box=$('promotionGrid');
     if(!box)return;
-    box.innerHTML=promotions.length
-      ? promotions.slice(0,6).map(promotionCard).join('')
+    const featured=promotions.slice(0,6);
+    box.innerHTML=featured.length
+      ? featured.map(promotionCard).join('')
       : '<div class="empty-inline">ยังไม่มีโปรโมชั่นที่เปิดใช้งาน</div>';
+
+    const allBtn=$('showAllPromotionsBtn');
+    if(allBtn){
+      allBtn.classList.toggle('hidden',promotions.length<=6);
+      allBtn.textContent=`ดูโปรโมชั่นทั้งหมด (${promotions.length})`;
+    }
+  }
+
+  function openAllPromotions(){
+    const grid=$('allPromotionsGrid');
+    const count=$('allPromotionsCount');
+    if(!grid)return;
+    grid.innerHTML=promotions.length
+      ? promotions.map(promotionCard).join('')
+      : '<div class="empty-inline">ยังไม่มีโปรโมชั่นที่เปิดใช้งาน</div>';
+    if(count)count.textContent=`ทั้งหมด ${promotions.length} โปรโมชั่น`;
+    openModal('allPromotionsModal');
   }
 
   function recommendedShops(){
@@ -604,6 +622,7 @@
     $('promotionForm').addEventListener('submit',submitPromotion);
     $('reviewForm').addEventListener('submit',submitReview);
     $('openReviewBtn').addEventListener('click',()=>{closeModal('shopDetailModal');openModal('reviewModal');});
+    $('showAllPromotionsBtn').addEventListener('click',openAllPromotions);
     $('loadMoreBtn').addEventListener('click',()=>{
       visibleShopCount+=10;
       renderShops();

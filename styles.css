@@ -80,3 +80,15 @@ fieldset{border:1px solid var(--line);border-radius:14px;padding:14px}legend{fon
 .promo-ribbon small{font-size:10px;font-weight:600;line-height:1.2}
 .promo-ribbon.upcoming{background:#fff1b8;color:#6d4b00}
 .detail-promo small{color:#7b5a00;font-weight:600}
+
+
+/* Main v4.3: all promotions */
+.promo-all-wrap{text-align:center;margin-top:24px}
+.promo-modal-card{width:min(1120px,100%)}
+.promo-modal-head{padding-right:34px}
+.all-promotions-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.promo-status{position:absolute;right:12px;top:12px;background:#fff3ce;color:#7b4d00;border-radius:999px;padding:6px 10px;font-size:12px;font-style:normal;font-weight:700;box-shadow:0 4px 12px rgba(0,0,0,.12)}
+.promo-status.active{background:#e4f7e9;color:#18753a}
+.promo-card.upcoming{border-color:#f0cf81}
+@media(max-width:900px){.all-promotions-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:640px){.all-promotions-grid{display:grid;grid-template-columns:1fr;overflow:visible}.all-promotions-grid .promo-card{max-width:none;flex:none}.promo-modal-card{padding:20px}.promo-modal-head{align-items:flex-start}}
