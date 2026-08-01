@@ -70,3 +70,13 @@ fieldset{border:1px solid var(--line);border-radius:14px;padding:14px}legend{fon
   .sort-control{justify-content:space-between}
   .sort-control select{flex:1;min-width:0}
 }
+
+
+/* Marketplace v4.2: upcoming promotion visibility */
+.promo-status{position:absolute;right:12px;top:12px;background:#fff7d6;color:#7a5100;padding:6px 10px;border-radius:999px;font-size:12px;font-style:normal;font-weight:700;box-shadow:0 4px 12px rgba(0,0,0,.12)}
+.promo-status.active{background:#e5f7eb;color:#18753a}
+.promo-card.upcoming{border-color:#f2cf72;background:#fffdf5}
+.promo-ribbon{display:flex;flex-direction:column;align-items:flex-start;gap:2px;max-width:75%}
+.promo-ribbon small{font-size:10px;font-weight:600;line-height:1.2}
+.promo-ribbon.upcoming{background:#fff1b8;color:#6d4b00}
+.detail-promo small{color:#7b5a00;font-weight:600}
