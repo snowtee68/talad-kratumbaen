@@ -92,3 +92,15 @@ fieldset{border:1px solid var(--line);border-radius:14px;padding:14px}legend{fon
 .promo-card.upcoming{border-color:#f0cf81}
 @media(max-width:900px){.all-promotions-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:640px){.all-promotions-grid{display:grid;grid-template-columns:1fr;overflow:visible}.all-promotions-grid .promo-card{max-width:none;flex:none}.promo-modal-card{padding:20px}.promo-modal-head{align-items:flex-start}}
+
+
+/* Main v4.4: promotion limits and owner management */
+.promotion-limit-note{background:#fff5d9;border:1px solid #f0d18a;color:#6f4d00;border-radius:12px;padding:11px 12px;font-size:13px}
+.owner-promotion-list{display:grid;gap:12px;margin-top:18px}
+.owner-promo-item{display:flex;align-items:center;justify-content:space-between;gap:18px;border:1px solid var(--line);border-radius:16px;padding:15px;background:#fff}
+.owner-promo-item>div{min-width:0;flex:1}.owner-promo-item p{margin:6px 0;color:var(--muted)}.owner-promo-item small{color:#7b665d}
+.owner-promo-title{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.owner-promo-state{font-size:11px;font-weight:700;border-radius:999px;padding:4px 8px;background:#eee;color:#5c5552}
+.owner-promo-state.active{background:#e4f7e9;color:#18753a}.owner-promo-state.upcoming{background:#fff2c9;color:#795400}.owner-promo-state.expired{background:#f1eded;color:#776b6b}.owner-promo-state.inactive{background:#eee;color:#666}
+.delete-promotion-btn{flex:0 0 auto}
+@media(max-width:640px){.owner-promo-item{align-items:stretch;flex-direction:column}.delete-promotion-btn{width:100%}}

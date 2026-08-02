@@ -148,6 +148,38 @@
     return 'กำลังใช้งาน';
   }
 
+
+  function promotionInterval(p){
+    const start=p.starts_at?new Date(p.starts_at).getTime():Date.now();
+    const end=p.ends_at?new Date(p.ends_at).getTime():Number.POSITIVE_INFINITY;
+    return {start,end};
+  }
+
+  function exceedsThreeConcurrent(existing,newPromo){
+    const promos=[...existing.filter(p=>p.active!==false),newPromo];
+    const points=[];
+    promos.forEach(p=>{
+      const {start,end}=promotionInterval(p);
+      points.push([start,1]);
+      if(Number.isFinite(end))points.push([end+1,-1]);
+    });
+    points.sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
+    let concurrent=0;
+    for(const [,delta] of points){
+      concurrent+=delta;
+      if(concurrent>3)return true;
+    }
+    return false;
+  }
+
+  function ownerPromotionStateText(p){
+    const state=promotionState(p);
+    if(state==='active')return 'กำลังใช้งาน';
+    if(state==='upcoming')return 'กำลังจะเริ่ม';
+    if(state==='expired')return 'หมดอายุแล้ว';
+    return 'ปิดใช้งาน';
+  }
+
   function ratingForShop(shopId){
     return reviewStats[shopId]||{average:0,count:0};
   }
@@ -317,6 +349,50 @@
     openModal('promotionModal');
   }
 
+
+  async function openPromotionManager(shopId){
+    if(!session)return openModal('authModal');
+    const shop=shops.find(s=>s.id===shopId);
+    $('managePromotionShopName').textContent=shop?.name||'ร้านของฉัน';
+    $('managePromotionShopId').value=shopId;
+    openModal('managePromotionsModal');
+    await loadOwnerPromotions(shopId);
+  }
+
+  async function loadOwnerPromotions(shopId){
+    const box=$('ownerPromotionList');
+    box.innerHTML='<p>กำลังโหลดโปรโมชั่น...</p>';
+    const {data,error}=await db
+      .from('market_promotions')
+      .select('*')
+      .eq('shop_id',shopId)
+      .eq('owner_id',session.user.id)
+      .order('created_at',{ascending:false});
+    if(error){box.innerHTML=`<p class="form-message">${esc(error.message)}</p>`;return;}
+    const rows=data||[];
+    box.innerHTML=rows.length?rows.map(p=>`<article class="owner-promo-item" data-promotion-id="${esc(p.id)}">
+      <div>
+        <div class="owner-promo-title"><b>${esc(p.title)}</b><span class="owner-promo-state ${promotionState(p)}">${esc(ownerPromotionStateText(p))}</span></div>
+        <p>${esc(p.description||'ไม่มีรายละเอียด')}</p>
+        <small>⏰ ${esc(promotionTimingText(p))}</small>
+      </div>
+      <button type="button" class="danger delete-promotion-btn" data-action="delete-promotion" data-promotion-id="${esc(p.id)}" data-shop-id="${esc(shopId)}">ลบโปรโมชั่น</button>
+    </article>`).join(''):'<div class="empty-inline">ร้านนี้ยังไม่มีโปรโมชั่น</div>';
+  }
+
+  async function deletePromotion(promotionId,shopId){
+    if(!confirm('ต้องการลบโปรโมชั่นนี้ใช่หรือไม่? เมื่อลบแล้วจะกู้คืนไม่ได้'))return;
+    const {error}=await db
+      .from('market_promotions')
+      .delete()
+      .eq('id',promotionId)
+      .eq('owner_id',session.user.id);
+    if(error)return alert('ลบโปรโมชั่นไม่สำเร็จ: '+friendlyAuthError(error.message));
+    showNotice('ลบโปรโมชั่นเรียบร้อยแล้ว');
+    await Promise.all([loadOwnerPromotions(shopId),loadPromotions()]);
+    renderShops();renderRecommended();
+  }
+
   async function submitPromotion(ev){
     ev.preventDefault();
     if(!db||!session)return;
@@ -336,6 +412,16 @@
     const btn=form.querySelector('button[type=submit]');
     btn.disabled=true;btn.textContent='กำลังบันทึก...';
     try{
+      const {data:existing,error:loadError}=await db
+        .from('market_promotions')
+        .select('id,starts_at,ends_at,active')
+        .eq('shop_id',shopId)
+        .eq('owner_id',session.user.id)
+        .eq('active',true);
+      if(loadError)throw loadError;
+      if(exceedsThreeConcurrent(existing||[],payload)){
+        throw new Error('ร้านหนึ่งสามารถมีโปรโมชั่นที่มีช่วงเวลาใช้งานซ้อนกันได้สูงสุด 3 โปรโมชั่น กรุณาปรับวันเริ่มหรือวันสิ้นสุดของโปรนี้');
+      }
       const {error}=await db.from('market_promotions').insert(payload);
       if(error)throw error;
       closeModal('promotionModal');form.reset();
@@ -412,7 +498,7 @@
     const status=dashboard?`<span class="status-pill ${s.status==='approved'?'approved':''}">${s.status==='approved'?'เผยแพร่แล้ว':s.status==='rejected'?'ไม่อนุมัติ':'รอตรวจสอบ'}</span>`:'';
     const state=openState(s), loc=[s.zone,s.lock_number,s.floor].filter(Boolean).join(' • '), badges=serviceBadges(s);
     const rating=ratingForShop(s.id), promo=visiblePromotionForShop(s.id);
-    return `<article class="card" data-id="${esc(s.id)}"><div class="card-img">${cover}<span class="tag">${esc(category)}</span>${promo?`<span class="promo-ribbon ${promotionState(promo)==='upcoming'?'upcoming':''}">🔥 ${esc(promo.discount_text||'มีโปรโมชั่น')}<small>${esc(promotionTimingText(promo))}</small></span>`:''}</div><div class="card-body"><div style="display:flex;justify-content:space-between;gap:10px;align-items:start"><h3>${esc(s.name)}</h3>${status}</div><div class="rating-line"><span>${stars(rating.average)}</span><b>${rating.count?rating.average.toFixed(1):'ใหม่'}</b><small>${rating.count?`(${rating.count})`:'ยังไม่มีรีวิว'}</small></div><p>${esc(s.description||'ร้านค้าในตลาดกระทุ่มแบน')}</p><div class="meta">📍 ${esc(s.address||'ตลาดกระทุ่มแบน')}</div>${loc?`<div class="location-line">🏪 ${esc(loc)}</div>`:''}<div class="open-badge ${state.open===false?'closed':''}">${state.open===true?'🟢':state.open===false?'🔴':'🕒'} ${esc(state.text)}</div>${badges?`<div class="service-badges">${badges}</div>`:''}<div class="links"><a class="go" href="${go}" target="_blank" rel="noopener">🧭 นำทาง</a>${s.phone?`<a href="tel:${esc(s.phone)}">📞 โทร</a>`:''}${s.facebook?`<a href="${link(s.facebook,'facebook')}" target="_blank" rel="noopener">Facebook</a>`:''}${s.line?`<a href="${link(s.line,'line')}" target="_blank" rel="noopener">LINE</a>`:''}</div>${(s.lineman_url||s.grab_url||s.shopeefood_url)?`<div class="delivery-links">${s.lineman_url?`<a class="order-btn lineman" href="${esc(safeExternalUrl(s.lineman_url))}" target="_blank" rel="noopener noreferrer">สั่ง LINE MAN</a>`:''}${s.grab_url?`<a class="order-btn grab" href="${esc(safeExternalUrl(s.grab_url))}" target="_blank" rel="noopener noreferrer">สั่ง GrabFood</a>`:''}${s.shopeefood_url?`<a class="order-btn shopee" href="${esc(safeExternalUrl(s.shopeefood_url))}" target="_blank" rel="noopener noreferrer">สั่ง ShopeeFood</a>`:''}</div>`:''}<div class="community-actions"><button data-action="details">ดูรายละเอียด</button><button data-action="review">⭐ รีวิว</button></div>${dashboard?`<div class="admin-actions"><button data-action="edit">แก้ไข</button><button data-action="promotion">+ โปรโมชั่น</button>${profile?.role==='admin'&&s.status!=='approved'?'<button data-action="approve">อนุมัติ</button>':''}${profile?.role==='admin'?`<button data-action="feature">${s.featured?'ยกเลิกแนะนำ':'แนะนำร้าน'}</button><button data-action="reject">ไม่อนุมัติ</button>`:''}</div>`:''}</div></article>`;
+    return `<article class="card" data-id="${esc(s.id)}"><div class="card-img">${cover}<span class="tag">${esc(category)}</span>${promo?`<span class="promo-ribbon ${promotionState(promo)==='upcoming'?'upcoming':''}">🔥 ${esc(promo.discount_text||'มีโปรโมชั่น')}<small>${esc(promotionTimingText(promo))}</small></span>`:''}</div><div class="card-body"><div style="display:flex;justify-content:space-between;gap:10px;align-items:start"><h3>${esc(s.name)}</h3>${status}</div><div class="rating-line"><span>${stars(rating.average)}</span><b>${rating.count?rating.average.toFixed(1):'ใหม่'}</b><small>${rating.count?`(${rating.count})`:'ยังไม่มีรีวิว'}</small></div><p>${esc(s.description||'ร้านค้าในตลาดกระทุ่มแบน')}</p><div class="meta">📍 ${esc(s.address||'ตลาดกระทุ่มแบน')}</div>${loc?`<div class="location-line">🏪 ${esc(loc)}</div>`:''}<div class="open-badge ${state.open===false?'closed':''}">${state.open===true?'🟢':state.open===false?'🔴':'🕒'} ${esc(state.text)}</div>${badges?`<div class="service-badges">${badges}</div>`:''}<div class="links"><a class="go" href="${go}" target="_blank" rel="noopener">🧭 นำทาง</a>${s.phone?`<a href="tel:${esc(s.phone)}">📞 โทร</a>`:''}${s.facebook?`<a href="${link(s.facebook,'facebook')}" target="_blank" rel="noopener">Facebook</a>`:''}${s.line?`<a href="${link(s.line,'line')}" target="_blank" rel="noopener">LINE</a>`:''}</div>${(s.lineman_url||s.grab_url||s.shopeefood_url)?`<div class="delivery-links">${s.lineman_url?`<a class="order-btn lineman" href="${esc(safeExternalUrl(s.lineman_url))}" target="_blank" rel="noopener noreferrer">สั่ง LINE MAN</a>`:''}${s.grab_url?`<a class="order-btn grab" href="${esc(safeExternalUrl(s.grab_url))}" target="_blank" rel="noopener noreferrer">สั่ง GrabFood</a>`:''}${s.shopeefood_url?`<a class="order-btn shopee" href="${esc(safeExternalUrl(s.shopeefood_url))}" target="_blank" rel="noopener noreferrer">สั่ง ShopeeFood</a>`:''}</div>`:''}<div class="community-actions"><button data-action="details">ดูรายละเอียด</button><button data-action="review">⭐ รีวิว</button></div>${dashboard?`<div class="admin-actions"><button data-action="edit">แก้ไข</button><button data-action="promotion">+ โปรโมชั่น</button><button data-action="manage-promotions">จัดการโปรโมชั่น</button>${profile?.role==='admin'&&s.status!=='approved'?'<button data-action="approve">อนุมัติ</button>':''}${profile?.role==='admin'?`<button data-action="feature">${s.featured?'ยกเลิกแนะนำ':'แนะนำร้าน'}</button><button data-action="reject">ไม่อนุมัติ</button>`:''}</div>`:''}</div></article>`;
   }
 
   function renderShops(){
@@ -658,6 +744,8 @@
         setFeatured(shopId,!shop?.featured);
       }
       if(action==='promotion')openPromotionForm(shopId);
+      if(action==='manage-promotions')openPromotionManager(shopId);
+      if(action==='delete-promotion')deletePromotion(ev.target.dataset.promotionId,shopId);
       if(action==='details')openShopDetails(shopId);
       if(action==='review'){
         $('reviewShopId').value=shopId;
