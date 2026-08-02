@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v5.1 loaded');
+  console.info('Talad Krathumbaen Main v5.2 loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -122,6 +122,14 @@
     return new Intl.DateTimeFormat('th-TH',{day:'numeric',month:'short',year:'numeric'}).format(new Date(value));
   }
 
+  function formatThaiDateTime(value){
+    if(!value)return '';
+    return new Intl.DateTimeFormat('th-TH',{
+      day:'numeric',month:'short',year:'numeric',
+      hour:'2-digit',minute:'2-digit',hour12:false
+    }).format(new Date(value)).replace(',', ' เวลา')+' น.';
+  }
+
   function promotionState(p){
     const now=new Date();
     const start=p.starts_at?new Date(p.starts_at):null;
@@ -144,9 +152,9 @@
 
   function promotionTimingText(p){
     const state=promotionState(p);
-    if(state==='upcoming')return p.starts_at?`เริ่ม ${formatThaiDate(p.starts_at)}`:'กำลังจะเริ่มเร็ว ๆ นี้';
-    if(p.ends_at)return `ใช้ได้ถึง ${formatThaiDate(p.ends_at)}`;
-    return 'กำลังใช้งาน';
+    if(state==='upcoming')return p.starts_at?`เริ่ม ${formatThaiDateTime(p.starts_at)}`:'กำลังจะเริ่มเร็ว ๆ นี้';
+    if(p.ends_at)return `ใช้ได้ถึง ${formatThaiDateTime(p.ends_at)}`;
+    return p.starts_at?`เริ่มใช้ ${formatThaiDateTime(p.starts_at)}`:'กำลังใช้งาน';
   }
 
 
