@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=5.1.0">
 </head>
 <body>
 <header class="site-header">
@@ -87,7 +87,7 @@
   </section>
 </main>
 
-<footer><div class="container">ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ</div></footer>
+<footer><div class="container">ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ <span class="version-badge">Main v5.1</span></div></footer>
 
 <div id="authModal" class="modal hidden"><div class="backdrop" data-close="authModal"></div><div class="modal-card small"><button class="close" data-close="authModal">×</button><h2>เข้าสู่ระบบ / สมัครสมาชิก</h2><p>เจ้าของร้านต้องเข้าสู่ระบบก่อนเพิ่มหรือแก้ไขร้าน</p><form id="authForm"><label>อีเมล<input name="email" type="email" required></label><label>รหัสผ่าน<input name="password" type="password" minlength="6" required></label><div class="row"><button type="submit" class="primary">เข้าสู่ระบบ</button><button type="button" id="signUpBtn" class="ghost">สมัครสมาชิก</button></div><button type="button" id="forgotPasswordBtn" class="text-button">ลืมรหัสผ่าน</button></form></div></div>
 
@@ -118,6 +118,6 @@
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="app.js"></script>
+<script src="app.js?v=5.1.0"></script>
 </body>
 </html>
