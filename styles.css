@@ -104,3 +104,10 @@ fieldset{border:1px solid var(--line);border-radius:14px;padding:14px}legend{fon
 .owner-promo-state.active{background:#e4f7e9;color:#18753a}.owner-promo-state.upcoming{background:#fff2c9;color:#795400}.owner-promo-state.expired{background:#f1eded;color:#776b6b}.owner-promo-state.inactive{background:#eee;color:#666}
 .delete-promotion-btn{flex:0 0 auto}
 @media(max-width:640px){.owner-promo-item{align-items:stretch;flex-direction:column}.delete-promotion-btn{width:100%}}
+
+/* Main v5.0 promotion management */
+.promotion-options{display:grid;gap:10px;margin-top:14px;padding:12px;background:#fff8ef;border:1px solid var(--line);border-radius:12px}
+.owner-promo-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;align-items:center}
+.owner-promo-actions button{padding:8px 11px}
+.owner-promo-item{gap:16px}
+@media(max-width:640px){.owner-promo-actions{justify-content:flex-start}.owner-promo-actions button{flex:1 1 calc(50% - 8px)}}

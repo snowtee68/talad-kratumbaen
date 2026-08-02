@@ -339,14 +339,66 @@
       </article>`).join(''):'<p class="empty-inline">ยังไม่มีรีวิว เป็นคนแรกที่แสดงความคิดเห็นได้เลย</p>';
   }
 
-  async function openPromotionForm(shopId){
+  function toLocalDateTimeInput(value){
+    if(!value)return '';
+    const d=new Date(value);
+    if(Number.isNaN(d.getTime()))return '';
+    const pad=n=>String(n).padStart(2,'0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  async function openPromotionForm(shopId,promotion=null){
     if(!session)return openModal('authModal');
     const form=$('promotionForm');
     form.reset();
+    form.elements.id.value=promotion?.id||'';
     form.elements.shop_id.value=shopId;
+    form.elements.title.value=promotion?.title||'';
+    form.elements.discount_text.value=promotion?.discount_text||'';
+    form.elements.description.value=promotion?.description||'';
+    form.elements.image_url.value=promotion?.image_url||'';
+    form.elements.starts_at.value=toLocalDateTimeInput(promotion?.starts_at);
+    form.elements.ends_at.value=toLocalDateTimeInput(promotion?.ends_at);
+    form.elements.active.checked=promotion ? promotion.active!==false : true;
+    form.elements.featured.checked=Boolean(promotion?.featured);
     const shop=shops.find(s=>s.id===shopId);
     $('promotionShopName').textContent=shop?.name||'ร้านของฉัน';
+    $('promotionFormTitle').textContent=promotion?'แก้ไขโปรโมชั่น':'เพิ่มโปรโมชั่น';
+    form.querySelector('button[type=submit]').textContent=promotion?'บันทึกการแก้ไข':'เผยแพร่โปรโมชั่น';
     openModal('promotionModal');
+  }
+
+  async function editPromotion(promotionId,shopId){
+    const {data,error}=await db.from('market_promotions').select('*').eq('id',promotionId).eq('owner_id',session.user.id).single();
+    if(error)return alert('โหลดโปรโมชั่นไม่สำเร็จ: '+friendlyAuthError(error.message));
+    closeModal('managePromotionsModal');
+    openPromotionForm(shopId,data);
+  }
+
+  async function togglePromotion(promotionId,shopId,currentActive){
+    const next=!currentActive;
+    if(next){
+      const {data:target,error:targetError}=await db.from('market_promotions').select('*').eq('id',promotionId).eq('owner_id',session.user.id).single();
+      if(targetError)return alert(friendlyAuthError(targetError.message));
+      const {data:existing,error:loadError}=await db.from('market_promotions').select('id,starts_at,ends_at,active').eq('shop_id',shopId).eq('owner_id',session.user.id).eq('active',true).neq('id',promotionId);
+      if(loadError)return alert(friendlyAuthError(loadError.message));
+      if(exceedsThreeConcurrent(existing||[],{...target,active:true}))return alert('ช่วงเวลานี้มีโปรโมชั่นใช้งานซ้อนกันครบ 3 โปรโมชั่นแล้ว กรุณาปิดหรือปรับช่วงเวลาโปรอื่นก่อน');
+    }
+    const {error}=await db.from('market_promotions').update({active:next}).eq('id',promotionId).eq('owner_id',session.user.id);
+    if(error)return alert('เปลี่ยนสถานะไม่สำเร็จ: '+friendlyAuthError(error.message));
+    await Promise.all([loadOwnerPromotions(shopId),loadPromotions()]);
+    renderShops();renderRecommended();
+  }
+
+  async function duplicatePromotion(promotionId,shopId){
+    const {data,error}=await db.from('market_promotions').select('*').eq('id',promotionId).eq('owner_id',session.user.id).single();
+    if(error)return alert('คัดลอกโปรโมชั่นไม่สำเร็จ: '+friendlyAuthError(error.message));
+    const copy={...data,title:`${data.title} (สำเนา)`,active:false,featured:false};
+    delete copy.id; delete copy.created_at; delete copy.updated_at; delete copy.shop;
+    const {error:insertError}=await db.from('market_promotions').insert(copy);
+    if(insertError)return alert('คัดลอกโปรโมชั่นไม่สำเร็จ: '+friendlyAuthError(insertError.message));
+    showNotice('คัดลอกโปรโมชั่นแล้ว โดยตั้งเป็นปิดใช้งานไว้ก่อน');
+    await loadOwnerPromotions(shopId);
   }
 
 
@@ -376,7 +428,12 @@
         <p>${esc(p.description||'ไม่มีรายละเอียด')}</p>
         <small>⏰ ${esc(promotionTimingText(p))}</small>
       </div>
-      <button type="button" class="danger delete-promotion-btn" data-action="delete-promotion" data-promotion-id="${esc(p.id)}" data-shop-id="${esc(shopId)}">ลบโปรโมชั่น</button>
+      <div class="owner-promo-actions">
+        <button type="button" class="ghost" data-action="edit-promotion" data-promotion-id="${esc(p.id)}" data-shop-id="${esc(shopId)}">แก้ไข</button>
+        <button type="button" class="ghost" data-action="toggle-promotion" data-promotion-id="${esc(p.id)}" data-shop-id="${esc(shopId)}" data-active="${p.active!==false}">${p.active!==false?'ปิดใช้งาน':'เปิดใช้งาน'}</button>
+        <button type="button" class="ghost" data-action="duplicate-promotion" data-promotion-id="${esc(p.id)}" data-shop-id="${esc(shopId)}">คัดลอก</button>
+        <button type="button" class="danger delete-promotion-btn" data-action="delete-promotion" data-promotion-id="${esc(p.id)}" data-shop-id="${esc(shopId)}">ลบ</button>
+      </div>
     </article>`).join(''):'<div class="empty-inline">ร้านนี้ยังไม่มีโปรโมชั่น</div>';
   }
 
@@ -397,6 +454,7 @@
     ev.preventDefault();
     if(!db||!session)return;
     const form=ev.currentTarget,fd=new FormData(form);
+    const promotionId=String(fd.get('id')||'');
     const shopId=String(fd.get('shop_id')||'');
     const payload={
       shop_id:shopId,
@@ -407,7 +465,8 @@
       image_url:fd.get('image_url')||null,
       starts_at:fd.get('starts_at')?new Date(fd.get('starts_at')).toISOString():new Date().toISOString(),
       ends_at:fd.get('ends_at')?new Date(fd.get('ends_at')).toISOString():null,
-      active:true
+      active:form.elements.active.checked,
+      featured:form.elements.featured.checked
     };
     const btn=form.querySelector('button[type=submit]');
     btn.disabled=true;btn.textContent='กำลังบันทึก...';
@@ -417,16 +476,20 @@
         .select('id,starts_at,ends_at,active')
         .eq('shop_id',shopId)
         .eq('owner_id',session.user.id)
-        .eq('active',true);
+        .eq('active',true)
+        .neq('id',promotionId||'00000000-0000-0000-0000-000000000000');
       if(loadError)throw loadError;
-      if(exceedsThreeConcurrent(existing||[],payload)){
+      if(payload.active&&exceedsThreeConcurrent(existing||[],payload)){
         throw new Error('ร้านหนึ่งสามารถมีโปรโมชั่นที่มีช่วงเวลาใช้งานซ้อนกันได้สูงสุด 3 โปรโมชั่น กรุณาปรับวันเริ่มหรือวันสิ้นสุดของโปรนี้');
       }
-      const {error}=await db.from('market_promotions').insert(payload);
-      if(error)throw error;
+      const result=promotionId
+        ? await db.from('market_promotions').update(payload).eq('id',promotionId).eq('owner_id',session.user.id)
+        : await db.from('market_promotions').insert(payload);
+      if(result.error)throw result.error;
       closeModal('promotionModal');form.reset();
-      showNotice('เพิ่มโปรโมชั่นแล้ว และแสดงบนหน้าเว็บไซต์ทันที');
+      showNotice(promotionId?'แก้ไขโปรโมชั่นเรียบร้อยแล้ว':'เพิ่มโปรโมชั่นแล้ว และแสดงบนหน้าเว็บไซต์ทันที');
       await loadPromotions();
+      if($('managePromotionShopId').value===shopId)await loadOwnerPromotions(shopId);
     }catch(err){alert('เพิ่มโปรโมชั่นไม่สำเร็จ: '+friendlyAuthError(err.message));}
     finally{btn.disabled=false;btn.textContent='เผยแพร่โปรโมชั่น';}
   }
@@ -745,6 +808,9 @@
       }
       if(action==='promotion')openPromotionForm(shopId);
       if(action==='manage-promotions')openPromotionManager(shopId);
+      if(action==='edit-promotion')editPromotion(ev.target.dataset.promotionId,shopId);
+      if(action==='toggle-promotion')togglePromotion(ev.target.dataset.promotionId,shopId,ev.target.dataset.active==='true');
+      if(action==='duplicate-promotion')duplicatePromotion(ev.target.dataset.promotionId,shopId);
       if(action==='delete-promotion')deletePromotion(ev.target.dataset.promotionId,shopId);
       if(action==='details')openShopDetails(shopId);
       if(action==='review'){
