@@ -448,20 +448,42 @@
   }
 
   async function openShopDetails(shopId){
-    const shop=shops.find(s=>s.id===shopId);
-    if(!shop)return;
+    const shop=shops.find(s=>String(s.id)===String(shopId));
+    if(!shop)return alert('ไม่พบข้อมูลร้านค้านี้');
     const promo=visiblePromotionForShop(shopId);
     const rating=ratingForShop(shopId);
+    const go=(shop.latitude&&shop.longitude)
+      ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${shop.latitude},${shop.longitude}`)}`
+      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(shop.address||shop.name||'ตลาดกระทุ่มแบน')}`;
+    const contactButtons=[
+      `<a class="detail-action go" href="${esc(go)}" target="_blank" rel="noopener noreferrer">🧭 นำทาง</a>`,
+      shop.phone?`<a class="detail-action" href="tel:${esc(shop.phone)}">📞 โทรสั่ง / สอบถาม</a>`:'',
+      shop.facebook?`<a class="detail-action" href="${esc(link(shop.facebook,'facebook'))}" target="_blank" rel="noopener noreferrer">Facebook</a>`:'',
+      shop.line?`<a class="detail-action" href="${esc(link(shop.line,'line'))}" target="_blank" rel="noopener noreferrer">LINE</a>`:'',
+      shop.tiktok?`<a class="detail-action" href="${esc(link(shop.tiktok,'tiktok'))}" target="_blank" rel="noopener noreferrer">TikTok</a>`:'',
+      shop.instagram?`<a class="detail-action" href="${esc(link(shop.instagram,'instagram'))}" target="_blank" rel="noopener noreferrer">Instagram</a>`:'',
+      shop.website?`<a class="detail-action" href="${esc(safeExternalUrl(shop.website))}" target="_blank" rel="noopener noreferrer">🌐 Website</a>`:'',
+      shop.email?`<a class="detail-action" href="mailto:${esc(shop.email)}">✉️ Email</a>`:''
+    ].filter(Boolean).join('');
+    const deliveryButtons=[
+      shop.lineman_url?`<a class="detail-order lineman" href="${esc(safeExternalUrl(shop.lineman_url))}" target="_blank" rel="noopener noreferrer">สั่งผ่าน LINE MAN</a>`:'',
+      shop.grab_url?`<a class="detail-order grab" href="${esc(safeExternalUrl(shop.grab_url))}" target="_blank" rel="noopener noreferrer">สั่งผ่าน GrabFood</a>`:'',
+      shop.shopeefood_url?`<a class="detail-order shopee" href="${esc(safeExternalUrl(shop.shopeefood_url))}" target="_blank" rel="noopener noreferrer">สั่งผ่าน ShopeeFood</a>`:''
+    ].filter(Boolean).join('');
     $('detailTitle').textContent=shop.name;
     $('detailSummary').innerHTML=`
       ${shop.cover_url?`<img class="detail-cover" src="${esc(shop.cover_url)}" alt="${esc(shop.name)}">`:''}
       <div class="detail-rating"><b>${rating.average?rating.average.toFixed(1):'ยังไม่มีคะแนน'}</b>
       <span>${rating.count?`${stars(rating.average)} (${rating.count} รีวิว)`:'เป็นคนแรกที่รีวิวร้านนี้'}</span></div>
       <p>${esc(shop.description||'ร้านค้าในตลาดกระทุ่มแบน')}</p>
+      ${shop.address?`<p class="detail-address">📍 ${esc(shop.address)}</p>`:''}
       ${promo?`<div class="detail-promo"><b>🔥 ${esc(promo.title)}</b><span>${esc(promo.description||'')}</span><small>⏰ ${esc(promotionTimingText(promo))}</small></div>`:''}
+      ${deliveryButtons?`<div class="detail-order-grid">${deliveryButtons}</div>`:''}
+      <div class="detail-action-grid">${contactButtons}</div>
     `;
     $('reviewShopId').value=shopId;
     $('reviewShopName').textContent=shop.name;
+    closeModal('promotionDetailModal');
     openModal('shopDetailModal');
     await loadShopReviews(shopId);
   }
@@ -1091,7 +1113,7 @@
       if(action==='duplicate-promotion')duplicatePromotion(ev.target.dataset.promotionId,shopId);
       if(action==='delete-promotion')deletePromotion(ev.target.dataset.promotionId,shopId);
       if(action==='promo-details')openPromotionDetails(ev.target.dataset.promotionId);
-      if(action==='details')openShopDetails(shopId);
+      if(action==='details'){closeModal('promotionDetailModal');openShopDetails(shopId);}
       if(action==='review'){
         $('reviewShopId').value=shopId;
         $('reviewShopName').textContent=shops.find(s=>s.id===shopId)?.name||'ร้านค้า';

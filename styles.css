@@ -202,3 +202,13 @@ fieldset{border:1px solid var(--line);border-radius:14px;padding:14px}legend{fon
 @media(min-width:641px){
   .floating-navigation{left:20px;bottom:20px}
 }
+
+
+/* v5.7.5: Shop actions from promotion details */
+.detail-address{margin:10px 0;color:#6b625e}
+.detail-order-grid,.detail-action-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}
+.detail-order,.detail-action{display:flex;align-items:center;justify-content:center;min-height:46px;padding:10px 12px;border-radius:12px;text-decoration:none;font-weight:700;text-align:center;border:1px solid #e3d7d1;background:#fff;color:#2a211e}
+.detail-order{color:#fff;border:0}
+.detail-order.lineman{background:#06b755}.detail-order.grab{background:#00b14f}.detail-order.shopee{background:#ee4d2d}
+.detail-action.go{background:#b71924;color:#fff;border-color:#b71924}
+@media (max-width:640px){.detail-order-grid,.detail-action-grid{grid-template-columns:1fr}.detail-order,.detail-action{width:100%;min-height:48px}}
