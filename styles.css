@@ -154,3 +154,10 @@ fieldset{border:1px solid var(--line);border-radius:14px;padding:14px}legend{fon
 .promotion-detail-description{white-space:pre-wrap;color:var(--ink)}
 .promotion-detail-actions{display:flex;justify-content:flex-end;margin-top:18px}
 @media(max-width:640px){.promo-foot{align-items:flex-start;flex-direction:column}.promo-action-row{width:100%;justify-content:stretch}.promo-action-row button{flex:1}}
+
+
+/* Main v5.7.3: password visibility toggle */
+.password-field{position:relative;display:block;width:100%}
+.password-field input{padding-right:48px}
+.password-toggle{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:38px;height:38px;border:0;border-radius:9px;background:transparent;display:grid;place-items:center;font-size:18px;line-height:1;cursor:pointer}
+.password-toggle:hover,.password-toggle:focus-visible{background:#f5eeea;outline:2px solid transparent}

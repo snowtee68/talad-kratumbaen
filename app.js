@@ -1034,6 +1034,19 @@
     const locateMapBtn=$('locateMapBtn');
     if(locateMapBtn)locateMapBtn.addEventListener('click',()=>userLocation?showUserLocation({coords:{latitude:userLocation.lat,longitude:userLocation.lng,accuracy:userLocation.accuracy}}):requestUserLocation());
     document.addEventListener('click',ev=>{
+      const toggleButton=ev.target.closest('[data-password-toggle]');
+      if(toggleButton){
+        const input=toggleButton.closest('.password-field')?.querySelector('input');
+        if(input){
+          const show=input.type==='password';
+          input.type=show?'text':'password';
+          toggleButton.textContent=show?'🙈':'👁️';
+          toggleButton.setAttribute('aria-label',show?'ซ่อนรหัสผ่าน':'แสดงรหัสผ่าน');
+          toggleButton.title=show?'ซ่อนรหัสผ่าน':'แสดงรหัสผ่าน';
+          input.focus({preventScroll:true});
+        }
+        return;
+      }
       const action=ev.target.dataset.action;
       const explicitShopId=ev.target.dataset.shopId;
       const card=ev.target.closest('.card[data-id]');
