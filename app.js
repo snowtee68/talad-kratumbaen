@@ -909,8 +909,33 @@
     openModal('resetPasswordModal');
   }
 
+  function closeVisibleModal(){
+    const visible=[...document.querySelectorAll('.modal:not(.hidden)')].pop();
+    if(!visible)return false;
+    closeModal(visible.id);
+    return true;
+  }
+
+  function goHome(){
+    document.querySelectorAll('.modal:not(.hidden)').forEach(modal=>closeModal(modal.id));
+    history.replaceState(null,'',window.location.pathname+window.location.search);
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+
+  function goBack(){
+    if(closeVisibleModal())return;
+    if(window.scrollY>160){
+      window.scrollTo({top:0,behavior:'smooth'});
+      return;
+    }
+    if(history.length>1)history.back();
+    else goHome();
+  }
+
   function bindEvents(){
     document.querySelectorAll('[data-close]').forEach(x=>x.addEventListener('click',()=>closeModal(x.dataset.close)));
+    $('floatingHomeBtn')?.addEventListener('click',goHome);
+    $('floatingBackBtn')?.addEventListener('click',goBack);
     $('accountBtn').addEventListener('click',()=>session?$('dashboard').scrollIntoView({behavior:'smooth'}):openModal('authModal'));
     $('addShopBtn').addEventListener('click',()=>{if(!session)return openModal('authModal');$('shopForm').reset();fillOpeningHours($('shopForm'),{});$('shopFormTitle').textContent='เพิ่มร้านของฉัน';openModal('shopModal');});
     $('searchBtn').addEventListener('click',resetShopList);$('searchInput').addEventListener('input',resetShopList);
