@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v5.4 loaded');
+  console.info('Talad Krathumbaen Main v5.5 loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -36,12 +36,40 @@
 
 
   const IMAGE_LIMITS = {
-    inputBytes: 12 * 1024 * 1024,
+    inputBytes: 20 * 1024 * 1024,
     outputBytes: 900 * 1024,
     maxWidth: 1600,
     maxHeight: 1600,
     quality: 0.84
   };
+
+
+  function formatFileSize(bytes=0){
+    if(bytes<1024)return `${bytes} B`;
+    if(bytes<1024*1024)return `${(bytes/1024).toFixed(1)} KB`;
+    return `${(bytes/(1024*1024)).toFixed(1)} MB`;
+  }
+
+  async function previewPromotionImage(file){
+    const preview=$('promotionImagePreview');
+    if(!preview)return;
+    if(!file||!file.size){
+      preview.innerHTML='<small>ยังไม่ได้เลือกรูป</small>';
+      return;
+    }
+    if(!file.type.startsWith('image/')){
+      preview.innerHTML='<small>กรุณาเลือกไฟล์รูปภาพเท่านั้น</small>';
+      return;
+    }
+    if(file.size>IMAGE_LIMITS.inputBytes){
+      preview.innerHTML=`<small>ไฟล์ ${esc(formatFileSize(file.size))} ใหญ่เกินกำหนด สูงสุด 20 MB</small>`;
+      return;
+    }
+    const url=URL.createObjectURL(file);
+    preview.innerHTML=`<img src="${url}" alt="ตัวอย่างรูปโปรโมชั่น"><small>ไฟล์ต้นฉบับ ${esc(formatFileSize(file.size))} • ระบบจะย่อและแปลงเป็น WebP ก่อนอัปโหลดจริง</small>`;
+    const img=preview.querySelector('img');
+    if(img)img.onload=()=>setTimeout(()=>URL.revokeObjectURL(url),0);
+  }
 
   function loadImageFile(file){
     return new Promise((resolve,reject)=>{
@@ -60,7 +88,7 @@
   async function compressImage(file,{maxWidth=IMAGE_LIMITS.maxWidth,maxHeight=IMAGE_LIMITS.maxHeight,maxBytes=IMAGE_LIMITS.outputBytes}={}){
     if(!file||!file.size)return null;
     if(!file.type.startsWith('image/'))throw new Error('กรุณาเลือกไฟล์รูปภาพเท่านั้น');
-    if(file.size>IMAGE_LIMITS.inputBytes)throw new Error('รูปต้นฉบับต้องมีขนาดไม่เกิน 12 MB');
+    if(file.size>IMAGE_LIMITS.inputBytes)throw new Error('รูปต้นฉบับต้องมีขนาดไม่เกิน 20 MB');
     const img=await loadImageFile(file);
     const ratio=Math.min(1,maxWidth/img.naturalWidth,maxHeight/img.naturalHeight);
     let width=Math.max(1,Math.round(img.naturalWidth*ratio));
@@ -870,6 +898,10 @@
       await loadPublicShops();
       window.scrollTo({top:0,behavior:'smooth'});
     });
+    const promotionImageInput=document.querySelector('#promotionForm input[name="promotion_image"]');
+    if(promotionImageInput){
+      promotionImageInput.addEventListener('change',ev=>previewPromotionImage(ev.target.files?.[0]));
+    }
     $('shopForm').addEventListener('submit',submitShop);
     $('promotionForm').addEventListener('submit',submitPromotion);
     $('reviewForm').addEventListener('submit',submitReview);
