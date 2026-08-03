@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v5.3 loaded');
+  console.info('Talad Krathumbaen Main v5.4 loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -21,6 +21,7 @@
     if (type === 'facebook') return `https://facebook.com/${value.replace(/^@/,'')}`;
     if (type === 'line') return `https://line.me/ti/p/~${value.replace(/^@/,'')}`;
     if (type === 'tiktok') return `https://www.tiktok.com/@${value.replace(/^@/,'')}`;
+    if (type === 'instagram') return `https://www.instagram.com/${value.replace(/^@/,'').replace(/\/$/,'')}`;
     return `https://${value}`;
   };
   const safeExternalUrl = value => {
@@ -655,7 +656,7 @@
     const status=dashboard?`<span class="status-pill ${s.status==='approved'?'approved':''}">${s.status==='approved'?'เผยแพร่แล้ว':s.status==='rejected'?'ไม่อนุมัติ':'รอตรวจสอบ'}</span>`:'';
     const state=openState(s), loc=[s.zone,s.lock_number,s.floor].filter(Boolean).join(' • '), badges=serviceBadges(s);
     const rating=ratingForShop(s.id), promo=visiblePromotionForShop(s.id);
-    return `<article class="card" data-id="${esc(s.id)}"><div class="card-img">${cover}<span class="tag">${esc(category)}</span>${promo?`<span class="promo-ribbon ${promotionState(promo)==='upcoming'?'upcoming':''}">🔥 ${esc(promo.discount_text||'มีโปรโมชั่น')}<small>${esc(promotionTimingText(promo))}</small></span>`:''}</div><div class="card-body"><div style="display:flex;justify-content:space-between;gap:10px;align-items:start"><h3>${esc(s.name)}</h3>${status}</div><div class="rating-line"><span>${stars(rating.average)}</span><b>${rating.count?rating.average.toFixed(1):'ใหม่'}</b><small>${rating.count?`(${rating.count})`:'ยังไม่มีรีวิว'}</small></div><p>${esc(s.description||'ร้านค้าในตลาดกระทุ่มแบน')}</p><div class="meta">📍 ${esc(s.address||'ตลาดกระทุ่มแบน')}</div>${loc?`<div class="location-line">🏪 ${esc(loc)}</div>`:''}<div class="open-badge ${state.open===false?'closed':''}">${state.open===true?'🟢':state.open===false?'🔴':'🕒'} ${esc(state.text)}</div>${badges?`<div class="service-badges">${badges}</div>`:''}<div class="links"><a class="go" href="${go}" target="_blank" rel="noopener">🧭 นำทาง</a>${s.phone?`<a href="tel:${esc(s.phone)}">📞 โทร</a>`:''}${s.facebook?`<a href="${link(s.facebook,'facebook')}" target="_blank" rel="noopener">Facebook</a>`:''}${s.line?`<a href="${link(s.line,'line')}" target="_blank" rel="noopener">LINE</a>`:''}</div>${(s.lineman_url||s.grab_url||s.shopeefood_url)?`<div class="delivery-links">${s.lineman_url?`<a class="order-btn lineman" href="${esc(safeExternalUrl(s.lineman_url))}" target="_blank" rel="noopener noreferrer">สั่ง LINE MAN</a>`:''}${s.grab_url?`<a class="order-btn grab" href="${esc(safeExternalUrl(s.grab_url))}" target="_blank" rel="noopener noreferrer">สั่ง GrabFood</a>`:''}${s.shopeefood_url?`<a class="order-btn shopee" href="${esc(safeExternalUrl(s.shopeefood_url))}" target="_blank" rel="noopener noreferrer">สั่ง ShopeeFood</a>`:''}</div>`:''}<div class="community-actions"><button data-action="details">ดูรายละเอียด</button><button data-action="review">⭐ รีวิว</button></div>${dashboard?`<div class="admin-actions"><button data-action="edit">แก้ไขร้าน</button><button class="manage-promo-btn" data-action="manage-promotions">⚙️ จัดการโปรโมชั่น</button><button data-action="promotion">+ เพิ่มโปรโมชั่น</button>${profile?.role==='admin'&&s.status!=='approved'?'<button data-action="approve">อนุมัติ</button>':''}${profile?.role==='admin'?`<button data-action="feature">${s.featured?'ยกเลิกแนะนำ':'แนะนำร้าน'}</button><button data-action="reject">ไม่อนุมัติ</button>`:''}</div>`:''}</div></article>`;
+    return `<article class="card" data-id="${esc(s.id)}"><div class="card-img">${cover}<span class="tag">${esc(category)}</span>${promo?`<span class="promo-ribbon ${promotionState(promo)==='upcoming'?'upcoming':''}">🔥 ${esc(promo.discount_text||'มีโปรโมชั่น')}<small>${esc(promotionTimingText(promo))}</small></span>`:''}</div><div class="card-body"><div style="display:flex;justify-content:space-between;gap:10px;align-items:start"><h3>${esc(s.name)}</h3>${status}</div><div class="rating-line"><span>${stars(rating.average)}</span><b>${rating.count?rating.average.toFixed(1):'ใหม่'}</b><small>${rating.count?`(${rating.count})`:'ยังไม่มีรีวิว'}</small></div><p>${esc(s.description||'ร้านค้าในตลาดกระทุ่มแบน')}</p><div class="meta">📍 ${esc(s.address||'ตลาดกระทุ่มแบน')}</div>${loc?`<div class="location-line">🏪 ${esc(loc)}</div>`:''}<div class="open-badge ${state.open===false?'closed':''}">${state.open===true?'🟢':state.open===false?'🔴':'🕒'} ${esc(state.text)}</div>${badges?`<div class="service-badges">${badges}</div>`:''}<div class="links"><a class="go" href="${go}" target="_blank" rel="noopener noreferrer">🧭 นำทาง</a>${s.phone?`<a href="tel:${esc(s.phone)}">📞 โทร</a>`:''}${s.email?`<a href="mailto:${esc(s.email)}">✉️ Email</a>`:''}${s.facebook?`<a href="${esc(link(s.facebook,'facebook'))}" target="_blank" rel="noopener noreferrer">Facebook</a>`:''}${s.line?`<a href="${esc(link(s.line,'line'))}" target="_blank" rel="noopener noreferrer">LINE</a>`:''}${s.tiktok?`<a href="${esc(link(s.tiktok,'tiktok'))}" target="_blank" rel="noopener noreferrer">TikTok</a>`:''}${s.instagram?`<a href="${esc(link(s.instagram,'instagram'))}" target="_blank" rel="noopener noreferrer">Instagram</a>`:''}${s.website?`<a href="${esc(safeExternalUrl(s.website))}" target="_blank" rel="noopener noreferrer">🌐 Website</a>`:''}</div>${(s.lineman_url||s.grab_url||s.shopeefood_url)?`<div class="delivery-links">${s.lineman_url?`<a class="order-btn lineman" href="${esc(safeExternalUrl(s.lineman_url))}" target="_blank" rel="noopener noreferrer">สั่ง LINE MAN</a>`:''}${s.grab_url?`<a class="order-btn grab" href="${esc(safeExternalUrl(s.grab_url))}" target="_blank" rel="noopener noreferrer">สั่ง GrabFood</a>`:''}${s.shopeefood_url?`<a class="order-btn shopee" href="${esc(safeExternalUrl(s.shopeefood_url))}" target="_blank" rel="noopener noreferrer">สั่ง ShopeeFood</a>`:''}</div>`:''}<div class="community-actions"><button data-action="details">ดูรายละเอียด</button><button data-action="review">⭐ รีวิว</button></div>${dashboard?`<div class="admin-actions"><button data-action="edit">แก้ไขร้าน</button><button class="manage-promo-btn" data-action="manage-promotions">⚙️ จัดการโปรโมชั่น</button><button data-action="promotion">+ เพิ่มโปรโมชั่น</button>${profile?.role==='admin'&&s.status!=='approved'?'<button data-action="approve">อนุมัติ</button>':''}${profile?.role==='admin'?`<button data-action="feature">${s.featured?'ยกเลิกแนะนำ':'แนะนำร้าน'}</button><button data-action="reject">ไม่อนุมัติ</button>`:''}</div>`:''}</div></article>`;
   }
 
   function renderShops(){
@@ -751,7 +752,18 @@
   }
 
   async function setStatus(id,status){
-    const {error}=await db.from('market_shops').update({status}).eq('id',id);if(error)return alert(error.message);await Promise.all([loadDashboard(),loadPublicShops()]);
+    if(!db||!session)return alert('กรุณาเข้าสู่ระบบก่อน');
+    const label=status==='approved'?'อนุมัติร้าน':status==='rejected'?'ไม่อนุมัติร้าน':'อัปเดตสถานะ';
+    const {data,error}=await db
+      .from('market_shops')
+      .update({status})
+      .eq('id',id)
+      .select('id,name,status')
+      .maybeSingle();
+    if(error)return alert(`${label}ไม่สำเร็จ: ${friendlyAuthError(error.message)}`);
+    if(!data||data.status!==status)return alert(`${label}ไม่สำเร็จ ระบบไม่ได้เปลี่ยนสถานะ กรุณาตรวจสอบสิทธิ์ Admin และ RLS`);
+    showNotice(`${label}สำเร็จ: ${data.name}`);
+    await Promise.all([loadDashboard(),loadPublicShops()]);
   }
 
   function isRecoveryLink(){
