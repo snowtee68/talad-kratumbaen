@@ -378,7 +378,7 @@
         <small>${esc(shopName)}</small>
         <h3>${esc(p.title)}</h3>
         <p>${esc(p.description||'โปรโมชั่นพิเศษจากร้านค้าในตลาดกระทุ่มแบน')}</p>
-        <div class="promo-foot"><span>⏰ ${esc(dateText)}</span><button data-action="details" data-shop-id="${esc(p.shop_id)}">ดูร้าน</button></div>
+        <div class="promo-foot"><span>⏰ ${esc(dateText)}</span><div class="promo-action-row"><button data-action="promo-details" data-promotion-id="${esc(p.id)}" data-shop-id="${esc(p.shop_id)}">ดูรายละเอียด</button><button data-action="details" data-shop-id="${esc(p.shop_id)}">ดูร้าน</button></div></div>
       </div>
     </article>`;
   }
@@ -407,6 +407,27 @@
       : '<div class="empty-inline">ยังไม่มีโปรโมชั่นที่เปิดใช้งาน</div>';
     if(count)count.textContent=`ทั้งหมด ${promotions.length} โปรโมชั่น`;
     openModal('allPromotionsModal');
+  }
+
+  function openPromotionDetails(promotionId){
+    const p=promotions.find(item=>String(item.id)===String(promotionId));
+    if(!p)return alert('ไม่พบข้อมูลโปรโมชั่นนี้');
+    const shop=shops.find(s=>String(s.id)===String(p.shop_id))||p.shop||{};
+    const image=p.image_url||shop.cover_url||'';
+    const state=promotionState(p);
+    const stateText=state==='active'?'กำลังใช้ได้':state==='upcoming'?'เร็ว ๆ นี้':state==='expired'?'หมดอายุ':'ปิดใช้งาน';
+    $('promotionDetailTitle').textContent=p.title||'รายละเอียดโปรโมชั่น';
+    $('promotionDetailBody').innerHTML=`
+      ${image?`<img class="promotion-detail-image" src="${esc(image)}" alt="${esc(p.title||'โปรโมชั่น')}" loading="lazy">`:''}
+      <div class="promotion-detail-status ${esc(state)}">${esc(stateText)}</div>
+      ${p.discount_text?`<div class="promotion-detail-discount">${esc(p.discount_text)}</div>`:''}
+      <p class="promotion-detail-shop">ร้าน: <b>${esc(shop.name||'ร้านค้าในตลาด')}</b></p>
+      <p class="promotion-detail-description">${esc(p.description||'ไม่มีรายละเอียดเพิ่มเติม')}</p>
+      <p class="promotion-detail-time">⏰ ${esc(promotionTimingText(p))}</p>
+      <div class="promotion-detail-actions">
+        <button type="button" class="primary" data-action="details" data-shop-id="${esc(p.shop_id)}">ดูร้านค้า</button>
+      </div>`;
+    openModal('promotionDetailModal');
   }
 
   function recommendedShops(){
@@ -1031,6 +1052,7 @@
       if(action==='toggle-promotion')togglePromotion(ev.target.dataset.promotionId,shopId,ev.target.dataset.active==='true');
       if(action==='duplicate-promotion')duplicatePromotion(ev.target.dataset.promotionId,shopId);
       if(action==='delete-promotion')deletePromotion(ev.target.dataset.promotionId,shopId);
+      if(action==='promo-details')openPromotionDetails(ev.target.dataset.promotionId);
       if(action==='details')openShopDetails(shopId);
       if(action==='review'){
         $('reviewShopId').value=shopId;

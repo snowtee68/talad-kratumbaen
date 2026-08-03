@@ -137,3 +137,20 @@ fieldset{border:1px solid var(--line);border-radius:14px;padding:14px}legend{fon
 .map-location-button:hover{background:#eaf3ff}
 .map-help{color:#d7cfd0;font-size:13px;margin:12px 4px 0}
 @media(max-width:640px){.map-heading{align-items:flex-start;flex-direction:column}.map-location-button{width:100%}}
+
+
+/* v5.7.2 promotion details */
+.promo-action-row{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+.promo-action-row button{border:0;border-radius:999px;padding:8px 11px;cursor:pointer;font-weight:600}
+.promo-action-row button:first-child{background:var(--red);color:#fff}
+.promo-action-row button:last-child{background:#f2eee9;color:var(--ink)}
+.promotion-detail-card h2{padding-right:34px}
+.promotion-detail-image{width:100%;max-height:330px;object-fit:cover;border-radius:16px;margin:8px 0 14px}
+.promotion-detail-status{display:inline-flex;border-radius:999px;padding:6px 10px;font-size:12px;font-weight:700;background:#eee}
+.promotion-detail-status.active{background:#e4f7e9;color:#18753a}
+.promotion-detail-status.upcoming{background:#fff3cf;color:#7b4d00}
+.promotion-detail-discount{font-size:28px;font-weight:800;color:var(--red);margin:12px 0}
+.promotion-detail-shop,.promotion-detail-description,.promotion-detail-time{margin:10px 0;color:var(--muted)}
+.promotion-detail-description{white-space:pre-wrap;color:var(--ink)}
+.promotion-detail-actions{display:flex;justify-content:flex-end;margin-top:18px}
+@media(max-width:640px){.promo-foot{align-items:flex-start;flex-direction:column}.promo-action-row{width:100%;justify-content:stretch}.promo-action-row button{flex:1}}
