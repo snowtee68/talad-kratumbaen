@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v5.5 loaded');
+  console.info('Talad Krathumbaen Main v5.6 loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -89,24 +89,41 @@
     if(!file||!file.size)return null;
     if(!file.type.startsWith('image/'))throw new Error('กรุณาเลือกไฟล์รูปภาพเท่านั้น');
     if(file.size>IMAGE_LIMITS.inputBytes)throw new Error('รูปต้นฉบับต้องมีขนาดไม่เกิน 20 MB');
+
     const img=await loadImageFile(file);
     const ratio=Math.min(1,maxWidth/img.naturalWidth,maxHeight/img.naturalHeight);
     let width=Math.max(1,Math.round(img.naturalWidth*ratio));
     let height=Math.max(1,Math.round(img.naturalHeight*ratio));
-    let quality=IMAGE_LIMITS.quality;
-    let blob;
-    for(let attempt=0;attempt<8;attempt++){
+    let quality=0.86;
+    let blob=null;
+
+    for(let attempt=0;attempt<24;attempt++){
       const canvas=document.createElement('canvas');
-      canvas.width=width; canvas.height=height;
+      canvas.width=width;
+      canvas.height=height;
       const ctx=canvas.getContext('2d',{alpha:false});
-      ctx.fillStyle='#fff'; ctx.fillRect(0,0,width,height);
+      if(!ctx)throw new Error('อุปกรณ์นี้ไม่รองรับการย่อรูป');
+      ctx.fillStyle='#fff';
+      ctx.fillRect(0,0,width,height);
       ctx.drawImage(img,0,0,width,height);
       blob=await canvasToBlob(canvas,'image/webp',quality);
+
       if(blob.size<=maxBytes)break;
-      if(quality>0.58) quality-=0.08;
-      else { width=Math.max(640,Math.round(width*0.85)); height=Math.max(480,Math.round(height*0.85)); }
+
+      if(quality>0.46){
+        quality=Math.max(0.46,quality-0.07);
+      }else{
+        const scale=blob.size>maxBytes*2 ? 0.72 : 0.84;
+        width=Math.max(480,Math.round(width*scale));
+        height=Math.max(360,Math.round(height*scale));
+        quality=0.74;
+      }
     }
-    if(blob.size>maxBytes)throw new Error('รูปยังมีขนาดใหญ่เกินไป กรุณาเลือกภาพที่เล็กลง');
+
+    if(!blob||blob.size>maxBytes){
+      throw new Error(`ย่อรูปไม่สำเร็จ กรุณาใช้รูป JPG/PNG ที่ไม่เกิน 20 MB`);
+    }
+
     return new File([blob],`${Date.now()}.webp`,{type:'image/webp'});
   }
 
