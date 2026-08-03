@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v5.2 loaded');
+  console.info('Talad Krathumbaen Main v5.3 loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -32,6 +32,77 @@
   const hideNotice = () => $('notice').classList.add('hidden');
   const openModal = id => { $(id).classList.remove('hidden'); document.body.style.overflow='hidden'; };
   const closeModal = id => { $(id).classList.add('hidden'); document.body.style.overflow=''; };
+
+
+  const IMAGE_LIMITS = {
+    inputBytes: 12 * 1024 * 1024,
+    outputBytes: 900 * 1024,
+    maxWidth: 1600,
+    maxHeight: 1600,
+    quality: 0.84
+  };
+
+  function loadImageFile(file){
+    return new Promise((resolve,reject)=>{
+      const url=URL.createObjectURL(file);
+      const img=new Image();
+      img.onload=()=>{URL.revokeObjectURL(url);resolve(img);};
+      img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('ไม่สามารถอ่านไฟล์รูปภาพนี้ได้'));};
+      img.src=url;
+    });
+  }
+
+  function canvasToBlob(canvas,type,quality){
+    return new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('บีบอัดรูปภาพไม่สำเร็จ')),type,quality));
+  }
+
+  async function compressImage(file,{maxWidth=IMAGE_LIMITS.maxWidth,maxHeight=IMAGE_LIMITS.maxHeight,maxBytes=IMAGE_LIMITS.outputBytes}={}){
+    if(!file||!file.size)return null;
+    if(!file.type.startsWith('image/'))throw new Error('กรุณาเลือกไฟล์รูปภาพเท่านั้น');
+    if(file.size>IMAGE_LIMITS.inputBytes)throw new Error('รูปต้นฉบับต้องมีขนาดไม่เกิน 12 MB');
+    const img=await loadImageFile(file);
+    const ratio=Math.min(1,maxWidth/img.naturalWidth,maxHeight/img.naturalHeight);
+    let width=Math.max(1,Math.round(img.naturalWidth*ratio));
+    let height=Math.max(1,Math.round(img.naturalHeight*ratio));
+    let quality=IMAGE_LIMITS.quality;
+    let blob;
+    for(let attempt=0;attempt<8;attempt++){
+      const canvas=document.createElement('canvas');
+      canvas.width=width; canvas.height=height;
+      const ctx=canvas.getContext('2d',{alpha:false});
+      ctx.fillStyle='#fff'; ctx.fillRect(0,0,width,height);
+      ctx.drawImage(img,0,0,width,height);
+      blob=await canvasToBlob(canvas,'image/webp',quality);
+      if(blob.size<=maxBytes)break;
+      if(quality>0.58) quality-=0.08;
+      else { width=Math.max(640,Math.round(width*0.85)); height=Math.max(480,Math.round(height*0.85)); }
+    }
+    if(blob.size>maxBytes)throw new Error('รูปยังมีขนาดใหญ่เกินไป กรุณาเลือกภาพที่เล็กลง');
+    return new File([blob],`${Date.now()}.webp`,{type:'image/webp'});
+  }
+
+  function storagePathFromPublicUrl(url,bucket){
+    if(!url)return '';
+    const marker=`/storage/v1/object/public/${bucket}/`;
+    const i=String(url).indexOf(marker);
+    return i>=0?decodeURIComponent(String(url).slice(i+marker.length)):'';
+  }
+
+  async function removeStoredImage(url,bucket){
+    const path=storagePathFromPublicUrl(url,bucket);
+    if(!path)return;
+    const {error}=await db.storage.from(bucket).remove([path]);
+    if(error)console.warn('ลบรูปเก่าไม่สำเร็จ:',error.message);
+  }
+
+  async function uploadCompressedImage(file,bucket,pathPrefix,limits={}){
+    const compressed=await compressImage(file,limits);
+    if(!compressed)return null;
+    const path=`${pathPrefix}/${Date.now()}-${crypto.randomUUID()}.webp`;
+    const {error}=await db.storage.from(bucket).upload(path,compressed,{upsert:false,contentType:'image/webp',cacheControl:'31536000'});
+    if(error)throw error;
+    return db.storage.from(bucket).getPublicUrl(path).data.publicUrl;
+  }
 
   function friendlyAuthError(message=''){
     const m=String(message).toLowerCase();
@@ -366,6 +437,10 @@
     form.elements.discount_text.value=promotion?.discount_text||'';
     form.elements.description.value=promotion?.description||'';
     form.elements.image_url.value=promotion?.image_url||'';
+    form.elements.existing_image_url.value=promotion?.image_url||'';
+    form.elements.promotion_image.value='';
+    const preview=$('promotionImagePreview');
+    if(preview){preview.innerHTML=promotion?.image_url?`<img src="${esc(promotion.image_url)}" alt="รูปโปรโมชั่นปัจจุบัน"><small>รูปปัจจุบัน — เลือกรูปใหม่เพื่อแทนที่</small>`:'<small>ระบบจะย่อรูปอัตโนมัติให้ไม่เกินประมาณ 900 KB</small>';}
     form.elements.starts_at.value=toLocalDateTimeInput(promotion?.starts_at);
     form.elements.ends_at.value=toLocalDateTimeInput(promotion?.ends_at);
     form.elements.active.checked=promotion ? promotion.active!==false : true;
@@ -448,13 +523,15 @@
 
   async function deletePromotion(promotionId,shopId){
     if(!confirm('ต้องการลบโปรโมชั่นนี้ใช่หรือไม่? เมื่อลบแล้วจะกู้คืนไม่ได้'))return;
+    const {data:promotion}=await db.from('market_promotions').select('image_url').eq('id',promotionId).eq('owner_id',session.user.id).maybeSingle();
     const {error}=await db
       .from('market_promotions')
       .delete()
       .eq('id',promotionId)
       .eq('owner_id',session.user.id);
     if(error)return alert('ลบโปรโมชั่นไม่สำเร็จ: '+friendlyAuthError(error.message));
-    showNotice('ลบโปรโมชั่นเรียบร้อยแล้ว');
+    if(promotion?.image_url)await removeStoredImage(promotion.image_url,'promotion-images');
+    showNotice('ลบโปรโมชั่นและรูปภาพเรียบร้อยแล้ว');
     await Promise.all([loadOwnerPromotions(shopId),loadPromotions()]);
     renderShops();renderRecommended();
   }
@@ -465,13 +542,15 @@
     const form=ev.currentTarget,fd=new FormData(form);
     const promotionId=String(fd.get('id')||'');
     const shopId=String(fd.get('shop_id')||'');
+    const imageFile=fd.get('promotion_image');
+    const previousImageUrl=String(fd.get('existing_image_url')||'');
     const payload={
       shop_id:shopId,
       owner_id:session.user.id,
       title:String(fd.get('title')||'').trim(),
       description:fd.get('description')||null,
       discount_text:fd.get('discount_text')||null,
-      image_url:fd.get('image_url')||null,
+      image_url:fd.get('image_url')||previousImageUrl||null,
       starts_at:fd.get('starts_at')?new Date(fd.get('starts_at')).toISOString():new Date().toISOString(),
       ends_at:fd.get('ends_at')?new Date(fd.get('ends_at')).toISOString():null,
       active:form.elements.active.checked,
@@ -491,10 +570,16 @@
       if(payload.active&&exceedsThreeConcurrent(existing||[],payload)){
         throw new Error('ร้านหนึ่งสามารถมีโปรโมชั่นที่มีช่วงเวลาใช้งานซ้อนกันได้สูงสุด 3 โปรโมชั่น กรุณาปรับวันเริ่มหรือวันสิ้นสุดของโปรนี้');
       }
+      let uploadedImageUrl='';
+      if(imageFile&&imageFile.size){
+        uploadedImageUrl=await uploadCompressedImage(imageFile,'promotion-images',`${session.user.id}/${shopId}`,{maxWidth:1600,maxHeight:1200,maxBytes:900*1024});
+        payload.image_url=uploadedImageUrl;
+      }
       const result=promotionId
         ? await db.from('market_promotions').update(payload).eq('id',promotionId).eq('owner_id',session.user.id)
         : await db.from('market_promotions').insert(payload);
-      if(result.error)throw result.error;
+      if(result.error){if(uploadedImageUrl)await removeStoredImage(uploadedImageUrl,'promotion-images');throw result.error;}
+      if(uploadedImageUrl&&previousImageUrl&&uploadedImageUrl!==previousImageUrl)await removeStoredImage(previousImageUrl,'promotion-images');
       closeModal('promotionModal');form.reset();
       showNotice(promotionId?'แก้ไขโปรโมชั่นเรียบร้อยแล้ว':'เพิ่มโปรโมชั่นแล้ว และแสดงบนหน้าเว็บไซต์ทันที');
       await loadPromotions();
@@ -625,13 +710,7 @@
   }
 
   async function uploadCover(file, shopId){
-    if(!file)return null;
-    if(file.size>5*1024*1024)throw new Error('รูปต้องมีขนาดไม่เกิน 5 MB');
-    const ext=(file.name.split('.').pop()||'jpg').toLowerCase();
-    const path=`${session.user.id}/${shopId}/${Date.now()}.${ext}`;
-    const {error}=await db.storage.from('shop-images').upload(path,file,{upsert:false,contentType:file.type});
-    if(error)throw error;
-    return db.storage.from('shop-images').getPublicUrl(path).data.publicUrl;
+    return uploadCompressedImage(file,'shop-images',`${session.user.id}/${shopId}`,{maxWidth:1600,maxHeight:1600,maxBytes:900*1024});
   }
 
   async function submitShop(ev){
@@ -642,6 +721,8 @@
     const existingId=String(fd.get('id')||'').trim();
     const id=existingId||crypto.randomUUID();
     const file=fd.get('cover');
+    const existingShop=existingId?shops.find(s=>s.id===existingId):null;
+    const oldCoverUrl=existingShop?.cover_url||'';
     const payload={name:String(fd.get('name')||'').trim(),category_id:fd.get('category_id'),description:fd.get('description')||null,address:fd.get('address')||null,zone:fd.get('zone')||null,lock_number:fd.get('lock_number')||null,floor:fd.get('floor')||null,landmark:fd.get('landmark')||null,phone:fd.get('phone')||null,email:fd.get('email')||null,line:fd.get('line')||null,facebook:fd.get('facebook')||null,tiktok:fd.get('tiktok')||null,instagram:fd.get('instagram')||null,website:fd.get('website')||null,latitude:fd.get('latitude')?Number(fd.get('latitude')):null,longitude:fd.get('longitude')?Number(fd.get('longitude')):null,opening_hours:readOpeningHours(form),temporarily_closed:form.elements.temporarily_closed.checked,open_24_hours:form.elements.open_24_hours.checked,delivery:form.elements.delivery.checked,lineman:form.elements.lineman.checked,grab:form.elements.grab.checked,shopeefood:form.elements.shopeefood.checked,lineman_url:fd.get('lineman_url')||null,grab_url:fd.get('grab_url')||null,shopeefood_url:fd.get('shopeefood_url')||null,qr_payment:form.elements.qr_payment.checked,card_payment:form.elements.card_payment.checked,parking:form.elements.parking.checked,pet_friendly:form.elements.pet_friendly.checked,wheelchair_accessible:form.elements.wheelchair_accessible.checked,owner_id:session.user.id};
     const btn=form.querySelector('button[type=submit]');btn.disabled=true;btn.textContent='กำลังบันทึก...';
     try{
@@ -649,7 +730,8 @@
       const result=existingId
         ? await db.from('market_shops').update(payload).eq('id',existingId).eq('owner_id',session.user.id)
         : await db.from('market_shops').insert({...payload,id,status:'pending'});
-      if(result.error)throw result.error;
+      if(result.error){if(payload.cover_url)await removeStoredImage(payload.cover_url,'shop-images');throw result.error;}
+      if(payload.cover_url&&oldCoverUrl&&payload.cover_url!==oldCoverUrl)await removeStoredImage(oldCoverUrl,'shop-images');
       form.reset();closeModal('shopModal');
       showNotice(existingId?'บันทึกการแก้ไขแล้ว สถานะการอนุมัติเดิมยังคงอยู่':'เพิ่มร้านแล้ว และกำลังรอแอดมินตรวจสอบ');
       await Promise.all([loadDashboard(),loadPublicShops()]);
