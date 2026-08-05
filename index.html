@@ -9,7 +9,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="styles.css?v=5.7.5">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+  <link rel="stylesheet" href="styles.css?v=5.7.7">
 </head>
 <body>
 <header class="site-header">
@@ -79,7 +81,7 @@
     <div id="emptyState" class="empty hidden"><div>🔍</div><h3>ยังไม่พบร้านที่ค้นหา</h3><p>ลองเปลี่ยนคำค้น หมวดหมู่ หรือตัวกรอง</p></div>
   </section>
 
-  <section class="map-section"><div class="container"><div class="map-heading"><div><span class="eyebrow">แผนที่ร้านค้า</span><h2>กดหมุดเพื่อดูรายละเอียดร้าน</h2></div><button id="locateMapBtn" class="map-location-button" type="button">🔵 ตำแหน่งของฉัน</button></div><div id="map"></div><p class="map-help">จุดสีน้ำเงินคือตำแหน่งปัจจุบันของคุณ การแสดงผลต้องได้รับอนุญาต Location จากอุปกรณ์</p></div></section>
+  <section class="map-section"><div class="container"><div class="map-heading"><div><span class="eyebrow">แผนที่ร้านค้า</span><h2>กดหมุดเพื่อดูรายละเอียดร้าน</h2><small id="mapResultCount" class="map-result-count"></small></div><button id="locateMapBtn" class="map-location-button" type="button">🔵 ตำแหน่งของฉัน</button></div><div id="mapFilterBar" class="map-filter-bar" aria-label="ตัวกรองหมุดร้านค้า"></div><div class="map-legend"><span><i class="legend-dot red"></i> ร้านทั่วไป</span><span><i class="legend-dot gold"></i> ร้านแนะนำ</span><span><i class="legend-dot promo"></i> มีโปรโมชั่น</span><span><i class="legend-dot blue"></i> ตำแหน่งของคุณ</span></div><div id="map"></div><p class="map-help">จุดสีน้ำเงินคือตำแหน่งปัจจุบันของคุณ การแสดงผลต้องได้รับอนุญาต Location จากอุปกรณ์</p></div></section>
 
   <section id="dashboard" class="container section hidden">
     <div class="section-head"><div><span class="eyebrow red">บัญชีของฉัน</span><h2 id="dashboardTitle">ร้านของฉัน</h2></div><button id="signOutBtn" class="danger">ออกจากระบบ</button></div>
@@ -88,7 +90,7 @@
   </section>
 </main>
 
-<footer><div class="container">ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ <span class="version-badge">Main v5.7.5</span></div></footer>
+<footer><div class="container">ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ <span class="version-badge">Main v5.7.7</span></div></footer>
 
 <nav class="floating-navigation" aria-label="ทางลัดหน้าเว็บ">
   <button id="floatingBackBtn" type="button" class="floating-nav-button" aria-label="ย้อนกลับ">← <span>กลับ</span></button>
@@ -125,6 +127,7 @@
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="app.js?v=5.7.5"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="app.js?v=5.7.7"></script>
 </body>
 </html>

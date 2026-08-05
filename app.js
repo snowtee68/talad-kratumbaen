@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v5.7.1 loaded');
+  console.info('Talad Krathumbaen Main v5.7.7 loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -11,7 +11,7 @@
   const DEMO = [{id:'demo',name:'Snowtee ตลาดกระทุ่มแบน',description:'เครื่องดื่ม ไอศกรีมซอฟต์เสิร์ฟ และเบเกอรี่ บรรยากาศริมคลอง',category:{name:'เครื่องดื่ม'},address:'ตลาดกระทุ่มแบน จังหวัดสมุทรสาคร',phone:'0642211876',facebook:'https://facebook.com/snowtee68',line:'snowtee68',latitude:13.6549,longitude:100.2639,status:'approved',featured:true,cover_url:null}];
 
   let shops = [], categories = [], promotions = [], reviewStats = {}, currentCategory = 'all', session = null, profile = null, visibleShopCount = 10, shopSort = 'recommended', shopOnlyOpen = false, shopOnlyPromo = false;
-  let map, miniMap, mapMarkers = [], miniMarkers = [], userLocation = null, userMarker = null, userAccuracyCircle = null;
+  let map, miniMap, mapMarkers = [], miniMarkers = [], mapMarkerLayer = null, userLocation = null, userMarker = null, userAccuracyCircle = null, mapFilterMode = 'all', mapCategoryFilter = 'all';
   const $ = id => document.getElementById(id);
 
   const esc = (value='') => String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]));
@@ -204,12 +204,75 @@
     return items.slice(0,5).map(x=>`<span>${x}</span>`).join('');
   }
 
+  function shopMarkerType(shop){
+    if(shop.featured)return 'featured';
+    if(visiblePromotionForShop(shop.id))return 'promo';
+    return 'normal';
+  }
+
+  function shopMarkerIcon(shop){
+    const type=shopMarkerType(shop);
+    const badge=type==='featured'?'★':type==='promo'?'PROMO':'';
+    return L.divIcon({
+      className:'shop-marker-wrapper',
+      html:`<div class="shop-map-marker ${type}" aria-label="${esc(shop.name)}"><span class="marker-pin"></span>${badge?`<b>${badge}</b>`:''}</div>`,
+      iconSize:[38,48],
+      iconAnchor:[19,46],
+      popupAnchor:[0,-42]
+    });
+  }
+
+  function markerPopup(shop){
+    const category=shop.category?.name||'ร้านค้า';
+    const rating=ratingForShop(shop.id);
+    const state=openState(shop);
+    const promo=visiblePromotionForShop(shop.id);
+    const distance=shopDistance(shop);
+    const go=shop.latitude&&shop.longitude
+      ?`https://www.google.com/maps/dir/?api=1&destination=${shop.latitude},${shop.longitude}`
+      :`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(shop.name+' ตลาดกระทุ่มแบน')}`;
+    return `<div class="map-shop-popup">
+      <div class="map-popup-title">${esc(shop.name)}</div>
+      <div class="map-popup-category">${esc(category)}</div>
+      ${rating.count?`<div class="map-popup-line">⭐ ${rating.average.toFixed(1)} (${rating.count} รีวิว)</div>`:''}
+      <div class="map-popup-line ${state.open===true?'open':state.open===false?'closed':''}">${state.open===true?'🟢':state.open===false?'🔴':'🕒'} ${esc(state.text)}</div>
+      ${distance==null?'':`<div class="map-popup-line">📏 ห่าง ${esc(formatDistance(distance))}</div>`}
+      ${promo?`<div class="map-popup-promo">🔥 ${esc(promo.discount_text||promo.title||'มีโปรโมชั่น')}</div>`:''}
+      <div class="map-popup-actions">
+        <button type="button" data-action="details" data-shop-id="${esc(shop.id)}">ดูร้านค้า</button>
+        <a href="${esc(go)}" target="_blank" rel="noopener noreferrer">นำทาง</a>
+      </div>
+    </div>`;
+  }
+
+  function renderMapFilters(){
+    const box=$('mapFilterBar');
+    if(!box)return;
+    box.innerHTML=`<button type="button" class="${mapFilterMode==='all'&&mapCategoryFilter==='all'?'active':''}" data-map-filter="all">ทุกร้าน</button>
+      <button type="button" class="${mapFilterMode==='featured'?'active':''}" data-map-filter="featured">⭐ ร้านแนะนำ</button>
+      <button type="button" class="${mapFilterMode==='promo'?'active':''}" data-map-filter="promo">🔥 มีโปรโมชั่น</button>
+      ${categories.map(c=>`<button type="button" class="${mapCategoryFilter===String(c.id)?'active':''}" data-map-category="${esc(c.id)}">${esc(c.icon||'🏪')} ${esc(c.name)}</button>`).join('')}`;
+  }
+
+  function filteredMapShops(list){
+    return list.filter(shop=>{
+      if(mapFilterMode==='featured'&&!shop.featured)return false;
+      if(mapFilterMode==='promo'&&!visiblePromotionForShop(shop.id))return false;
+      if(mapCategoryFilter!=='all'&&String(shop.category_id)!==String(mapCategoryFilter))return false;
+      return true;
+    });
+  }
+
   function initMaps(){
     const center=[13.6549,100.2639], tiles='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
     map=L.map('map').setView(center,16);
     miniMap=L.map('miniMap',{zoomControl:false,attributionControl:false}).setView(center,16);
     L.tileLayer(tiles,{attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
     L.tileLayer(tiles).addTo(miniMap);
+    mapMarkerLayer=typeof L.markerClusterGroup==='function'
+      ?L.markerClusterGroup({showCoverageOnHover:false,maxClusterRadius:46,spiderfyOnMaxZoom:true})
+      :L.layerGroup();
+    map.addLayer(mapMarkerLayer);
   }
 
   async function loadCategories(){
@@ -224,6 +287,7 @@
     box.innerHTML='<button class="active" data-category="all">ทั้งหมด</button>'+categories.map(c=>`<button data-category="${esc(c.id)}">${esc(c.icon||'🏪')} ${esc(c.name)}</button>`).join('');
     select.innerHTML='<option value="">เลือกหมวดหมู่</option>'+categories.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
     box.querySelectorAll('button').forEach(btn=>btn.addEventListener('click',()=>{box.querySelectorAll('button').forEach(x=>x.classList.remove('active'));btn.classList.add('active');currentCategory=btn.dataset.category;renderShops();}));
+    renderMapFilters();
   }
 
   async function loadPublicShops(){
@@ -431,13 +495,16 @@
   }
 
   function recommendedShops(){
-    return [...shops].sort((a,b)=>{
-      const ar=ratingForShop(a.id),br=ratingForShop(b.id);
-      const ap=activePromotionForShop(a.id)?1:0,bp=activePromotionForShop(b.id)?1:0;
-      const as=(a.featured?100:0)+(ap*25)+(ar.average*10)+Math.min(ar.count,20);
-      const bs=(b.featured?100:0)+(bp*25)+(br.average*10)+Math.min(br.count,20);
-      return bs-as;
-    }).slice(0,6);
+    return shops
+      .filter(shop=>shop.featured===true)
+      .sort((a,b)=>{
+        const ar=ratingForShop(a.id),br=ratingForShop(b.id);
+        const ap=visiblePromotionForShop(a.id)?1:0,bp=visiblePromotionForShop(b.id)?1:0;
+        const as=(ap*25)+(ar.average*10)+Math.min(ar.count,20);
+        const bs=(bp*25)+(br.average*10)+Math.min(br.count,20);
+        return bs-as;
+      })
+      .slice(0,6);
   }
 
   function renderRecommended(){
@@ -830,11 +897,29 @@
   }
 
   function renderPins(list){
-    mapMarkers.forEach(m=>map.removeLayer(m)); miniMarkers.forEach(m=>miniMap.removeLayer(m)); mapMarkers=[]; miniMarkers=[];
-    const valid=list.filter(s=>Number.isFinite(Number(s.latitude))&&Number.isFinite(Number(s.longitude)));
-    valid.forEach(s=>{const ll=[+s.latitude,+s.longitude],distance=shopDistance(s),popup=`<b>${esc(s.name)}</b><br>${esc(s.category?.name||'ร้านค้า')}${distance==null?'':`<br>📏 ห่าง ${esc(formatDistance(distance))}`}`;mapMarkers.push(L.marker(ll).bindPopup(popup).addTo(map));miniMarkers.push(L.circleMarker(ll,{radius:8}).bindPopup(popup).addTo(miniMap));});
-    if(valid.length>1){const bounds=L.latLngBounds(valid.map(s=>[+s.latitude,+s.longitude]));map.fitBounds(bounds.pad(.22));miniMap.fitBounds(bounds.pad(.22));}
-    else if(valid.length===1){map.setView([+valid[0].latitude,+valid[0].longitude],17);miniMap.setView([+valid[0].latitude,+valid[0].longitude],16);}
+    if(mapMarkerLayer)mapMarkerLayer.clearLayers();
+    miniMarkers.forEach(m=>miniMap.removeLayer(m));
+    mapMarkers=[];
+    miniMarkers=[];
+    const valid=filteredMapShops(list).filter(s=>Number.isFinite(Number(s.latitude))&&Number.isFinite(Number(s.longitude)));
+    valid.forEach(shop=>{
+      const ll=[+shop.latitude,+shop.longitude];
+      const marker=L.marker(ll,{icon:shopMarkerIcon(shop)}).bindPopup(markerPopup(shop),{maxWidth:290});
+      mapMarkers.push(marker);
+      mapMarkerLayer.addLayer(marker);
+      const miniColor=shop.featured?'#d59a00':visiblePromotionForShop(shop.id)?'#b31217':'#d7262e';
+      const mini=L.circleMarker(ll,{radius:8,color:'#fff',weight:2,fillColor:miniColor,fillOpacity:1}).bindPopup(`<b>${esc(shop.name)}</b><br>${esc(shop.category?.name||'ร้านค้า')}`);
+      miniMarkers.push(mini.addTo(miniMap));
+    });
+    $('mapResultCount') && ($('mapResultCount').textContent=`แสดง ${valid.length} ร้านบนแผนที่`);
+    if(valid.length>1){
+      const bounds=L.latLngBounds(valid.map(s=>[+s.latitude,+s.longitude]));
+      map.fitBounds(bounds.pad(.22));
+      miniMap.fitBounds(bounds.pad(.22));
+    }else if(valid.length===1){
+      map.setView([+valid[0].latitude,+valid[0].longitude],17);
+      miniMap.setView([+valid[0].latitude,+valid[0].longitude],16);
+    }
   }
 
   async function refreshAuth(){
@@ -1092,6 +1177,22 @@
           toggleButton.title=show?'ซ่อนรหัสผ่าน':'แสดงรหัสผ่าน';
           input.focus({preventScroll:true});
         }
+        return;
+      }
+      const mapFilterButton=ev.target.closest('[data-map-filter]');
+      if(mapFilterButton){
+        mapFilterMode=mapFilterButton.dataset.mapFilter;
+        mapCategoryFilter='all';
+        renderMapFilters();
+        renderPins(filteredShops());
+        return;
+      }
+      const mapCategoryButton=ev.target.closest('[data-map-category]');
+      if(mapCategoryButton){
+        mapFilterMode='all';
+        mapCategoryFilter=mapCategoryButton.dataset.mapCategory;
+        renderMapFilters();
+        renderPins(filteredShops());
         return;
       }
       const action=ev.target.dataset.action;
