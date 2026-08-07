@@ -243,3 +243,13 @@ fieldset{border:1px solid var(--line);border-radius:14px;padding:14px}legend{fon
 .marker-cluster-small,.marker-cluster-medium,.marker-cluster-large{background:rgba(179,18,23,.24)}
 .marker-cluster-small div,.marker-cluster-medium div,.marker-cluster-large div{background:#b31217;color:#fff;font-family:Prompt,sans-serif;font-weight:700}
 @media(max-width:640px){.map-filter-bar{margin-top:2px}.map-legend{gap:7px 12px}.map-popup-actions{grid-template-columns:1fr}.leaflet-popup-content{margin:12px 14px}}
+
+
+/* Main v5.7.8: favorite shops */
+.favorite-btn{border:1px solid #ead8d8;background:#fff;color:#7f0d11;border-radius:12px;font-weight:700;cursor:pointer}
+.favorite-btn.active{background:#fff0f1;border-color:#e7aeb1;color:#b31217}
+.favorite-btn span{white-space:nowrap}
+.detail-favorite-holder{display:flex;justify-content:flex-end;margin:0 0 10px}
+.detail-favorite{min-height:44px;padding:9px 14px}
+#favoriteGrid .card{position:relative}
+@media(max-width:640px){.community-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.community-actions .favorite-btn{grid-column:1/-1;min-height:44px}.nav-actions #favoritesBtn{order:4}.detail-favorite-holder{justify-content:stretch}.detail-favorite{width:100%}}
