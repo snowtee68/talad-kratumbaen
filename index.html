@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
-  <link rel="stylesheet" href="styles.css?v=5.7.7">
+  <link rel="stylesheet" href="styles.css?v=5.7.8">
 </head>
 <body>
 <header class="site-header">
@@ -19,6 +19,7 @@
     <a class="brand" href="#top"><span class="logo">ต</span><span><b>ตลาดกระทุ่มแบน</b><small>ศูนย์รวมร้านค้าในชุมชน</small></span></a>
     <div class="nav-actions">
       <button id="nearBtn" class="ghost">📍 ร้านใกล้ฉัน</button>
+      <button id="favoritesBtn" class="ghost hidden">❤️ ร้านชื่นชอบ</button>
       <button id="accountBtn" class="ghost">เข้าสู่ระบบ</button>
       <button id="addShopBtn" class="primary">+ เพิ่มร้าน</button>
     </div>
@@ -90,12 +91,15 @@
   </section>
 </main>
 
-<footer><div class="container">ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ <span class="version-badge">Main v5.7.7</span></div></footer>
+<footer><div class="container">ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ <span class="version-badge">Main v5.7.8</span></div></footer>
 
 <nav class="floating-navigation" aria-label="ทางลัดหน้าเว็บ">
   <button id="floatingBackBtn" type="button" class="floating-nav-button" aria-label="ย้อนกลับ">← <span>กลับ</span></button>
   <button id="floatingHomeBtn" type="button" class="floating-nav-button home" aria-label="กลับหน้าแรก">🏠 <span>หน้าแรก</span></button>
 </nav>
+
+
+<div id="favoritesModal" class="modal hidden"><div class="backdrop" data-close="favoritesModal"></div><div class="modal-card"><button class="close" data-close="favoritesModal">×</button><div class="section-head"><div><span class="eyebrow red">บัญชีของฉัน</span><h2>❤️ ร้านชื่นชอบของฉัน</h2></div><span id="favoriteCount"></span></div><div id="favoriteGrid" class="grid compact"></div></div></div>
 
 <div id="authModal" class="modal hidden"><div class="backdrop" data-close="authModal"></div><div class="modal-card small"><button class="close" data-close="authModal">×</button><h2>เข้าสู่ระบบ / สมัครสมาชิก</h2><p>เจ้าของร้านต้องเข้าสู่ระบบก่อนเพิ่มหรือแก้ไขร้าน</p><form id="authForm"><label>อีเมล<input name="email" type="email" required></label><label>รหัสผ่าน<span class="password-field"><input name="password" type="password" minlength="6" required><button type="button" class="password-toggle" data-password-toggle aria-label="แสดงรหัสผ่าน" title="แสดงรหัสผ่าน">👁️</button></span></label><div class="row"><button type="submit" class="primary">เข้าสู่ระบบ</button><button type="button" id="signUpBtn" class="ghost">สมัครสมาชิก</button></div><button type="button" id="forgotPasswordBtn" class="text-button">ลืมรหัสผ่าน</button></form></div></div>
 
@@ -128,6 +132,6 @@
 <script src="config.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-<script src="app.js?v=5.7.7"></script>
+<script src="app.js?v=5.7.8"></script>
 </body>
 </html>
