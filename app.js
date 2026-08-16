@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v5.7.8 loaded');
+  console.info('Talad Krathumbaen Main v5.7.9 Pagination Test loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -10,7 +10,8 @@
   const db = configured ? supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY) : null;
   const DEMO = [{id:'demo',name:'Snowtee ตลาดกระทุ่มแบน',description:'เครื่องดื่ม ไอศกรีมซอฟต์เสิร์ฟ และเบเกอรี่ บรรยากาศริมคลอง',category:{name:'เครื่องดื่ม'},address:'ตลาดกระทุ่มแบน จังหวัดสมุทรสาคร',phone:'0642211876',facebook:'https://facebook.com/snowtee68',line:'snowtee68',latitude:13.6549,longitude:100.2639,status:'approved',featured:true,cover_url:null}];
 
-  let shops = [], categories = [], promotions = [], reviewStats = {}, favorites = new Set(), currentCategory = 'all', session = null, profile = null, visibleShopCount = 10, shopSort = 'recommended', shopOnlyOpen = false, shopOnlyPromo = false;
+  let shops = [], shopIndex = [], featuredShops = [], favoriteShops = [], categories = [], promotions = [], reviewStats = {}, favorites = new Set(), currentCategory = 'all', session = null, profile = null, shopSort = 'recommended', shopOnlyOpen = false, shopOnlyPromo = false, shopTotalCount = 0, shopPage = 0, shopLoading = false;
+  const SHOP_PAGE_SIZE = 10;
   let map, miniMap, mapMarkers = [], miniMarkers = [], mapMarkerLayer = null, userLocation = null, userMarker = null, userAccuracyCircle = null, mapFilterMode = 'all', mapCategoryFilter = 'all';
   const $ = id => document.getElementById(id);
 
@@ -286,15 +287,109 @@
     const box=$('categoryButtons'), select=$('categorySelect');
     box.innerHTML='<button class="active" data-category="all">ทั้งหมด</button>'+categories.map(c=>`<button data-category="${esc(c.id)}">${esc(c.icon||'🏪')} ${esc(c.name)}</button>`).join('');
     select.innerHTML='<option value="">เลือกหมวดหมู่</option>'+categories.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
-    box.querySelectorAll('button').forEach(btn=>btn.addEventListener('click',()=>{box.querySelectorAll('button').forEach(x=>x.classList.remove('active'));btn.classList.add('active');currentCategory=btn.dataset.category;renderShops();}));
+    box.querySelectorAll('button').forEach(btn=>btn.addEventListener('click',async()=>{box.querySelectorAll('button').forEach(x=>x.classList.remove('active'));btn.classList.add('active');currentCategory=btn.dataset.category;await resetShopList();}));
     renderMapFilters();
   }
 
-  async function loadPublicShops(){
-    if(!db){ shops=DEMO; showNotice('กำลังแสดงข้อมูลตัวอย่าง — กรุณาใส่ Supabase URL และ Anon Key ใน config.js'); renderShops(); return; }
-    const {data,error}=await db.from('market_shops').select('*, category:market_categories(id,name,icon)').eq('status','approved').order('featured',{ascending:false}).order('created_at',{ascending:false});
-    if(error) throw error;
-    shops=data||[]; hideNotice(); renderShops(); renderRecommended();
+  async function loadShopIndex(){
+    if(!db){ shopIndex=DEMO; return; }
+    const {data,error}=await db.from('market_shops')
+      .select('id,name,description,address,category_id,created_at,featured,latitude,longitude,opening_hours,temporarily_closed,open_24_hours,category:market_categories(id,name,icon)')
+      .eq('status','approved')
+      .order('created_at',{ascending:false});
+    if(error)throw error;
+    shopIndex=data||[];
+  }
+
+  function orderedShopIndex(){
+    const q=$('searchInput')?.value.trim().toLowerCase()||'';
+    let list=shopIndex.filter(shop=>{
+      if(currentCategory!=='all'&&String(shop.category_id)!==String(currentCategory))return false;
+      if(q&&![shop.name,shop.description,shop.address,shop.category?.name].filter(Boolean).join(' ').toLowerCase().includes(q))return false;
+      if(shopOnlyOpen&&openState(shop).open!==true)return false;
+      if(shopOnlyPromo&&!visiblePromotionForShop(shop.id))return false;
+      return true;
+    });
+    list.sort((a,b)=>{
+      const ar=ratingForShop(a.id),br=ratingForShop(b.id);
+      if(shopSort==='rating')return (br.average-ar.average)||(br.count-ar.count);
+      if(shopSort==='newest')return new Date(b.created_at||0)-new Date(a.created_at||0);
+      if(shopSort==='name')return String(a.name||'').localeCompare(String(b.name||''),'th');
+      if(shopSort==='distance'){
+        const ad=shopDistance(a),bd=shopDistance(b);
+        if(ad==null&&bd==null)return 0;
+        if(ad==null)return 1;
+        if(bd==null)return -1;
+        return ad-bd;
+      }
+      const ap=visiblePromotionForShop(a.id)?1:0,bp=visiblePromotionForShop(b.id)?1:0;
+      const as=(a.featured?100:0)+(ap*25)+(ar.average*10)+Math.min(ar.count,20);
+      const bs=(b.featured?100:0)+(bp*25)+(br.average*10)+Math.min(br.count,20);
+      return bs-as;
+    });
+    return list;
+  }
+
+  async function fetchFullShopsByIds(ids){
+    if(!ids.length)return [];
+    const {data,error}=await db.from('market_shops')
+      .select('*, category:market_categories(id,name,icon)')
+      .in('id',ids)
+      .eq('status','approved');
+    if(error)throw error;
+    const byId=new Map((data||[]).map(shop=>[String(shop.id),shop]));
+    return ids.map(id=>byId.get(String(id))).filter(Boolean);
+  }
+
+  async function loadFeaturedShops(){
+    const featured=[...shopIndex].filter(shop=>shop.featured===true).sort((a,b)=>{
+      const ar=ratingForShop(a.id),br=ratingForShop(b.id);
+      const ap=visiblePromotionForShop(a.id)?1:0,bp=visiblePromotionForShop(b.id)?1:0;
+      const as=(ap*25)+(ar.average*10)+Math.min(ar.count,20);
+      const bs=(bp*25)+(br.average*10)+Math.min(br.count,20);
+      return bs-as;
+    });
+    const ids=featured.slice(0,6).map(shop=>shop.id);
+    featuredShops=db?await fetchFullShopsByIds(ids):DEMO.filter(shop=>shop.featured===true).slice(0,6);
+    renderRecommended();
+  }
+
+  async function loadPublicShops({reset=false}={}){
+    if(!db){
+      shops=DEMO; shopIndex=DEMO; shopTotalCount=DEMO.length; shopPage=1;
+      showNotice('กำลังแสดงข้อมูลตัวอย่าง — กรุณาใส่ Supabase URL และ Anon Key ใน config.js');
+      renderShops(); renderRecommended(); return;
+    }
+    if(shopLoading)return;
+    shopLoading=true;
+    try{
+      if(reset){ shops=[]; shopPage=0; }
+      const ordered=orderedShopIndex();
+      shopTotalCount=ordered.length;
+      const start=shopPage*SHOP_PAGE_SIZE;
+      const pageIds=ordered.slice(start,start+SHOP_PAGE_SIZE).map(shop=>shop.id);
+      if(pageIds.length){
+        const page=await fetchFullShopsByIds(pageIds);
+        const existing=new Set(shops.map(shop=>String(shop.id)));
+        shops=[...shops,...page.filter(shop=>!existing.has(String(shop.id)))];
+        shopPage+=1;
+      }
+      hideNotice();
+      renderShops();
+      await loadFeaturedShops();
+    }finally{
+      shopLoading=false;
+    }
+  }
+
+  async function getFullShop(shopId){
+    const id=String(shopId);
+    const cached=[...shops,...featuredShops,...favoriteShops].find(shop=>String(shop.id)===id);
+    if(cached)return cached;
+    if(!db)return DEMO.find(shop=>String(shop.id)===id)||null;
+    const {data,error}=await db.from('market_shops').select('*, category:market_categories(id,name,icon)').eq('id',shopId).eq('status','approved').maybeSingle();
+    if(error)throw error;
+    return data||null;
   }
 
 
@@ -476,7 +571,7 @@
   function openPromotionDetails(promotionId){
     const p=promotions.find(item=>String(item.id)===String(promotionId));
     if(!p)return alert('ไม่พบข้อมูลโปรโมชั่นนี้');
-    const shop=shops.find(s=>String(s.id)===String(p.shop_id))||p.shop||{};
+    const shop=[...shops,...featuredShops,...favoriteShops].find(s=>String(s.id)===String(p.shop_id))||p.shop||{};
     const image=p.image_url||shop.cover_url||'';
     const state=promotionState(p);
     const stateText=state==='active'?'กำลังใช้ได้':state==='upcoming'?'เร็ว ๆ นี้':state==='expired'?'หมดอายุ':'ปิดใช้งาน';
@@ -495,16 +590,7 @@
   }
 
   function recommendedShops(){
-    return shops
-      .filter(shop=>shop.featured===true)
-      .sort((a,b)=>{
-        const ar=ratingForShop(a.id),br=ratingForShop(b.id);
-        const ap=visiblePromotionForShop(a.id)?1:0,bp=visiblePromotionForShop(b.id)?1:0;
-        const as=(ap*25)+(ar.average*10)+Math.min(ar.count,20);
-        const bs=(bp*25)+(br.average*10)+Math.min(br.count,20);
-        return bs-as;
-      })
-      .slice(0,6);
+    return featuredShops.slice(0,6);
   }
 
   function isFavorite(shopId){ return favorites.has(String(shopId)); }
@@ -520,6 +606,8 @@
     const {data,error}=await db.from('market_favorites').select('shop_id').eq('user_id',session.user.id);
     if(error){ console.warn('โหลดร้านชื่นชอบไม่สำเร็จ:',error.message); return; }
     favorites=new Set((data||[]).map(x=>String(x.shop_id)));
+    const ids=[...favorites];
+    favoriteShops=ids.length?await fetchFullShopsByIds(ids):[];
     renderFavoriteList();
   }
 
@@ -536,6 +624,7 @@
       if(error)return alert('บันทึกร้านชื่นชอบไม่สำเร็จ: '+error.message);
       favorites.add(id);
     }
+    favoriteShops=[...favorites].length?await fetchFullShopsByIds([...favorites]):[];
     renderShops(); renderRecommended(); renderFavoriteList();
     const detailShopId=$('reviewShopId')?.value;
     if(detailShopId===id){ const holder=$('detailFavoriteHolder'); if(holder)holder.innerHTML=favoriteButton(id,'detail-favorite'); }
@@ -545,7 +634,7 @@
     const box=$('favoriteGrid'), count=$('favoriteCount');
     if(!box)return;
     if(!session){ box.innerHTML='<div class="empty-inline">กรุณาเข้าสู่ระบบเพื่อดูร้านชื่นชอบของคุณ</div>'; if(count)count.textContent=''; return; }
-    const list=shops.filter(s=>s.status==='approved'&&isFavorite(s.id));
+    const list=favoriteShops.filter(s=>isFavorite(s.id));
     box.innerHTML=list.length?list.map(s=>shopCard(s)).join(''):'<div class="empty-inline">ยังไม่มีร้านชื่นชอบ กด ♡ ที่ร้านที่คุณชอบได้เลย</div>';
     if(count)count.textContent=`${list.length} ร้าน`;
   }
@@ -563,7 +652,8 @@
   }
 
   async function openShopDetails(shopId){
-    const shop=shops.find(s=>String(s.id)===String(shopId));
+    let shop=null;
+    try{shop=await getFullShop(shopId);}catch(err){console.error(err);}
     if(!shop)return alert('ไม่พบข้อมูลร้านค้านี้');
     const promo=visiblePromotionForShop(shopId);
     const rating=ratingForShop(shopId);
@@ -883,38 +973,11 @@
   }
 
   function filteredShops(){
-    const q=$('searchInput').value.trim().toLowerCase();
-    let list=shops.filter(s=>{
-      if(currentCategory!=='all'&&s.category_id!==currentCategory)return false;
-      if(q&&![s.name,s.description,s.address,s.category?.name].filter(Boolean).join(' ').toLowerCase().includes(q))return false;
-      if(shopOnlyOpen&&openState(s).open!==true)return false;
-      if(shopOnlyPromo&&!visiblePromotionForShop(s.id))return false;
-      return true;
-    });
-
-    list.sort((a,b)=>{
-      const ar=ratingForShop(a.id),br=ratingForShop(b.id);
-      if(shopSort==='rating')return (br.average-ar.average)||(br.count-ar.count);
-      if(shopSort==='newest')return new Date(b.created_at||0)-new Date(a.created_at||0);
-      if(shopSort==='name')return String(a.name||'').localeCompare(String(b.name||''),'th');
-      if(shopSort==='distance'){
-        const ad=shopDistance(a),bd=shopDistance(b);
-        if(ad==null&&bd==null)return 0;
-        if(ad==null)return 1;
-        if(bd==null)return -1;
-        return ad-bd;
-      }
-      const ap=activePromotionForShop(a.id)?1:0,bp=activePromotionForShop(b.id)?1:0;
-      const as=(a.featured?100:0)+(ap*25)+(ar.average*10)+Math.min(ar.count,20);
-      const bs=(b.featured?100:0)+(bp*25)+(br.average*10)+Math.min(br.count,20);
-      return bs-as;
-    });
-    return list;
+    return shops;
   }
 
-  function resetShopList(){
-    visibleShopCount=10;
-    renderShops();
+  async function resetShopList(){
+    await loadPublicShops({reset:true});
   }
 
   function shopCard(s, dashboard=false){
@@ -929,20 +992,20 @@
   }
 
   function renderShops(){
-    const list=filteredShops();
-    const shown=list.slice(0,visibleShopCount);
+    const shown=shops;
     $('shopGrid').innerHTML=shown.map(s=>shopCard(s)).join('');
-    $('resultCount').textContent=`พบ ${list.length} ร้าน • แสดง ${shown.length} ร้าน`;
-    $('shopCount').textContent=shops.length;
-    $('emptyState').classList.toggle('hidden',list.length>0);
+    $('resultCount').textContent=`พบ ${shopTotalCount} ร้าน • แสดง ${shown.length} ร้าน`;
+    $('shopCount').textContent=shopIndex.length;
+    $('emptyState').classList.toggle('hidden',shopTotalCount>0);
 
     const moreBtn=$('loadMoreBtn');
     if(moreBtn){
-      moreBtn.classList.toggle('hidden',shown.length>=list.length);
-      moreBtn.textContent=`ดูร้านเพิ่มเติม (${Math.min(10,list.length-shown.length)} ร้าน)`;
+      moreBtn.classList.toggle('hidden',shown.length>=shopTotalCount||shopLoading);
+      moreBtn.disabled=shopLoading;
+      moreBtn.textContent=shopLoading?'กำลังโหลด...':`ดูร้านเพิ่มเติม (${Math.min(SHOP_PAGE_SIZE,Math.max(0,shopTotalCount-shown.length))} ร้าน)`;
     }
 
-    renderPins(list);
+    renderPins(shopIndex);
   }
 
   function renderPins(list){
@@ -1025,7 +1088,8 @@
       if(payload.cover_url&&oldCoverUrl&&payload.cover_url!==oldCoverUrl)await removeStoredImage(oldCoverUrl,'shop-images');
       form.reset();closeModal('shopModal');
       showNotice(existingId?'บันทึกการแก้ไขแล้ว สถานะการอนุมัติเดิมยังคงอยู่':'เพิ่มร้านแล้ว และกำลังรอแอดมินตรวจสอบ');
-      await Promise.all([loadDashboard(),loadPublicShops()]);
+      await loadShopIndex();
+      await Promise.all([loadDashboard(),loadPublicShops({reset:true})]);
     }catch(err){alert('บันทึกไม่สำเร็จ: '+friendlyAuthError(err.message));}
     finally{btn.disabled=false;btn.textContent='บันทึกข้อมูลร้าน';}
   }
@@ -1037,7 +1101,8 @@
   async function setFeatured(id,featured){
     const {error}=await db.from('market_shops').update({featured}).eq('id',id);
     if(error)return alert(error.message);
-    await Promise.all([loadDashboard(),loadPublicShops()]);
+    await loadShopIndex();
+      await Promise.all([loadDashboard(),loadPublicShops({reset:true})]);
     renderRecommended();
   }
 
@@ -1053,7 +1118,8 @@
     if(error)return alert(`${label}ไม่สำเร็จ: ${friendlyAuthError(error.message)}`);
     if(!data||data.status!==status)return alert(`${label}ไม่สำเร็จ ระบบไม่ได้เปลี่ยนสถานะ กรุณาตรวจสอบสิทธิ์ Admin และ RLS`);
     showNotice(`${label}สำเร็จ: ${data.name}`);
-    await Promise.all([loadDashboard(),loadPublicShops()]);
+    await loadShopIndex();
+      await Promise.all([loadDashboard(),loadPublicShops({reset:true})]);
   }
 
   function isRecoveryLink(){
@@ -1097,7 +1163,9 @@
     $('floatingBackBtn')?.addEventListener('click',goBack);
     $('accountBtn').addEventListener('click',()=>session?$('dashboard').scrollIntoView({behavior:'smooth'}):openModal('authModal'));
     $('addShopBtn').addEventListener('click',()=>{if(!session)return openModal('authModal');$('shopForm').reset();fillOpeningHours($('shopForm'),{});$('shopFormTitle').textContent='เพิ่มร้านของฉัน';openModal('shopModal');});
-    $('searchBtn').addEventListener('click',resetShopList);$('searchInput').addEventListener('input',resetShopList);
+    let searchTimer=null;
+    $('searchBtn').addEventListener('click',()=>resetShopList());
+    $('searchInput').addEventListener('input',()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>resetShopList(),250);});
     $('authForm').addEventListener('submit',async ev=>{
       ev.preventDefault();
       if(!db)return alert('ยังไม่ได้ตั้งค่า Supabase');
@@ -1182,7 +1250,7 @@
       const {error}=await db.auth.signOut();
       if(error)return alert('ออกจากระบบไม่สำเร็จ: '+friendlyAuthError(error.message));
       session=null;profile=null;updateAccountUI();
-      await loadPublicShops();
+      await loadPublicShops({reset:true});
       window.scrollTo({top:0,behavior:'smooth'});
     });
     const promotionImageInput=document.querySelector('#promotionForm input[name="promotion_image"]');
@@ -1194,10 +1262,7 @@
     $('reviewForm').addEventListener('submit',submitReview);
     $('openReviewBtn').addEventListener('click',()=>{closeModal('shopDetailModal');openModal('reviewModal');});
     $('showAllPromotionsBtn').addEventListener('click',openAllPromotions);
-    $('loadMoreBtn').addEventListener('click',()=>{
-      visibleShopCount+=10;
-      renderShops();
-    });
+    $('loadMoreBtn').addEventListener('click',()=>loadPublicShops());
     $('shopSort').addEventListener('change',ev=>{
       shopSort=ev.target.value;
       resetShopList();
@@ -1237,7 +1302,7 @@
         mapFilterMode=mapFilterButton.dataset.mapFilter;
         mapCategoryFilter='all';
         renderMapFilters();
-        renderPins(filteredShops());
+        renderPins(shopIndex);
         return;
       }
       const mapCategoryButton=ev.target.closest('[data-map-category]');
@@ -1245,7 +1310,7 @@
         mapFilterMode='all';
         mapCategoryFilter=mapCategoryButton.dataset.mapCategory;
         renderMapFilters();
-        renderPins(filteredShops());
+        renderPins(shopIndex);
         return;
       }
       const action=ev.target.dataset.action;
@@ -1271,7 +1336,7 @@
       if(action==='details'){closeModal('promotionDetailModal');openShopDetails(shopId);}
       if(action==='review'){
         $('reviewShopId').value=shopId;
-        $('reviewShopName').textContent=shops.find(s=>s.id===shopId)?.name||'ร้านค้า';
+        $('reviewShopName').textContent=[...shops,...shopIndex].find(s=>String(s.id)===String(shopId))?.name||'ร้านค้า';
         openModal('reviewModal');
       }
     });
@@ -1283,7 +1348,7 @@
 
   async function start(){
     renderHoursEditor();initMaps();bindEvents();
-    try{await loadCategories();await loadReviewStats();await loadPublicShops();await loadPromotions();renderShops();renderRecommended();await refreshAuth();await handleRecoveryLink();}
+    try{await loadCategories();await loadReviewStats();await loadPromotions();await loadShopIndex();await loadPublicShops({reset:true});renderShops();renderRecommended();await refreshAuth();await handleRecoveryLink();}
     catch(err){console.error(err);showNotice('เกิดข้อผิดพลาด: '+err.message,true);}
   }
   start();
