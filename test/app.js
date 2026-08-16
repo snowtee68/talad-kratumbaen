@@ -694,8 +694,8 @@
     await loadShopReviews(shopId);
   }
 
-  async function loadShopReviews(shopId){
-    const box=$('reviewList');
+  async function loadShopReviews(shopId,targetId='reviewList'){
+    const box=$(targetId);
     box.innerHTML='<p>กำลังโหลดรีวิว...</p>';
     if(!db){box.innerHTML='<p>ยังไม่มีรีวิว</p>';return;}
 
@@ -1360,6 +1360,7 @@
         $('reviewShopId').value=shopId;
         $('reviewShopName').textContent=[...shops,...shopIndex].find(s=>String(s.id)===String(shopId))?.name||'ร้านค้า';
         openModal('reviewModal');
+        loadShopReviews(shopId,'reviewModalList');
       }
     });
     if(db)db.auth.onAuthStateChange((event)=>{
