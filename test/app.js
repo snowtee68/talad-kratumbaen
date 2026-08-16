@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v5.7.9 Pagination Test loaded');
+  console.info('Talad Krathumbaen Main v5.7.9.1 Pagination Review Fix loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -698,14 +698,36 @@
     const box=$('reviewList');
     box.innerHTML='<p>กำลังโหลดรีวิว...</p>';
     if(!db){box.innerHTML='<p>ยังไม่มีรีวิว</p>';return;}
-    const {data,error}=await db
+
+    const id=String(shopId||'').trim();
+    let {data,error}=await db
       .from('market_reviews')
-      .select('*')
-      .eq('shop_id',shopId)
+      .select('id,shop_id,reviewer_name,rating,comment,status,created_at')
+      .eq('shop_id',id)
       .eq('status','approved')
       .order('created_at',{ascending:false})
       .limit(50);
-    if(error){box.innerHTML=`<p>${esc(error.message)}</p>`;return;}
+
+    // Fallback สำหรับกรณี client/query ไม่คืนแถว ทั้งที่สถิติบอกว่าร้านมีรีวิว
+    if(!error && (!data || !data.length) && (reviewStats[id]?.count||0)>0){
+      const fallback=await db
+        .from('market_reviews')
+        .select('id,shop_id,reviewer_name,rating,comment,status,created_at')
+        .eq('status','approved')
+        .order('created_at',{ascending:false})
+        .limit(500);
+      if(!fallback.error){
+        data=(fallback.data||[]).filter(r=>String(r.shop_id)===id).slice(0,50);
+      }else{
+        error=fallback.error;
+      }
+    }
+
+    if(error){
+      console.error('loadShopReviews failed', {shopId:id,error});
+      box.innerHTML=`<p>โหลดรีวิวไม่สำเร็จ: ${esc(error.message)}</p>`;
+      return;
+    }
     box.innerHTML=(data||[]).length?(data||[]).map(r=>`
       <article class="review-item">
         <div><b>${esc(r.reviewer_name||'สมาชิกตลาด')}</b><span>${stars(r.rating)} ${Number(r.rating).toFixed(1)}</span></div>
