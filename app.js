@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v5.7.8 loaded');
+  console.info('Talad Krathumbaen Main v5.7.8.1 loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -237,6 +237,7 @@
       ${rating.count?`<div class="map-popup-line">⭐ ${rating.average.toFixed(1)} (${rating.count} รีวิว)</div>`:''}
       <div class="map-popup-line ${state.open===true?'open':state.open===false?'closed':''}">${state.open===true?'🟢':state.open===false?'🔴':'🕒'} ${esc(state.text)}</div>
       ${distance==null?'':`<div class="map-popup-line">📏 ห่าง ${esc(formatDistance(distance))}</div>`}
+      ${shop.landmark?`<div class="map-popup-line map-popup-landmark">📍 จุดสังเกต: ${esc(shop.landmark)}</div>`:''}
       ${promo?`<div class="map-popup-promo">🔥 ${esc(promo.discount_text||promo.title||'มีโปรโมชั่น')}</div>`:''}
       <div class="map-popup-actions">
         <button type="button" data-action="details" data-shop-id="${esc(shop.id)}">ดูร้านค้า</button>
@@ -593,6 +594,7 @@
       <span>${rating.count?`${stars(rating.average)} (${rating.count} รีวิว)`:'เป็นคนแรกที่รีวิวร้านนี้'}</span></div>
       <p>${esc(shop.description||'ร้านค้าในตลาดกระทุ่มแบน')}</p>
       ${shop.address?`<p class="detail-address">📍 ${esc(shop.address)}</p>`:''}
+      ${shop.landmark?`<p class="detail-landmark"><b>📍 จุดสังเกต:</b> ${esc(shop.landmark)}</p>`:''}
       ${promo?`<div class="detail-promo"><b>🔥 ${esc(promo.title)}</b><span>${esc(promo.description||'')}</span><small>⏰ ${esc(promotionTimingText(promo))}</small></div>`:''}
       ${deliveryButtons?`<div class="detail-order-grid">${deliveryButtons}</div>`:''}
       <div class="detail-action-grid">${contactButtons}</div>
