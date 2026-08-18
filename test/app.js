@@ -353,32 +353,48 @@
     renderRecommended();
   }
 
-  async function loadPublicShops({reset=false}={}){
+  async function loadPublicShops({reset=false,page=null,scroll=false}={}){
     if(!db){
-      shops=DEMO; shopIndex=DEMO; shopTotalCount=DEMO.length; shopPage=1;
+      shops=DEMO; shopIndex=DEMO; shopTotalCount=DEMO.length; shopPage=0;
       showNotice('กำลังแสดงข้อมูลตัวอย่าง — กรุณาใส่ Supabase URL และ Anon Key ใน config.js');
       renderShops(); renderRecommended(); return;
     }
     if(shopLoading)return;
     shopLoading=true;
     try{
-      if(reset){ shops=[]; shopPage=0; }
+      if(reset) shopPage=0;
+      if(Number.isInteger(page)) shopPage=Math.max(0,page);
+
       const ordered=orderedShopIndex();
       shopTotalCount=ordered.length;
+      const totalPages=Math.max(1,Math.ceil(shopTotalCount/SHOP_PAGE_SIZE));
+      if(shopPage>=totalPages) shopPage=Math.max(0,totalPages-1);
+
       const start=shopPage*SHOP_PAGE_SIZE;
       const pageIds=ordered.slice(start,start+SHOP_PAGE_SIZE).map(shop=>shop.id);
-      if(pageIds.length){
-        const page=await fetchFullShopsByIds(pageIds);
-        const existing=new Set(shops.map(shop=>String(shop.id)));
-        shops=[...shops,...page.filter(shop=>!existing.has(String(shop.id)))];
-        shopPage+=1;
-      }
+      shops=pageIds.length?await fetchFullShopsByIds(pageIds):[];
+
       hideNotice();
       renderShops();
       await loadFeaturedShops();
+      if(scroll) scrollToShopList();
     }finally{
       shopLoading=false;
     }
+  }
+
+  function scrollToShopList(){
+    const target=document.getElementById('shopResultsSection')||document.getElementById('shopGrid');
+    if(!target)return;
+    const top=target.getBoundingClientRect().top+window.scrollY-84;
+    window.scrollTo({top:Math.max(0,top),behavior:'smooth'});
+  }
+
+  async function goToShopPage(page){
+    const totalPages=Math.max(1,Math.ceil(shopTotalCount/SHOP_PAGE_SIZE));
+    const next=Math.min(Math.max(0,page),totalPages-1);
+    if(next===shopPage||shopLoading)return;
+    await loadPublicShops({page:next,scroll:true});
   }
 
   async function getFullShop(shopId){
@@ -1015,19 +1031,55 @@
 
   function renderShops(){
     const shown=shops;
+    const totalPages=Math.max(1,Math.ceil(shopTotalCount/SHOP_PAGE_SIZE));
+    const currentPage=Math.min(shopPage+1,totalPages);
+    const start=shopTotalCount?shopPage*SHOP_PAGE_SIZE+1:0;
+    const end=shopTotalCount?Math.min(shopPage*SHOP_PAGE_SIZE+shown.length,shopTotalCount):0;
+
     $('shopGrid').innerHTML=shown.map(s=>shopCard(s)).join('');
-    $('resultCount').textContent=`พบ ${shopTotalCount} ร้าน • แสดง ${shown.length} ร้าน`;
+    $('resultCount').textContent=shopTotalCount
+      ? `พบ ${shopTotalCount} ร้าน • แสดง ${start}–${end} • หน้า ${currentPage} จาก ${totalPages}`
+      : 'ไม่พบร้านค้า';
     $('shopCount').textContent=shopIndex.length;
     $('emptyState').classList.toggle('hidden',shopTotalCount>0);
 
-    const moreBtn=$('loadMoreBtn');
-    if(moreBtn){
-      moreBtn.classList.toggle('hidden',shown.length>=shopTotalCount||shopLoading);
-      moreBtn.disabled=shopLoading;
-      moreBtn.textContent=shopLoading?'กำลังโหลด...':`ดูร้านเพิ่มเติม (${Math.min(SHOP_PAGE_SIZE,Math.max(0,shopTotalCount-shown.length))} ร้าน)`;
-    }
-
+    renderShopPagination(totalPages,currentPage);
     renderPins(shopIndex);
+  }
+
+  function paginationItems(totalPages,current){
+    if(totalPages<=7)return Array.from({length:totalPages},(_,i)=>i+1);
+    const items=[1];
+    let from=Math.max(2,current-1),to=Math.min(totalPages-1,current+1);
+    if(current<=3)to=4;
+    if(current>=totalPages-2)from=totalPages-3;
+    if(from>2)items.push('…');
+    for(let i=from;i<=to;i++)items.push(i);
+    if(to<totalPages-1)items.push('…');
+    items.push(totalPages);
+    return items;
+  }
+
+  function renderShopPagination(totalPages,currentPage){
+    const pager=$('shopPagination');
+    if(!pager)return;
+    if(shopTotalCount<=SHOP_PAGE_SIZE){
+      pager.innerHTML='';
+      pager.classList.add('hidden');
+      return;
+    }
+    pager.classList.remove('hidden');
+    const pages=paginationItems(totalPages,currentPage).map(item=>item==='…'
+      ? '<span class="page-ellipsis" aria-hidden="true">…</span>'
+      : `<button type="button" class="page-number ${item===currentPage?'active':''}" data-shop-page="${item-1}" ${item===currentPage?'aria-current="page"':''}>${item}</button>`).join('');
+    pager.innerHTML=`
+      <div class="pagination-summary">หน้า <b>${currentPage}</b> จาก <b>${totalPages}</b></div>
+      <div class="pagination-controls">
+        <button type="button" class="page-nav first" data-shop-page="0" ${currentPage===1?'disabled':''}>⏮ หน้าแรก</button>
+        <button type="button" class="page-nav" data-shop-page="${shopPage-1}" ${currentPage===1?'disabled':''}>← ก่อนหน้า</button>
+        <div class="page-numbers" aria-label="เลือกหน้าร้านค้า">${pages}</div>
+        <button type="button" class="page-nav" data-shop-page="${shopPage+1}" ${currentPage===totalPages?'disabled':''}>ถัดไป →</button>
+      </div>`;
   }
 
   function renderPins(list){
@@ -1277,7 +1329,11 @@
     $('reviewForm').addEventListener('submit',submitReview);
     $('openReviewBtn').addEventListener('click',()=>{closeModal('shopDetailModal');openModal('reviewModal');});
     $('showAllPromotionsBtn').addEventListener('click',openAllPromotions);
-    $('loadMoreBtn').addEventListener('click',()=>loadPublicShops());
+    $('shopPagination')?.addEventListener('click',ev=>{
+      const btn=ev.target.closest('[data-shop-page]');
+      if(!btn||btn.disabled)return;
+      goToShopPage(Number(btn.dataset.shopPage));
+    });
     $('shopSort').addEventListener('change',ev=>{
       shopSort=ev.target.value;
       resetShopList();

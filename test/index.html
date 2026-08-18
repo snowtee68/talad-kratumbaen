@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
-  <link rel="stylesheet" href="styles.css?v=5.7.9.3-pagination-merged">
+  <link rel="stylesheet" href="styles.css?v=5.7.9.4-pagination-merged">
 </head>
 <body>
 <header class="site-header">
@@ -53,7 +53,7 @@
     </div>
   </section>
 
-  <section class="container section">
+  <section id="shopResultsSection" class="container section">
     <div class="section-head"><div><span class="eyebrow red">ร้านค้าในตลาด</span><h2>ค้นพบร้านใกล้ตัวคุณ</h2></div><span id="resultCount">กำลังโหลด...</span></div>
     <div class="shop-toolbar">
       <div class="quick-filters" aria-label="ตัวกรองร้านค้า">
@@ -72,7 +72,7 @@
     </div>
     <div id="notice" class="notice hidden"></div>
     <div id="shopGrid" class="grid"></div>
-    <div class="load-more-wrap"><button id="loadMoreBtn" class="load-more hidden" type="button">ดูร้านเพิ่มเติม</button></div>
+    <nav id="shopPagination" class="shop-pagination hidden" aria-label="หน้าร้านค้า"></nav>
     <div id="emptyState" class="empty hidden"><div>🔍</div><h3>ยังไม่พบร้านที่ค้นหา</h3><p>ลองเปลี่ยนคำค้น หมวดหมู่ หรือตัวกรอง</p></div>
   </section>
 
@@ -85,11 +85,11 @@
   </section>
 </main>
 
-<footer><div class="container">ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ <span class="version-badge">Main v5.7.9.3 Pagination Test</span></div></footer>
+<footer><div class="container">ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ <span class="version-badge">Main v5.7.9.4 Page Pagination Test</span></div></footer>
 
 <nav class="floating-navigation" aria-label="ทางลัดหน้าเว็บ">
   <button id="floatingBackBtn" type="button" class="floating-nav-button" aria-label="ย้อนกลับ">← <span>กลับ</span></button>
-  <button id="floatingHomeBtn" type="button" class="floating-nav-button home" aria-label="กลับหน้าแรก">🏠 <span>หน้าแรก</span></button>
+  <button id="floatingHomeBtn" type="button" class="floating-nav-button home" aria-label="กลับหน้าหลัก">🏠 <span>หน้าหลัก</span></button>
 </nav>
 
 
@@ -126,6 +126,6 @@
 <script src="config.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-<script src="app.js?v=5.7.9.2-pagination-review-modal"></script>
+<script src="app.js?v=5.7.9.4-page-pagination"></script>
 </body>
 </html>
