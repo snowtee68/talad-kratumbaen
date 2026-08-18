@@ -261,3 +261,25 @@ fieldset{border:1px solid var(--line);border-radius:14px;padding:14px}legend{fon
 .review-modal-divider{border:0;border-top:1px solid rgba(64,43,43,.12);margin:18px 0}
 #reviewModal .review-list{max-height:260px;overflow:auto;padding-right:4px}
 #reviewModal .review-item{margin-bottom:10px}
+
+
+/* v5.7.9.3 — merged from Main v5.7.8.1: full promotion artwork + landmarks */
+.promo-image{height:auto;aspect-ratio:4/3;background:#fff;overflow:hidden}
+.promo-image img{display:block;width:100%;height:100%;object-fit:contain;background:#fff}
+.promotion-image-preview img{object-fit:contain;background:#fff}
+.promotion-detail-image{height:auto;max-height:none;object-fit:contain;background:#fff}
+.detail-landmark{margin:8px 0;padding:10px 12px;border-radius:12px;background:#fff7ef;line-height:1.55}
+.map-popup-landmark{margin-top:5px;line-height:1.4}
+@media (max-width:700px){
+  .promo-image{width:100%;height:auto!important;aspect-ratio:4/3;min-height:0;max-height:none}
+  .promo-image img{width:100%;height:100%!important;object-fit:contain}
+}
+
+/* v5.7.9.3 — merged from Main v5.7.8.2: single map layout */
+.hero-grid{grid-template-columns:1fr}
+.hero-grid>div:first-child{max-width:900px}
+.map-heading-copy{min-width:0}
+.map-published-count{display:inline-flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-top:12px;padding:10px 14px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);border-radius:14px}
+.map-published-count span,.map-published-count small{color:#e5d9d9;font-size:13px}
+.map-published-count strong{font-size:28px;line-height:1;color:#fff}
+@media(max-width:640px){.map-published-count{width:100%;justify-content:flex-start}.map-published-count strong{font-size:24px}}

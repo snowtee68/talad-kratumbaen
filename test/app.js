@@ -12,7 +12,7 @@
 
   let shops = [], shopIndex = [], featuredShops = [], favoriteShops = [], categories = [], promotions = [], reviewStats = {}, favorites = new Set(), currentCategory = 'all', session = null, profile = null, shopSort = 'recommended', shopOnlyOpen = false, shopOnlyPromo = false, shopTotalCount = 0, shopPage = 0, shopLoading = false;
   const SHOP_PAGE_SIZE = 10;
-  let map, miniMap, mapMarkers = [], miniMarkers = [], mapMarkerLayer = null, userLocation = null, userMarker = null, userAccuracyCircle = null, mapFilterMode = 'all', mapCategoryFilter = 'all';
+  let map, mapMarkers = [], mapMarkerLayer = null, userLocation = null, userMarker = null, userAccuracyCircle = null, mapFilterMode = 'all', mapCategoryFilter = 'all';
   const $ = id => document.getElementById(id);
 
   const esc = (value='') => String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]));
@@ -238,6 +238,7 @@
       ${rating.count?`<div class="map-popup-line">⭐ ${rating.average.toFixed(1)} (${rating.count} รีวิว)</div>`:''}
       <div class="map-popup-line ${state.open===true?'open':state.open===false?'closed':''}">${state.open===true?'🟢':state.open===false?'🔴':'🕒'} ${esc(state.text)}</div>
       ${distance==null?'':`<div class="map-popup-line">📏 ห่าง ${esc(formatDistance(distance))}</div>`}
+      ${shop.landmark?`<div class="map-popup-line map-popup-landmark">📍 จุดสังเกต: ${esc(shop.landmark)}</div>`:''}
       ${promo?`<div class="map-popup-promo">🔥 ${esc(promo.discount_text||promo.title||'มีโปรโมชั่น')}</div>`:''}
       <div class="map-popup-actions">
         <button type="button" data-action="details" data-shop-id="${esc(shop.id)}">ดูร้านค้า</button>
@@ -267,9 +268,7 @@
   function initMaps(){
     const center=[13.6549,100.2639], tiles='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
     map=L.map('map').setView(center,16);
-    miniMap=L.map('miniMap',{zoomControl:false,attributionControl:false}).setView(center,16);
     L.tileLayer(tiles,{attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
-    L.tileLayer(tiles).addTo(miniMap);
     mapMarkerLayer=typeof L.markerClusterGroup==='function'
       ?L.markerClusterGroup({showCoverageOnHover:false,maxClusterRadius:46,spiderfyOnMaxZoom:true})
       :L.layerGroup();
@@ -294,7 +293,7 @@
   async function loadShopIndex(){
     if(!db){ shopIndex=DEMO; return; }
     const {data,error}=await db.from('market_shops')
-      .select('id,name,description,address,category_id,created_at,featured,latitude,longitude,opening_hours,temporarily_closed,open_24_hours,category:market_categories(id,name,icon)')
+      .select('id,name,description,address,landmark,category_id,created_at,featured,latitude,longitude,opening_hours,temporarily_closed,open_24_hours,category:market_categories(id,name,icon)')
       .eq('status','approved')
       .order('created_at',{ascending:false});
     if(error)throw error;
@@ -683,6 +682,7 @@
       <span>${rating.count?`${stars(rating.average)} (${rating.count} รีวิว)`:'เป็นคนแรกที่รีวิวร้านนี้'}</span></div>
       <p>${esc(shop.description||'ร้านค้าในตลาดกระทุ่มแบน')}</p>
       ${shop.address?`<p class="detail-address">📍 ${esc(shop.address)}</p>`:''}
+      ${shop.landmark?`<p class="detail-landmark"><b>📍 จุดสังเกต:</b> ${esc(shop.landmark)}</p>`:''}
       ${promo?`<div class="detail-promo"><b>🔥 ${esc(promo.title)}</b><span>${esc(promo.description||'')}</span><small>⏰ ${esc(promotionTimingText(promo))}</small></div>`:''}
       ${deliveryButtons?`<div class="detail-order-grid">${deliveryButtons}</div>`:''}
       <div class="detail-action-grid">${contactButtons}</div>
@@ -1032,27 +1032,20 @@
 
   function renderPins(list){
     if(mapMarkerLayer)mapMarkerLayer.clearLayers();
-    miniMarkers.forEach(m=>miniMap.removeLayer(m));
     mapMarkers=[];
-    miniMarkers=[];
     const valid=filteredMapShops(list).filter(s=>Number.isFinite(Number(s.latitude))&&Number.isFinite(Number(s.longitude)));
     valid.forEach(shop=>{
       const ll=[+shop.latitude,+shop.longitude];
       const marker=L.marker(ll,{icon:shopMarkerIcon(shop)}).bindPopup(markerPopup(shop),{maxWidth:290});
       mapMarkers.push(marker);
       mapMarkerLayer.addLayer(marker);
-      const miniColor=shop.featured?'#d59a00':visiblePromotionForShop(shop.id)?'#b31217':'#d7262e';
-      const mini=L.circleMarker(ll,{radius:8,color:'#fff',weight:2,fillColor:miniColor,fillOpacity:1}).bindPopup(`<b>${esc(shop.name)}</b><br>${esc(shop.category?.name||'ร้านค้า')}`);
-      miniMarkers.push(mini.addTo(miniMap));
     });
     $('mapResultCount') && ($('mapResultCount').textContent=`แสดง ${valid.length} ร้านบนแผนที่`);
     if(valid.length>1){
       const bounds=L.latLngBounds(valid.map(s=>[+s.latitude,+s.longitude]));
       map.fitBounds(bounds.pad(.22));
-      miniMap.fitBounds(bounds.pad(.22));
     }else if(valid.length===1){
       map.setView([+valid[0].latitude,+valid[0].longitude],17);
-      miniMap.setView([+valid[0].latitude,+valid[0].longitude],16);
     }
   }
 
