@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v5.7.9.7 Production loaded');
+  console.info('Talad Krathumbaen Main v5.7.9.8 Analytics loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -9,6 +9,45 @@
   );
   const db = configured ? supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY) : null;
   const DEMO = [{id:'demo',name:'Snowtee ตลาดกระทุ่มแบน',description:'เครื่องดื่ม ไอศกรีมซอฟต์เสิร์ฟ และเบเกอรี่ บรรยากาศริมคลอง',category:{name:'เครื่องดื่ม'},address:'ตลาดกระทุ่มแบน จังหวัดสมุทรสาคร',phone:'0642211876',facebook:'https://facebook.com/snowtee68',line:'snowtee68',latitude:13.6549,longitude:100.2639,status:'approved',featured:true,cover_url:null}];
+
+  const ANALYTICS_EVENTS=new Set(['page_view','shop_view','navigate_click','phone_click','order_click']);
+  let analyticsDays=7;
+  function analyticsSessionId(){
+    const key='talad_analytics_session_v1';
+    try{
+      let item=JSON.parse(localStorage.getItem(key)||'null');
+      const now=Date.now();
+      if(!item?.id||!item?.created||now-item.created>24*60*60*1000){item={id:crypto.randomUUID(),created:now};localStorage.setItem(key,JSON.stringify(item));}
+      return item.id;
+    }catch(_){return 'session-'+Math.random().toString(36).slice(2)+Date.now().toString(36);}
+  }
+  async function trackAnalytics(eventType,shopId=null){
+    if(!db||!ANALYTICS_EVENTS.has(eventType))return;
+    try{await db.rpc('track_market_event',{p_event_type:eventType,p_shop_id:shopId||null,p_session_id:analyticsSessionId()});}
+    catch(err){console.debug('Analytics skipped',err?.message||err);}
+  }
+  function analyticsMetricLabel(type){return ({page_view:'เปิดเว็บ',shop_view:'เปิดดูร้าน',navigate_click:'กดนำทาง',phone_click:'กดโทร',order_click:'กดสั่งซื้อ'})[type]||type;}
+  async function loadAnalyticsDashboard(days=analyticsDays){
+    if(!db||profile?.role!=='admin')return;
+    analyticsDays=days;
+    const cards=$('analyticsCards'),top=$('analyticsTopShops');
+    if(cards)cards.innerHTML='<div class="analytics-loading">กำลังโหลดสถิติ...</div>';
+    if(top)top.innerHTML='';
+    try{
+      const [{data:summary,error:e1},{data:shopsData,error:e2}]=await Promise.all([
+        db.rpc('market_analytics_summary',{p_days:days}),
+        db.rpc('market_analytics_top_shops',{p_days:days,p_limit:10})
+      ]);
+      if(e1)throw e1;if(e2)throw e2;
+      const rows=summary||[],byType=Object.fromEntries(rows.map(r=>[r.event_type,r]));
+      const unique=Math.max(...rows.map(r=>Number(r.unique_sessions||0)),0);
+      const metrics=[['ผู้เข้าชมโดยประมาณ',unique,'sessions'],['เปิดเว็บ',Number(byType.page_view?.event_count||0),'page_view'],['เปิดดูร้าน',Number(byType.shop_view?.event_count||0),'shop_view'],['กดนำทาง',Number(byType.navigate_click?.event_count||0),'navigate_click'],['กดโทร',Number(byType.phone_click?.event_count||0),'phone_click'],['กดสั่งซื้อ',Number(byType.order_click?.event_count||0),'order_click']];
+      if(cards)cards.innerHTML=metrics.map(([label,value,key])=>`<div class="analytics-card"><small>${esc(label)}</small><strong>${Number(value).toLocaleString('th-TH')}</strong><span>${key==='sessions'?'คนโดยประมาณ':'ครั้ง'}</span></div>`).join('');
+      if(top)top.innerHTML=(shopsData||[]).length?(shopsData||[]).map((r,i)=>`<div class="analytics-shop-row"><b>${i+1}. ${esc(r.shop_name||'ร้านค้า')}</b><span>${Number(r.view_count||0).toLocaleString('th-TH')} ครั้ง</span></div>`).join(''):'<p class="muted">ยังไม่มีข้อมูลการเปิดดูร้านในช่วงนี้</p>';
+      document.querySelectorAll('[data-analytics-days]').forEach(b=>b.classList.toggle('active',Number(b.dataset.analyticsDays)===days));
+    }catch(err){if(cards)cards.innerHTML=`<div class="analytics-error">ยังโหลดสถิติไม่ได้: ${esc(err.message||'กรุณาตรวจสอบ SQL Analytics')}</div>`;}
+  }
+
 
   let shops = [], shopIndex = [], featuredShops = [], favoriteShops = [], categories = [], promotions = [], reviewStats = {}, favorites = new Set(), currentCategory = 'all', session = null, profile = null, shopSort = 'recommended', shopOnlyOpen = false, shopOnlyPromo = false, shopTotalCount = 0, shopPage = 0, shopLoading = false;
   const SHOP_PAGE_SIZE = 10;
@@ -678,6 +717,7 @@
   }
 
   async function openShopDetails(shopId){
+    trackAnalytics('shop_view',shopId);
     let shop=null;
     try{shop=await getFullShop(shopId);}catch(err){console.error(err);}
     if(!shop)return alert('ไม่พบข้อมูลร้านค้านี้');
@@ -1145,6 +1185,7 @@
     $('myShopGrid').innerHTML=(mine||[]).length?(mine||[]).map(s=>shopCard(s,true)).join(''):'<p>ยังไม่มีร้านในบัญชีนี้</p>';
     $('adminPanel').classList.toggle('hidden',profile?.role!=='admin');
     if(profile?.role==='admin'){
+      loadAnalyticsDashboard(analyticsDays);
       const [{data:pending,error:pendingError},{data:allShops,error:allShopsError}]=await Promise.all([
         db.from('market_shops').select('*, category:market_categories(id,name,icon)').eq('status','pending').order('created_at'),
         db.from('market_shops').select('*, category:market_categories(id,name,icon)').order('created_at',{ascending:false})
@@ -1288,6 +1329,7 @@
     document.querySelectorAll('[data-close]').forEach(x=>x.addEventListener('click',()=>closeModal(x.dataset.close)));
     $('floatingHomeBtn')?.addEventListener('click',goHome);
     $('floatingBackBtn')?.addEventListener('click',goBack);
+    document.querySelectorAll('[data-analytics-days]').forEach(btn=>btn.addEventListener('click',()=>loadAnalyticsDashboard(Number(btn.dataset.analyticsDays)||7)));
     $('accountBtn').addEventListener('click',()=>session?$('dashboard').scrollIntoView({behavior:'smooth'}):openModal('authModal'));
     $('addShopBtn').addEventListener('click',()=>{if(!session)return openModal('authModal');$('shopForm').reset();fillOpeningHours($('shopForm'),{});$('shopFormTitle').textContent='เพิ่มร้านของฉัน';openModal('shopModal');});
     let searchTimer=null;
@@ -1445,6 +1487,17 @@
         renderPins(shopIndex);
         return;
       }
+      const clickedLink=ev.target.closest('a');
+      if(clickedLink){
+        const href=clickedLink.getAttribute('href')||'';
+        const analyticsCard=clickedLink.closest('.card[data-id]');
+        const currentDetailShopId=$('reviewShopId')?.value||null;
+        const analyticsShopId=analyticsCard?.dataset.id||currentDetailShopId||null;
+        const text=(clickedLink.textContent||'').toLowerCase();
+        if(href.startsWith('tel:'))trackAnalytics('phone_click',analyticsShopId);
+        else if(text.includes('นำทาง')||text.includes('google maps')||clickedLink.classList.contains('go'))trackAnalytics('navigate_click',analyticsShopId);
+        else if(text.includes('สั่ง line man')||text.includes('สั่ง grab')||text.includes('สั่ง shopee')||clickedLink.classList.contains('order-btn')||clickedLink.classList.contains('detail-order'))trackAnalytics('order_click',analyticsShopId);
+      }
       const action=ev.target.dataset.action;
       const explicitShopId=ev.target.dataset.shopId;
       const card=ev.target.closest('.card[data-id]');
@@ -1481,6 +1534,7 @@
 
   async function start(){
     renderHoursEditor();initMaps();bindEvents();
+    trackAnalytics('page_view');
     try{await loadCategories();await loadReviewStats();await loadPromotions();await loadShopIndex();await loadPublicShops({reset:true});renderShops();renderRecommended();await refreshAuth();await handleRecoveryLink();}
     catch(err){console.error(err);showNotice('เกิดข้อผิดพลาด: '+err.message,true);}
   }
