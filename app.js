@@ -11,7 +11,7 @@
   const DEMO = [{id:'demo',name:'Snowtee ตลาดกระทุ่มแบน',description:'เครื่องดื่ม ไอศกรีมซอฟต์เสิร์ฟ และเบเกอรี่ บรรยากาศริมคลอง',category:{name:'เครื่องดื่ม'},address:'ตลาดกระทุ่มแบน จังหวัดสมุทรสาคร',phone:'0642211876',facebook:'https://facebook.com/snowtee68',line:'snowtee68',latitude:13.6549,longitude:100.2639,status:'approved',featured:true,cover_url:null}];
 
   let shops = [], categories = [], promotions = [], reviewStats = {}, favorites = new Set(), currentCategory = 'all', session = null, profile = null, visibleShopCount = 10, shopSort = 'recommended', shopOnlyOpen = false, shopOnlyPromo = false;
-  let map, miniMap, mapMarkers = [], miniMarkers = [], mapMarkerLayer = null, userLocation = null, userMarker = null, userAccuracyCircle = null, mapFilterMode = 'all', mapCategoryFilter = 'all';
+  let map, mapMarkers = [], mapMarkerLayer = null, userLocation = null, userMarker = null, userAccuracyCircle = null, mapFilterMode = 'all', mapCategoryFilter = 'all';
   const $ = id => document.getElementById(id);
 
   const esc = (value='') => String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]));
@@ -267,9 +267,7 @@
   function initMaps(){
     const center=[13.6549,100.2639], tiles='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
     map=L.map('map').setView(center,16);
-    miniMap=L.map('miniMap',{zoomControl:false,attributionControl:false}).setView(center,16);
     L.tileLayer(tiles,{attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
-    L.tileLayer(tiles).addTo(miniMap);
     mapMarkerLayer=typeof L.markerClusterGroup==='function'
       ?L.markerClusterGroup({showCoverageOnHover:false,maxClusterRadius:46,spiderfyOnMaxZoom:true})
       :L.layerGroup();
@@ -949,27 +947,20 @@
 
   function renderPins(list){
     if(mapMarkerLayer)mapMarkerLayer.clearLayers();
-    miniMarkers.forEach(m=>miniMap.removeLayer(m));
     mapMarkers=[];
-    miniMarkers=[];
     const valid=filteredMapShops(list).filter(s=>Number.isFinite(Number(s.latitude))&&Number.isFinite(Number(s.longitude)));
     valid.forEach(shop=>{
       const ll=[+shop.latitude,+shop.longitude];
       const marker=L.marker(ll,{icon:shopMarkerIcon(shop)}).bindPopup(markerPopup(shop),{maxWidth:290});
       mapMarkers.push(marker);
       mapMarkerLayer.addLayer(marker);
-      const miniColor=shop.featured?'#d59a00':visiblePromotionForShop(shop.id)?'#b31217':'#d7262e';
-      const mini=L.circleMarker(ll,{radius:8,color:'#fff',weight:2,fillColor:miniColor,fillOpacity:1}).bindPopup(`<b>${esc(shop.name)}</b><br>${esc(shop.category?.name||'ร้านค้า')}`);
-      miniMarkers.push(mini.addTo(miniMap));
     });
     $('mapResultCount') && ($('mapResultCount').textContent=`แสดง ${valid.length} ร้านบนแผนที่`);
     if(valid.length>1){
       const bounds=L.latLngBounds(valid.map(s=>[+s.latitude,+s.longitude]));
       map.fitBounds(bounds.pad(.22));
-      miniMap.fitBounds(bounds.pad(.22));
     }else if(valid.length===1){
       map.setView([+valid[0].latitude,+valid[0].longitude],17);
-      miniMap.setView([+valid[0].latitude,+valid[0].longitude],16);
     }
   }
 

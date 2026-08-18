@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
-  <link rel="stylesheet" href="styles.css?v=5.7.8.1">
+  <link rel="stylesheet" href="styles.css?v=5.7.8.2">
 </head>
 <body>
 <header class="site-header">
@@ -35,12 +35,6 @@
         <p>รวมร้านอาหาร เครื่องดื่ม แฟชั่น และบริการ พร้อมแผนที่ เบอร์โทร และเส้นทาง</p>
         <div class="search-box"><span>🔎</span><input id="searchInput" placeholder="ค้นหาชื่อร้าน สินค้า หรือหมวดหมู่"><button id="searchBtn">ค้นหา</button></div>
         <div id="categoryButtons" class="chips"></div>
-      </div>
-      <div class="hero-card">
-        <span>ร้านที่เผยแพร่แล้ว</span>
-        <strong id="shopCount">0</strong>
-        <small>ร้านค้า</small>
-        <div id="miniMap"></div>
       </div>
     </div>
   </section>
@@ -82,7 +76,7 @@
     <div id="emptyState" class="empty hidden"><div>🔍</div><h3>ยังไม่พบร้านที่ค้นหา</h3><p>ลองเปลี่ยนคำค้น หมวดหมู่ หรือตัวกรอง</p></div>
   </section>
 
-  <section class="map-section"><div class="container"><div class="map-heading"><div><span class="eyebrow">แผนที่ร้านค้า</span><h2>กดหมุดเพื่อดูรายละเอียดร้าน</h2><small id="mapResultCount" class="map-result-count"></small></div><button id="locateMapBtn" class="map-location-button" type="button">🔵 ตำแหน่งของฉัน</button></div><div id="mapFilterBar" class="map-filter-bar" aria-label="ตัวกรองหมุดร้านค้า"></div><div class="map-legend"><span><i class="legend-dot red"></i> ร้านทั่วไป</span><span><i class="legend-dot gold"></i> ร้านแนะนำ</span><span><i class="legend-dot promo"></i> มีโปรโมชั่น</span><span><i class="legend-dot blue"></i> ตำแหน่งของคุณ</span></div><div id="map"></div><p class="map-help">จุดสีน้ำเงินคือตำแหน่งปัจจุบันของคุณ การแสดงผลต้องได้รับอนุญาต Location จากอุปกรณ์</p></div></section>
+  <section class="map-section"><div class="container"><div class="map-heading"><div class="map-heading-copy"><span class="eyebrow">แผนที่ร้านค้า</span><h2>กดหมุดเพื่อดูรายละเอียดร้าน</h2><div class="map-published-count" aria-live="polite"><span>ร้านค้าที่เผยแพร่แล้ว</span><strong id="shopCount">0</strong><small>ร้านค้า</small></div><small id="mapResultCount" class="map-result-count"></small></div><button id="locateMapBtn" class="map-location-button" type="button">🔵 ตำแหน่งของฉัน</button></div><div id="mapFilterBar" class="map-filter-bar" aria-label="ตัวกรองหมุดร้านค้า"></div><div class="map-legend"><span><i class="legend-dot red"></i> ร้านทั่วไป</span><span><i class="legend-dot gold"></i> ร้านแนะนำ</span><span><i class="legend-dot promo"></i> มีโปรโมชั่น</span><span><i class="legend-dot blue"></i> ตำแหน่งของคุณ</span></div><div id="map"></div><p class="map-help">จุดสีน้ำเงินคือตำแหน่งปัจจุบันของคุณ การแสดงผลต้องได้รับอนุญาต Location จากอุปกรณ์</p></div></section>
 
   <section id="dashboard" class="container section hidden">
     <div class="section-head"><div><span class="eyebrow red">บัญชีของฉัน</span><h2 id="dashboardTitle">ร้านของฉัน</h2></div><button id="signOutBtn" class="danger">ออกจากระบบ</button></div>
@@ -91,7 +85,7 @@
   </section>
 </main>
 
-<footer><div class="container">ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ <span class="version-badge">Main v5.7.8.1</span></div></footer>
+<footer><div class="container">ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ <span class="version-badge">Main v5.7.8.2</span></div></footer>
 
 <nav class="floating-navigation" aria-label="ทางลัดหน้าเว็บ">
   <button id="floatingBackBtn" type="button" class="floating-nav-button" aria-label="ย้อนกลับ">← <span>กลับ</span></button>
@@ -132,6 +126,6 @@
 <script src="config.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-<script src="app.js?v=5.7.8.1"></script>
+<script src="app.js?v=5.7.8.2"></script>
 </body>
 </html>
