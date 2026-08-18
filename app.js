@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v5.7.9.6 Production loaded');
+  console.info('Talad Krathumbaen Main v5.7.9.7 Production loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -1145,8 +1145,15 @@
     $('myShopGrid').innerHTML=(mine||[]).length?(mine||[]).map(s=>shopCard(s,true)).join(''):'<p>ยังไม่มีร้านในบัญชีนี้</p>';
     $('adminPanel').classList.toggle('hidden',profile?.role!=='admin');
     if(profile?.role==='admin'){
-      const {data:pending}=await db.from('market_shops').select('*, category:market_categories(id,name,icon)').eq('status','pending').order('created_at');
+      const [{data:pending,error:pendingError},{data:allShops,error:allShopsError}]=await Promise.all([
+        db.from('market_shops').select('*, category:market_categories(id,name,icon)').eq('status','pending').order('created_at'),
+        db.from('market_shops').select('*, category:market_categories(id,name,icon)').order('created_at',{ascending:false})
+      ]);
+      if(pendingError)showNotice(pendingError.message,true);
+      if(allShopsError)showNotice(allShopsError.message,true);
       $('pendingGrid').innerHTML=(pending||[]).length?(pending||[]).map(s=>shopCard(s,true)).join(''):'<p>ไม่มีร้านรออนุมัติ</p>';
+      const adminAllGrid=$('adminAllGrid');
+      if(adminAllGrid)adminAllGrid.innerHTML=(allShops||[]).length?(allShops||[]).map(s=>shopCard(s,true)).join(''):'<p>ยังไม่มีร้านค้า</p>';
     }
   }
 
@@ -1181,15 +1188,28 @@
     const existingId=String(fd.get('id')||'').trim();
     const id=existingId||crypto.randomUUID();
     const file=fd.get('cover');
-    const existingShop=existingId?shops.find(s=>s.id===existingId):null;
+    let existingShop=null;
+    if(existingId){
+      const {data:existingData,error:existingError}=await db.from('market_shops').select('*').eq('id',existingId).maybeSingle();
+      if(existingError)return alert('โหลดข้อมูลร้านเดิมไม่สำเร็จ: '+existingError.message);
+      existingShop=existingData;
+      if(!existingShop)return alert('ไม่พบร้านที่ต้องการแก้ไข');
+      if(profile?.role!=='admin'&&existingShop.owner_id!==session.user.id)return alert('คุณไม่มีสิทธิ์แก้ไขร้านนี้');
+    }
     const oldCoverUrl=existingShop?.cover_url||'';
-    const payload={name:String(fd.get('name')||'').trim(),category_id:fd.get('category_id'),description:fd.get('description')||null,address:fd.get('address')||null,zone:fd.get('zone')||null,lock_number:fd.get('lock_number')||null,floor:fd.get('floor')||null,landmark:fd.get('landmark')||null,phone:fd.get('phone')||null,email:fd.get('email')||null,line:fd.get('line')||null,facebook:fd.get('facebook')||null,tiktok:fd.get('tiktok')||null,instagram:fd.get('instagram')||null,website:fd.get('website')||null,latitude:fd.get('latitude')?Number(fd.get('latitude')):null,longitude:fd.get('longitude')?Number(fd.get('longitude')):null,opening_hours:readOpeningHours(form),temporarily_closed:form.elements.temporarily_closed.checked,open_24_hours:form.elements.open_24_hours.checked,delivery:form.elements.delivery.checked,lineman:form.elements.lineman.checked,grab:form.elements.grab.checked,shopeefood:form.elements.shopeefood.checked,lineman_url:fd.get('lineman_url')||null,grab_url:fd.get('grab_url')||null,shopeefood_url:fd.get('shopeefood_url')||null,qr_payment:form.elements.qr_payment.checked,card_payment:form.elements.card_payment.checked,parking:form.elements.parking.checked,pet_friendly:form.elements.pet_friendly.checked,wheelchair_accessible:form.elements.wheelchair_accessible.checked,owner_id:session.user.id};
+    const ownerId=existingShop?.owner_id||session.user.id;
+    const payload={name:String(fd.get('name')||'').trim(),category_id:fd.get('category_id'),description:fd.get('description')||null,address:fd.get('address')||null,zone:fd.get('zone')||null,lock_number:fd.get('lock_number')||null,floor:fd.get('floor')||null,landmark:fd.get('landmark')||null,phone:fd.get('phone')||null,email:fd.get('email')||null,line:fd.get('line')||null,facebook:fd.get('facebook')||null,tiktok:fd.get('tiktok')||null,instagram:fd.get('instagram')||null,website:fd.get('website')||null,latitude:fd.get('latitude')?Number(fd.get('latitude')):null,longitude:fd.get('longitude')?Number(fd.get('longitude')):null,opening_hours:readOpeningHours(form),temporarily_closed:form.elements.temporarily_closed.checked,open_24_hours:form.elements.open_24_hours.checked,delivery:form.elements.delivery.checked,lineman:form.elements.lineman.checked,grab:form.elements.grab.checked,shopeefood:form.elements.shopeefood.checked,lineman_url:fd.get('lineman_url')||null,grab_url:fd.get('grab_url')||null,shopeefood_url:fd.get('shopeefood_url')||null,qr_payment:form.elements.qr_payment.checked,card_payment:form.elements.card_payment.checked,parking:form.elements.parking.checked,pet_friendly:form.elements.pet_friendly.checked,wheelchair_accessible:form.elements.wheelchair_accessible.checked,owner_id:ownerId};
     const btn=form.querySelector('button[type=submit]');btn.disabled=true;btn.textContent='กำลังบันทึก...';
     try{
       if(file&&file.size)payload.cover_url=await uploadCover(file,id);
-      const result=existingId
-        ? await db.from('market_shops').update(payload).eq('id',existingId).eq('owner_id',session.user.id)
-        : await db.from('market_shops').insert({...payload,id,status:'pending'});
+      let result;
+      if(existingId){
+        let updateQuery=db.from('market_shops').update(payload).eq('id',existingId);
+        if(profile?.role!=='admin')updateQuery=updateQuery.eq('owner_id',session.user.id);
+        result=await updateQuery;
+      }else{
+        result=await db.from('market_shops').insert({...payload,id,status:'pending'});
+      }
       if(result.error){if(payload.cover_url)await removeStoredImage(payload.cover_url,'shop-images');throw result.error;}
       if(payload.cover_url&&oldCoverUrl&&payload.cover_url!==oldCoverUrl)await removeStoredImage(oldCoverUrl,'shop-images');
       form.reset();closeModal('shopModal');
@@ -1202,7 +1222,8 @@
 
   async function editShop(id){
     const {data,error}=await db.from('market_shops').select('*').eq('id',id).single();if(error)return alert(error.message);
-    const f=$('shopForm');Object.entries(data).forEach(([k,v])=>{if(!f.elements[k]||k==='cover'||k==='opening_hours')return;if(f.elements[k].type==='checkbox')f.elements[k].checked=Boolean(v);else f.elements[k].value=v??'';});fillOpeningHours(f,data.opening_hours||{});$('shopFormTitle').textContent='แก้ไขข้อมูลร้าน';openModal('shopModal');
+    if(profile?.role!=='admin'&&data.owner_id!==session?.user?.id)return alert('คุณไม่มีสิทธิ์แก้ไขร้านนี้');
+    const f=$('shopForm');Object.entries(data).forEach(([k,v])=>{if(!f.elements[k]||k==='cover'||k==='opening_hours')return;if(f.elements[k].type==='checkbox')f.elements[k].checked=Boolean(v);else f.elements[k].value=v??'';});fillOpeningHours(f,data.opening_hours||{});$('shopFormTitle').textContent=profile?.role==='admin'&&data.owner_id!==session?.user?.id?'แก้ไขข้อมูลร้าน (Admin)':'แก้ไขข้อมูลร้าน';openModal('shopModal');
   }
   async function setFeatured(id,featured){
     const {error}=await db.from('market_shops').update({featured}).eq('id',id);

@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
-  <link rel="stylesheet" href="styles.css?v=5.7.9.6-production">
+  <link rel="stylesheet" href="styles.css?v=5.7.9.7-production">
 </head>
 <body>
 <header class="site-header">
@@ -80,12 +80,12 @@
 
   <section id="dashboard" class="container section hidden">
     <div class="section-head"><div><span class="eyebrow red">บัญชีของฉัน</span><h2 id="dashboardTitle">ร้านของฉัน</h2></div><button id="signOutBtn" class="danger">ออกจากระบบ</button></div>
-    <div id="adminPanel" class="hidden"><h3>ร้านที่รออนุมัติ</h3><div id="pendingGrid" class="grid compact"></div></div>
+    <div id="adminPanel" class="hidden"><h3>ร้านที่รออนุมัติ</h3><div id="pendingGrid" class="grid compact"></div><h3>ร้านค้าทั้งหมด (Admin)</h3><p class="muted">แอดมินสามารถแก้ไขข้อมูลร้าน หมวดหมู่ จุดสังเกต พิกัด และช่องทางติดต่อได้ โดยเจ้าของร้านเดิมยังคงเป็นเจ้าของร้าน</p><div id="adminAllGrid" class="grid compact"></div></div>
     <h3>ร้านที่ฉันดูแล</h3><div id="myShopGrid" class="grid compact"></div>
   </section>
 </main>
 
-<footer><div class="container">ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ <span class="version-badge">Main v5.7.9.6</span></div></footer>
+<footer><div class="container">ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ <span class="version-badge">Main v5.7.9.7</span></div></footer>
 
 <nav class="floating-navigation" aria-label="ทางลัดหน้าเว็บ">
   <button id="floatingBackBtn" type="button" class="floating-nav-button" aria-label="ย้อนกลับ">← <span>กลับ</span></button>
@@ -126,6 +126,6 @@
 <script src="config.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-<script src="app.js?v=5.7.9.6-production"></script>
+<script src="app.js?v=5.7.9.7-production"></script>
 </body>
 </html>
