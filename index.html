@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
-  <link rel="stylesheet" href="styles.css?v=5.7.8.2">
+  <link rel="stylesheet" href="styles.css?v=5.7.9.6-production">
 </head>
 <body>
 <header class="site-header">
@@ -53,7 +53,7 @@
     </div>
   </section>
 
-  <section class="container section">
+  <section id="shopResultsSection" class="container section">
     <div class="section-head"><div><span class="eyebrow red">ร้านค้าในตลาด</span><h2>ค้นพบร้านใกล้ตัวคุณ</h2></div><span id="resultCount">กำลังโหลด...</span></div>
     <div class="shop-toolbar">
       <div class="quick-filters" aria-label="ตัวกรองร้านค้า">
@@ -72,7 +72,7 @@
     </div>
     <div id="notice" class="notice hidden"></div>
     <div id="shopGrid" class="grid"></div>
-    <div class="load-more-wrap"><button id="loadMoreBtn" class="load-more hidden" type="button">ดูร้านเพิ่มเติม</button></div>
+    <nav id="shopPagination" class="shop-pagination hidden" aria-label="หน้าร้านค้า"></nav>
     <div id="emptyState" class="empty hidden"><div>🔍</div><h3>ยังไม่พบร้านที่ค้นหา</h3><p>ลองเปลี่ยนคำค้น หมวดหมู่ หรือตัวกรอง</p></div>
   </section>
 
@@ -85,11 +85,11 @@
   </section>
 </main>
 
-<footer><div class="container">ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ <span class="version-badge">Main v5.7.8.2</span></div></footer>
+<footer><div class="container">ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ <span class="version-badge">Main v5.7.9.6</span></div></footer>
 
 <nav class="floating-navigation" aria-label="ทางลัดหน้าเว็บ">
   <button id="floatingBackBtn" type="button" class="floating-nav-button" aria-label="ย้อนกลับ">← <span>กลับ</span></button>
-  <button id="floatingHomeBtn" type="button" class="floating-nav-button home" aria-label="กลับหน้าแรก">🏠 <span>หน้าแรก</span></button>
+  <button id="floatingHomeBtn" type="button" class="floating-nav-button home" aria-label="กลับหน้าหลัก">🏠 <span>หน้าหลัก</span></button>
 </nav>
 
 
@@ -102,7 +102,7 @@
 <label class="full">รายละเอียดร้าน<textarea name="description" rows="3"></textarea></label><label class="full">ที่อยู่<input name="address"></label>
 <label>โซนตลาด<input name="zone" placeholder="เช่น โซน A"></label><label>เลขล็อก<input name="lock_number" placeholder="เช่น A-12"></label><label>ชั้น<input name="floor" placeholder="เช่น ชั้น 1"></label><label>จุดสังเกต<input name="landmark"></label>
 <label>เบอร์โทร<input name="phone"></label><label>อีเมลร้าน<input name="email" type="email"></label><label>LINE<input name="line"></label><label>Facebook<input name="facebook"></label><label>TikTok<input name="tiktok"></label><label>Instagram<input name="instagram"></label><label class="full">เว็บไซต์<input name="website" type="url"></label>
-<label>ละติจูด<input name="latitude" type="number" step="any"></label><label>ลองจิจูด<input name="longitude" type="number" step="any"></label>
+<div class="full shop-location-box"><div class="shop-location-head"><div><b>📍 พิกัดร้าน</b><small>ใช้สำหรับแสดงหมุดบนแผนที่และนำทางตรงถึงร้าน แม้ร้านยังไม่มีชื่อใน Google Maps</small></div><button id="useCurrentShopLocationBtn" type="button" class="ghost location-pick-button">📍 ใช้ตำแหน่งปัจจุบันของฉัน</button></div><div class="form-grid location-coordinate-grid"><label>ละติจูด<input name="latitude" type="number" step="any" placeholder="เช่น 13.6549"></label><label>ลองจิจูด<input name="longitude" type="number" step="any" placeholder="เช่น 100.2639"></label></div><small id="shopLocationStatus" class="form-help">แนะนำให้ยืนอยู่ที่หน้าร้านแล้วกด “ใช้ตำแหน่งปัจจุบันของฉัน” หรือกรอกพิกัดเอง หากไม่ระบุ ร้านยังเผยแพร่ได้ แต่จะไม่แสดงหมุดบนแผนที่</small></div>
 <fieldset class="full hours-box"><legend>เวลาเปิด–ปิดรายวัน</legend><div class="toggle-row"><label class="check"><input type="checkbox" name="temporarily_closed"> ปิดร้านชั่วคราว</label><label class="check"><input type="checkbox" name="open_24_hours"> เปิด 24 ชั่วโมงทุกวัน</label></div><div id="hoursRows" class="hours-list"></div></fieldset>
 <fieldset class="full services-box"><legend>บริการและสิ่งอำนวยความสะดวก</legend><div class="check-grid"><label class="check"><input type="checkbox" name="delivery"> มีบริการเดลิเวอรี</label><label class="check"><input type="checkbox" name="lineman"> LINE MAN</label><label class="check"><input type="checkbox" name="grab"> Grab</label><label class="check"><input type="checkbox" name="shopeefood"> ShopeeFood</label><label class="check"><input type="checkbox" name="qr_payment"> รับ QR Payment</label><label class="check"><input type="checkbox" name="card_payment"> รับบัตร</label><label class="check"><input type="checkbox" name="parking"> มีที่จอดรถ</label><label class="check"><input type="checkbox" name="pet_friendly"> สัตว์เลี้ยงเข้าได้</label><label class="check"><input type="checkbox" name="wheelchair_accessible"> รถเข็นเข้าได้</label></div><div class="delivery-url-grid"><label>ลิงก์สั่ง LINE MAN<input name="lineman_url" type="url" placeholder="https://wongn.ai/..."></label><label>ลิงก์สั่ง GrabFood<input name="grab_url" type="url" placeholder="https://r.grab.com/..."></label><label>ลิงก์สั่ง ShopeeFood<input name="shopeefood_url" type="url" placeholder="https://shopee.co.th/universal-link/..."></label></div><small class="form-help">นำลิงก์หน้าร้านจากแอปเดลิเวอรีมาวาง ลูกค้าจะกดสั่งจากหน้าร้านได้ทันที</small></fieldset>
 <label class="full">รูปหน้าปก<input name="cover" type="file" accept="image/*"></label>
@@ -111,7 +111,7 @@
 
 <div id="shopDetailModal" class="modal hidden"><div class="backdrop" data-close="shopDetailModal"></div><div class="modal-card"><button class="close" data-close="shopDetailModal">×</button><h2 id="detailTitle">รายละเอียดร้าน</h2><div id="detailSummary"></div><div class="review-head"><h3>รีวิวจากลูกค้า</h3><button id="openReviewBtn" class="primary">⭐ เขียนรีวิว</button></div><div id="reviewList" class="review-list"></div></div></div>
 
-<div id="reviewModal" class="modal hidden"><div class="backdrop" data-close="reviewModal"></div><div class="modal-card small"><button class="close" data-close="reviewModal">×</button><h2>รีวิว <span id="reviewShopName"></span></h2><p>แบ่งปันประสบการณ์จริงเพื่อช่วยคนในชุมชนตัดสินใจ</p><form id="reviewForm"><input id="reviewShopId" name="shop_id" type="hidden"><label>คะแนน<select name="rating" required><option value="5">★★★★★ 5 — ดีมาก</option><option value="4">★★★★☆ 4 — ดี</option><option value="3">★★★☆☆ 3 — ปานกลาง</option><option value="2">★★☆☆☆ 2 — ควรปรับปรุง</option><option value="1">★☆☆☆☆ 1 — ไม่พอใจ</option></select></label><label>ความคิดเห็น<textarea name="comment" rows="5" maxlength="1000" placeholder="เล่าถึงสินค้า บริการ บรรยากาศ หรือสิ่งที่ประทับใจ" required></textarea></label><button type="submit" class="primary submit">ส่งรีวิว</button></form></div></div>
+<div id="reviewModal" class="modal hidden"><div class="backdrop" data-close="reviewModal"></div><div class="modal-card small"><button class="close" data-close="reviewModal">×</button><h2>รีวิว <span id="reviewShopName"></span></h2><div class="review-modal-existing"><h3>รีวิวจากลูกค้า</h3><div id="reviewModalList" class="review-list"><p>กำลังโหลดรีวิว...</p></div></div><hr class="review-modal-divider"><h3>เขียนรีวิวของคุณ</h3><p>แบ่งปันประสบการณ์จริงเพื่อช่วยคนในชุมชนตัดสินใจ</p><form id="reviewForm"><input id="reviewShopId" name="shop_id" type="hidden"><label>คะแนน<select name="rating" required><option value="5">★★★★★ 5 — ดีมาก</option><option value="4">★★★★☆ 4 — ดี</option><option value="3">★★★☆☆ 3 — ปานกลาง</option><option value="2">★★☆☆☆ 2 — ควรปรับปรุง</option><option value="1">★☆☆☆☆ 1 — ไม่พอใจ</option></select></label><label>ความคิดเห็น<textarea name="comment" rows="5" maxlength="1000" placeholder="เล่าถึงสินค้า บริการ บรรยากาศ หรือสิ่งที่ประทับใจ" required></textarea></label><button type="submit" class="primary submit">ส่งรีวิว</button></form></div></div>
 
 <div id="promotionModal" class="modal hidden"><div class="backdrop" data-close="promotionModal"></div><div class="modal-card small"><button class="close" data-close="promotionModal">×</button><h2 id="promotionFormTitle">เพิ่มโปรโมชั่น</h2><p>ร้าน: <b id="promotionShopName"></b></p><p class="promotion-limit-note">สร้างโปรล่วงหน้าได้ไม่จำกัด แต่ช่วงเวลาใช้งานซ้อนกันได้สูงสุด 3 โปรโมชั่นต่อร้าน</p><form id="promotionForm"><input name="id" type="hidden"><input name="shop_id" type="hidden"><label>หัวข้อโปรโมชั่น<input name="title" maxlength="120" placeholder="เช่น ซื้อ 2 แถม 1" required></label><label>ข้อความเด่น<input name="discount_text" maxlength="40" placeholder="เช่น ลด 20%"></label><label>รายละเอียด<textarea name="description" rows="4" maxlength="1000"></textarea></label><input name="existing_image_url" type="hidden"><label>รูปโปรโมชั่น<input name="promotion_image" type="file" accept="image/jpeg,image/png,image/webp"><small class="form-help"><b>แนะนำขนาด 1200 × 900 px (อัตราส่วน 4:3)</b><br>เลือกรูปจากมือถือหรือคอมพิวเตอร์ได้สูงสุด 20 MB ระบบจะย่อและแปลงเป็น WebP อัตโนมัติก่อนอัปโหลดจริงให้ไม่เกินประมาณ 900 KB</small></label><div id="promotionImagePreview" class="promotion-image-preview"><small>ยังไม่ได้เลือกรูป</small></div><details class="advanced-image-url"><summary>ใช้ลิงก์รูปภาพแทน (ตัวเลือกเสริม)</summary><label>ลิงก์รูปโปรโมชั่น<input name="image_url" type="url" placeholder="https://..."></label></details><div class="form-grid"><label>เริ่มใช้<input name="starts_at" type="datetime-local"></label><label>สิ้นสุด<input name="ends_at" type="datetime-local"></label></div><div class="promotion-options"><label class="check"><input name="active" type="checkbox" checked> เปิดใช้งานโปรโมชั่น</label><label class="check"><input name="featured" type="checkbox"> ปักหมุดเป็นโปรเด่น</label></div><button type="submit" class="primary submit">บันทึกโปรโมชั่น</button></form></div></div>
 
@@ -126,6 +126,6 @@
 <script src="config.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-<script src="app.js?v=5.7.8.2"></script>
+<script src="app.js?v=5.7.9.6-production"></script>
 </body>
 </html>
