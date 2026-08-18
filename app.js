@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v5.7.9.8 Analytics loaded');
+  console.info('Talad Krathumbaen Main v5.7.9.9 Analytics Channels loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -10,7 +10,7 @@
   const db = configured ? supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY) : null;
   const DEMO = [{id:'demo',name:'Snowtee ตลาดกระทุ่มแบน',description:'เครื่องดื่ม ไอศกรีมซอฟต์เสิร์ฟ และเบเกอรี่ บรรยากาศริมคลอง',category:{name:'เครื่องดื่ม'},address:'ตลาดกระทุ่มแบน จังหวัดสมุทรสาคร',phone:'0642211876',facebook:'https://facebook.com/snowtee68',line:'snowtee68',latitude:13.6549,longitude:100.2639,status:'approved',featured:true,cover_url:null}];
 
-  const ANALYTICS_EVENTS=new Set(['page_view','shop_view','navigate_click','phone_click','order_click']);
+  const ANALYTICS_EVENTS=new Set(['page_view','shop_view','navigate_click','phone_click','order_click','order_lineman_click','order_grab_click','order_shopee_click']);
   let analyticsDays=7;
   function analyticsSessionId(){
     const key='talad_analytics_session_v1';
@@ -26,7 +26,7 @@
     try{await db.rpc('track_market_event',{p_event_type:eventType,p_shop_id:shopId||null,p_session_id:analyticsSessionId()});}
     catch(err){console.debug('Analytics skipped',err?.message||err);}
   }
-  function analyticsMetricLabel(type){return ({page_view:'เปิดเว็บ',shop_view:'เปิดดูร้าน',navigate_click:'กดนำทาง',phone_click:'กดโทร',order_click:'กดสั่งซื้อ'})[type]||type;}
+  function analyticsMetricLabel(type){return ({page_view:'เปิดเว็บ',shop_view:'เปิดดูร้าน',navigate_click:'กดนำทาง',phone_click:'กดโทร',order_click:'คลิกช่องทางสั่งซื้อ',order_lineman_click:'LINE MAN',order_grab_click:'Grab',order_shopee_click:'ShopeeFood'})[type]||type;}
   async function loadAnalyticsDashboard(days=analyticsDays){
     if(!db||profile?.role!=='admin')return;
     analyticsDays=days;
@@ -41,7 +41,7 @@
       if(e1)throw e1;if(e2)throw e2;
       const rows=summary||[],byType=Object.fromEntries(rows.map(r=>[r.event_type,r]));
       const unique=Math.max(...rows.map(r=>Number(r.unique_sessions||0)),0);
-      const metrics=[['ผู้เข้าชมโดยประมาณ',unique,'sessions'],['เปิดเว็บ',Number(byType.page_view?.event_count||0),'page_view'],['เปิดดูร้าน',Number(byType.shop_view?.event_count||0),'shop_view'],['กดนำทาง',Number(byType.navigate_click?.event_count||0),'navigate_click'],['กดโทร',Number(byType.phone_click?.event_count||0),'phone_click'],['กดสั่งซื้อ',Number(byType.order_click?.event_count||0),'order_click']];
+      const metrics=[['ผู้เข้าชมโดยประมาณ',unique,'sessions'],['เปิดเว็บ',Number(byType.page_view?.event_count||0),'page_view'],['เปิดดูร้าน',Number(byType.shop_view?.event_count||0),'shop_view'],['กดนำทาง',Number(byType.navigate_click?.event_count||0),'navigate_click'],['กดโทร',Number(byType.phone_click?.event_count||0),'phone_click'],['คลิกช่องทางสั่งซื้อ',Number(byType.order_click?.event_count||0)+Number(byType.order_lineman_click?.event_count||0)+Number(byType.order_grab_click?.event_count||0)+Number(byType.order_shopee_click?.event_count||0),'order_click']];
       if(cards)cards.innerHTML=metrics.map(([label,value,key])=>`<div class="analytics-card"><small>${esc(label)}</small><strong>${Number(value).toLocaleString('th-TH')}</strong><span>${key==='sessions'?'คนโดยประมาณ':'ครั้ง'}</span></div>`).join('');
       if(top)top.innerHTML=(shopsData||[]).length?(shopsData||[]).map((r,i)=>`<div class="analytics-shop-row"><b>${i+1}. ${esc(r.shop_name||'ร้านค้า')}</b><span>${Number(r.view_count||0).toLocaleString('th-TH')} ครั้ง</span></div>`).join(''):'<p class="muted">ยังไม่มีข้อมูลการเปิดดูร้านในช่วงนี้</p>';
       document.querySelectorAll('[data-analytics-days]').forEach(b=>b.classList.toggle('active',Number(b.dataset.analyticsDays)===days));
@@ -1496,7 +1496,10 @@
         const text=(clickedLink.textContent||'').toLowerCase();
         if(href.startsWith('tel:'))trackAnalytics('phone_click',analyticsShopId);
         else if(text.includes('นำทาง')||text.includes('google maps')||clickedLink.classList.contains('go'))trackAnalytics('navigate_click',analyticsShopId);
-        else if(text.includes('สั่ง line man')||text.includes('สั่ง grab')||text.includes('สั่ง shopee')||clickedLink.classList.contains('order-btn')||clickedLink.classList.contains('detail-order'))trackAnalytics('order_click',analyticsShopId);
+        else if(text.includes('line man')||clickedLink.classList.contains('lineman'))trackAnalytics('order_lineman_click',analyticsShopId);
+        else if(text.includes('grab')||clickedLink.classList.contains('grab'))trackAnalytics('order_grab_click',analyticsShopId);
+        else if(text.includes('shopee')||clickedLink.classList.contains('shopee'))trackAnalytics('order_shopee_click',analyticsShopId);
+        else if(clickedLink.classList.contains('order-btn')||clickedLink.classList.contains('detail-order'))trackAnalytics('order_click',analyticsShopId);
       }
       const action=ev.target.dataset.action;
       const explicitShopId=ev.target.dataset.shopId;
