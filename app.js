@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v5.7.9.9 Analytics Channels loaded');
+  console.info('Talad Krathumbaen Main v5.7.9.11 Search Category UX loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -336,7 +336,7 @@
     const box=$('categoryButtons'), select=$('categorySelect');
     box.innerHTML='<button class="active" data-category="all">ทั้งหมด</button>'+categories.map(c=>`<button data-category="${esc(c.id)}">${esc(c.icon||'🏪')} ${esc(c.name)}</button>`).join('');
     select.innerHTML='<option value="">เลือกหมวดหมู่</option>'+categories.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
-    box.querySelectorAll('button').forEach(btn=>btn.addEventListener('click',async()=>{box.querySelectorAll('button').forEach(x=>x.classList.remove('active'));btn.classList.add('active');currentCategory=btn.dataset.category;await resetShopList();}));
+    box.querySelectorAll('button').forEach(btn=>btn.addEventListener('click',async()=>{box.querySelectorAll('button').forEach(x=>x.classList.remove('active'));btn.classList.add('active');currentCategory=btn.dataset.category;await resetShopList({scroll:true});}));
     renderMapFilters();
   }
 
@@ -1072,8 +1072,8 @@
     return shops;
   }
 
-  async function resetShopList(){
-    await loadPublicShops({reset:true});
+  async function resetShopList({scroll=false}={}){
+    await loadPublicShops({reset:true,scroll});
   }
 
   function shopCard(s, dashboard=false){
@@ -1333,8 +1333,8 @@
     $('accountBtn').addEventListener('click',()=>session?$('dashboard').scrollIntoView({behavior:'smooth'}):openModal('authModal'));
     $('addShopBtn').addEventListener('click',()=>{if(!session)return openModal('authModal');$('shopForm').reset();fillOpeningHours($('shopForm'),{});$('shopFormTitle').textContent='เพิ่มร้านของฉัน';openModal('shopModal');});
     let searchTimer=null;
-    $('searchBtn').addEventListener('click',()=>resetShopList());
-    $('searchInput').addEventListener('input',()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>resetShopList(),250);});
+    $('searchBtn').addEventListener('click',()=>resetShopList({scroll:true}));
+    $('searchInput').addEventListener('input',()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>resetShopList({scroll:!!$('searchInput').value.trim()}),250);});
     $('authForm').addEventListener('submit',async ev=>{
       ev.preventDefault();
       if(!db)return alert('ยังไม่ได้ตั้งค่า Supabase');
