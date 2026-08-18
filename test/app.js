@@ -223,15 +223,26 @@
     });
   }
 
+  function hasShopCoordinates(shop){
+    const lat=Number(shop?.latitude), lng=Number(shop?.longitude);
+    return Number.isFinite(lat)&&Number.isFinite(lng)&&lat!==0&&lng!==0&&Math.abs(lat)<=90&&Math.abs(lng)<=180;
+  }
+
+  function googleMapsTarget(shop){
+    if(hasShopCoordinates(shop)){
+      return {url:`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${Number(shop.latitude)},${Number(shop.longitude)}`)}`,label:'🧭 นำทาง'};
+    }
+    const query=[shop?.name,shop?.address,'กระทุ่มแบน สมุทรสาคร'].filter(Boolean).join(' ');
+    return query?{url:`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`,label:'🔎 ค้นหาใน Google Maps'}:null;
+  }
+
   function markerPopup(shop){
     const category=shop.category?.name||'ร้านค้า';
     const rating=ratingForShop(shop.id);
     const state=openState(shop);
     const promo=visiblePromotionForShop(shop.id);
     const distance=shopDistance(shop);
-    const go=shop.latitude&&shop.longitude
-      ?`https://www.google.com/maps/dir/?api=1&destination=${shop.latitude},${shop.longitude}`
-      :`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(shop.name+' ตลาดกระทุ่มแบน')}`;
+    const mapsTarget=googleMapsTarget(shop);
     return `<div class="map-shop-popup">
       <div class="map-popup-title">${esc(shop.name)}</div>
       <div class="map-popup-category">${esc(category)}</div>
@@ -242,7 +253,7 @@
       ${promo?`<div class="map-popup-promo">🔥 ${esc(promo.discount_text||promo.title||'มีโปรโมชั่น')}</div>`:''}
       <div class="map-popup-actions">
         <button type="button" data-action="details" data-shop-id="${esc(shop.id)}">ดูร้านค้า</button>
-        <a href="${esc(go)}" target="_blank" rel="noopener noreferrer">นำทาง</a>
+        ${mapsTarget?`<a href="${esc(mapsTarget.url)}" target="_blank" rel="noopener noreferrer">${esc(mapsTarget.label)}</a>`:''}
       </div>
     </div>`;
   }
@@ -672,11 +683,9 @@
     if(!shop)return alert('ไม่พบข้อมูลร้านค้านี้');
     const promo=visiblePromotionForShop(shopId);
     const rating=ratingForShop(shopId);
-    const go=(shop.latitude&&shop.longitude)
-      ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${shop.latitude},${shop.longitude}`)}`
-      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(shop.address||shop.name||'ตลาดกระทุ่มแบน')}`;
+    const mapsTarget=googleMapsTarget(shop);
     const contactButtons=[
-      `<a class="detail-action go" href="${esc(go)}" target="_blank" rel="noopener noreferrer">🧭 นำทาง</a>`,
+      mapsTarget?`<a class="detail-action go" href="${esc(mapsTarget.url)}" target="_blank" rel="noopener noreferrer">${esc(mapsTarget.label)}</a>`:'',
       shop.phone?`<a class="detail-action" href="tel:${esc(shop.phone)}">📞 โทรสั่ง / สอบถาม</a>`:'',
       shop.facebook?`<a class="detail-action" href="${esc(link(shop.facebook,'facebook'))}" target="_blank" rel="noopener noreferrer">Facebook</a>`:'',
       shop.line?`<a class="detail-action" href="${esc(link(shop.line,'line'))}" target="_blank" rel="noopener noreferrer">LINE</a>`:'',
@@ -954,8 +963,17 @@
   }
 
 
+  const MARKET_MAP_CENTER={lat:13.6549,lng:100.2639};
+  const MARKET_MAP_MAX_DISTANCE_KM=30;
+
   function validCoordinates(shop){
-    return Number.isFinite(Number(shop?.latitude)) && Number.isFinite(Number(shop?.longitude));
+    const lat=Number(shop?.latitude), lng=Number(shop?.longitude);
+    return Number.isFinite(lat) && Number.isFinite(lng) && lat>=-90 && lat<=90 && lng>=-180 && lng<=180 && !(lat===0&&lng===0);
+  }
+
+  function validMarketCoordinates(shop){
+    if(!validCoordinates(shop))return false;
+    return distanceKm(MARKET_MAP_CENTER.lat,MARKET_MAP_CENTER.lng,Number(shop.latitude),Number(shop.longitude))<=MARKET_MAP_MAX_DISTANCE_KM;
   }
 
   function distanceKm(lat1, lon1, lat2, lon2){
@@ -1020,13 +1038,13 @@
 
   function shopCard(s, dashboard=false){
     const category=s.category?.name||'ร้านค้า';
-    const go=s.latitude&&s.longitude?`https://www.google.com/maps/dir/?api=1&destination=${s.latitude},${s.longitude}`:`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.name+' ตลาดกระทุ่มแบน')}`;
+    const mapsTarget=googleMapsTarget(s);
     const cover=s.cover_url?`<img src="${esc(s.cover_url)}" alt="${esc(s.name)}" loading="lazy" onerror="this.remove()">`:'';
     const status=dashboard?`<span class="status-pill ${s.status==='approved'?'approved':''}">${s.status==='approved'?'เผยแพร่แล้ว':s.status==='rejected'?'ไม่อนุมัติ':'รอตรวจสอบ'}</span>`:'';
     const state=openState(s), loc=[s.zone,s.lock_number,s.floor].filter(Boolean).join(' • '), badges=serviceBadges(s);
     const rating=ratingForShop(s.id), promo=visiblePromotionForShop(s.id), distance=shopDistance(s);
     const distanceLine=distance==null?'':`<div class="distance-line">📏 ห่างจากคุณ ${esc(formatDistance(distance))}</div>`;
-    return `<article class="card" data-id="${esc(s.id)}"><div class="card-img">${cover}<span class="tag">${esc(category)}</span>${promo?`<span class="promo-ribbon ${promotionState(promo)==='upcoming'?'upcoming':''}">🔥 ${esc(promo.discount_text||'มีโปรโมชั่น')}<small>${esc(promotionTimingText(promo))}</small></span>`:''}</div><div class="card-body"><div style="display:flex;justify-content:space-between;gap:10px;align-items:start"><h3>${esc(s.name)}</h3>${status}</div><div class="rating-line"><span>${stars(rating.average)}</span><b>${rating.count?rating.average.toFixed(1):'ใหม่'}</b><small>${rating.count?`(${rating.count})`:'ยังไม่มีรีวิว'}</small></div><p>${esc(s.description||'ร้านค้าในตลาดกระทุ่มแบน')}</p><div class="meta">📍 ${esc(s.address||'ตลาดกระทุ่มแบน')}</div>${loc?`<div class="location-line">🏪 ${esc(loc)}</div>`:''}${distanceLine}<div class="open-badge ${state.open===false?'closed':''}">${state.open===true?'🟢':state.open===false?'🔴':'🕒'} ${esc(state.text)}</div>${badges?`<div class="service-badges">${badges}</div>`:''}<div class="links"><a class="go" href="${go}" target="_blank" rel="noopener noreferrer">🧭 นำทาง</a>${s.phone?`<a href="tel:${esc(s.phone)}">📞 โทร</a>`:''}${s.email?`<a href="mailto:${esc(s.email)}">✉️ Email</a>`:''}${s.facebook?`<a href="${esc(link(s.facebook,'facebook'))}" target="_blank" rel="noopener noreferrer">Facebook</a>`:''}${s.line?`<a href="${esc(link(s.line,'line'))}" target="_blank" rel="noopener noreferrer">LINE</a>`:''}${s.tiktok?`<a href="${esc(link(s.tiktok,'tiktok'))}" target="_blank" rel="noopener noreferrer">TikTok</a>`:''}${s.instagram?`<a href="${esc(link(s.instagram,'instagram'))}" target="_blank" rel="noopener noreferrer">Instagram</a>`:''}${s.website?`<a href="${esc(safeExternalUrl(s.website))}" target="_blank" rel="noopener noreferrer">🌐 Website</a>`:''}</div>${(s.lineman_url||s.grab_url||s.shopeefood_url)?`<div class="delivery-links">${s.lineman_url?`<a class="order-btn lineman" href="${esc(safeExternalUrl(s.lineman_url))}" target="_blank" rel="noopener noreferrer">สั่ง LINE MAN</a>`:''}${s.grab_url?`<a class="order-btn grab" href="${esc(safeExternalUrl(s.grab_url))}" target="_blank" rel="noopener noreferrer">สั่ง GrabFood</a>`:''}${s.shopeefood_url?`<a class="order-btn shopee" href="${esc(safeExternalUrl(s.shopeefood_url))}" target="_blank" rel="noopener noreferrer">สั่ง ShopeeFood</a>`:''}</div>`:''}<div class="community-actions"><button data-action="details">ดูรายละเอียด</button><button data-action="review">⭐ รีวิว</button>${favoriteButton(s.id)}</div>${dashboard?`<div class="admin-actions"><button data-action="edit">แก้ไขร้าน</button><button class="manage-promo-btn" data-action="manage-promotions">⚙️ จัดการโปรโมชั่น</button><button data-action="promotion">+ เพิ่มโปรโมชั่น</button>${profile?.role==='admin'&&s.status!=='approved'?'<button data-action="approve">อนุมัติ</button>':''}${profile?.role==='admin'?`<button data-action="feature">${s.featured?'ยกเลิกแนะนำ':'แนะนำร้าน'}</button><button data-action="reject">ไม่อนุมัติ</button>`:''}</div>`:''}</div></article>`;
+    return `<article class="card" data-id="${esc(s.id)}"><div class="card-img">${cover}<span class="tag">${esc(category)}</span>${promo?`<span class="promo-ribbon ${promotionState(promo)==='upcoming'?'upcoming':''}">🔥 ${esc(promo.discount_text||'มีโปรโมชั่น')}<small>${esc(promotionTimingText(promo))}</small></span>`:''}</div><div class="card-body"><div style="display:flex;justify-content:space-between;gap:10px;align-items:start"><h3>${esc(s.name)}</h3>${status}</div><div class="rating-line"><span>${stars(rating.average)}</span><b>${rating.count?rating.average.toFixed(1):'ใหม่'}</b><small>${rating.count?`(${rating.count})`:'ยังไม่มีรีวิว'}</small></div><p>${esc(s.description||'ร้านค้าในตลาดกระทุ่มแบน')}</p><div class="meta">📍 ${esc(s.address||'ตลาดกระทุ่มแบน')}</div>${loc?`<div class="location-line">🏪 ${esc(loc)}</div>`:''}${distanceLine}<div class="open-badge ${state.open===false?'closed':''}">${state.open===true?'🟢':state.open===false?'🔴':'🕒'} ${esc(state.text)}</div>${badges?`<div class="service-badges">${badges}</div>`:''}<div class="links">${mapsTarget?`<a class="go" href="${esc(mapsTarget.url)}" target="_blank" rel="noopener noreferrer">${esc(mapsTarget.label)}</a>`:''}${s.phone?`<a href="tel:${esc(s.phone)}">📞 โทร</a>`:''}${s.email?`<a href="mailto:${esc(s.email)}">✉️ Email</a>`:''}${s.facebook?`<a href="${esc(link(s.facebook,'facebook'))}" target="_blank" rel="noopener noreferrer">Facebook</a>`:''}${s.line?`<a href="${esc(link(s.line,'line'))}" target="_blank" rel="noopener noreferrer">LINE</a>`:''}${s.tiktok?`<a href="${esc(link(s.tiktok,'tiktok'))}" target="_blank" rel="noopener noreferrer">TikTok</a>`:''}${s.instagram?`<a href="${esc(link(s.instagram,'instagram'))}" target="_blank" rel="noopener noreferrer">Instagram</a>`:''}${s.website?`<a href="${esc(safeExternalUrl(s.website))}" target="_blank" rel="noopener noreferrer">🌐 Website</a>`:''}</div>${(s.lineman_url||s.grab_url||s.shopeefood_url)?`<div class="delivery-links">${s.lineman_url?`<a class="order-btn lineman" href="${esc(safeExternalUrl(s.lineman_url))}" target="_blank" rel="noopener noreferrer">สั่ง LINE MAN</a>`:''}${s.grab_url?`<a class="order-btn grab" href="${esc(safeExternalUrl(s.grab_url))}" target="_blank" rel="noopener noreferrer">สั่ง GrabFood</a>`:''}${s.shopeefood_url?`<a class="order-btn shopee" href="${esc(safeExternalUrl(s.shopeefood_url))}" target="_blank" rel="noopener noreferrer">สั่ง ShopeeFood</a>`:''}</div>`:''}<div class="community-actions"><button data-action="details">ดูรายละเอียด</button><button data-action="review">⭐ รีวิว</button>${favoriteButton(s.id)}</div>${dashboard?`<div class="admin-actions"><button data-action="edit">แก้ไขร้าน</button><button class="manage-promo-btn" data-action="manage-promotions">⚙️ จัดการโปรโมชั่น</button><button data-action="promotion">+ เพิ่มโปรโมชั่น</button>${profile?.role==='admin'&&s.status!=='approved'?'<button data-action="approve">อนุมัติ</button>':''}${profile?.role==='admin'?`<button data-action="feature">${s.featured?'ยกเลิกแนะนำ':'แนะนำร้าน'}</button><button data-action="reject">ไม่อนุมัติ</button>`:''}</div>`:''}</div></article>`;
   }
 
   function renderShops(){
@@ -1085,17 +1103,19 @@
   function renderPins(list){
     if(mapMarkerLayer)mapMarkerLayer.clearLayers();
     mapMarkers=[];
-    const valid=filteredMapShops(list).filter(s=>Number.isFinite(Number(s.latitude))&&Number.isFinite(Number(s.longitude)));
+    const filtered=filteredMapShops(list);
+    const valid=filtered.filter(validMarketCoordinates);
+    const invalidCount=filtered.filter(s=>validCoordinates(s)&&!validMarketCoordinates(s)).length;
     valid.forEach(shop=>{
       const ll=[+shop.latitude,+shop.longitude];
       const marker=L.marker(ll,{icon:shopMarkerIcon(shop)}).bindPopup(markerPopup(shop),{maxWidth:290});
       mapMarkers.push(marker);
       mapMarkerLayer.addLayer(marker);
     });
-    $('mapResultCount') && ($('mapResultCount').textContent=`แสดง ${valid.length} ร้านบนแผนที่`);
+    $('mapResultCount') && ($('mapResultCount').textContent=`แสดง ${valid.length} ร้านบนแผนที่${invalidCount?` • ไม่แสดง ${invalidCount} ร้านที่พิกัดอยู่นอกพื้นที่`:''}`);
     if(valid.length>1){
       const bounds=L.latLngBounds(valid.map(s=>[+s.latitude,+s.longitude]));
-      map.fitBounds(bounds.pad(.22));
+      map.fitBounds(bounds.pad(.22),{maxZoom:16});
     }else if(valid.length===1){
       map.setView([+valid[0].latitude,+valid[0].longitude],17);
     }
@@ -1132,6 +1152,25 @@
 
   async function uploadCover(file, shopId){
     return uploadCompressedImage(file,'shop-images',`${session.user.id}/${shopId}`,{maxWidth:1600,maxHeight:1600,maxBytes:900*1024});
+  }
+
+  function useCurrentLocationForShop(){
+    const form=$('shopForm'), btn=$('useCurrentShopLocationBtn'), status=$('shopLocationStatus');
+    if(!form)return;
+    if(!navigator.geolocation){if(status)status.textContent='อุปกรณ์นี้ไม่รองรับการระบุตำแหน่ง';return;}
+    if(btn){btn.disabled=true;btn.textContent='กำลังหาตำแหน่ง...';}
+    if(status)status.textContent='กำลังอ่าน GPS ของอุปกรณ์ กรุณาอยู่ใกล้ตำแหน่งร้าน';
+    navigator.geolocation.getCurrentPosition(pos=>{
+      const lat=Number(pos.coords.latitude), lng=Number(pos.coords.longitude), accuracy=Math.round(pos.coords.accuracy||0);
+      if(form.elements.latitude)form.elements.latitude.value=lat.toFixed(7);
+      if(form.elements.longitude)form.elements.longitude.value=lng.toFixed(7);
+      if(status)status.textContent=`บันทึกตำแหน่งแล้ว${accuracy?` • ความแม่นยำประมาณ ±${accuracy} เมตร`:''} กรุณาตรวจสอบก่อนกดบันทึกร้าน`;
+      if(btn){btn.disabled=false;btn.textContent='✓ ใช้ตำแหน่งนี้แล้ว';}
+    },err=>{
+      const msg=err.code===1?'กรุณาอนุญาตให้เว็บไซต์ใช้ตำแหน่งของคุณ':err.code===2?'ไม่พบตำแหน่ง กรุณาเปิด GPS / Location Services':'ค้นหาตำแหน่งนานเกินไป กรุณาลองใหม่';
+      if(status)status.textContent=msg;
+      if(btn){btn.disabled=false;btn.textContent='📍 ใช้ตำแหน่งปัจจุบันของฉัน';}
+    },{enableHighAccuracy:true,timeout:12000,maximumAge:0});
   }
 
   async function submitShop(ev){
@@ -1354,6 +1393,7 @@
     $('favoritesBtn')?.addEventListener('click',openFavorites);
     const locateMapBtn=$('locateMapBtn');
     if(locateMapBtn)locateMapBtn.addEventListener('click',()=>userLocation?showUserLocation({coords:{latitude:userLocation.lat,longitude:userLocation.lng,accuracy:userLocation.accuracy}}):requestUserLocation());
+    const useCurrentShopLocationBtn=$('useCurrentShopLocationBtn');if(useCurrentShopLocationBtn)useCurrentShopLocationBtn.addEventListener('click',useCurrentLocationForShop);
     document.addEventListener('click',ev=>{
       const toggleButton=ev.target.closest('[data-password-toggle]');
       if(toggleButton){

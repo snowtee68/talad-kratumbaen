@@ -305,3 +305,6 @@ fieldset{border:1px solid var(--line);border-radius:14px;padding:14px}legend{fon
   .page-number{flex:0 0 44px}
   .pagination-controls>.page-nav:not(.first){order:3}
 }
+
+/* v5.7.9.6 shop coordinate helper */
+.shop-location-box{border:1px solid var(--line);border-radius:14px;padding:14px;background:#fbfaf9}.shop-location-head{display:flex;justify-content:space-between;gap:14px;align-items:center}.shop-location-head>div{display:grid;gap:4px}.shop-location-head small{color:#746b68}.location-pick-button{white-space:nowrap}.location-coordinate-grid{margin-top:12px}@media(max-width:640px){.shop-location-head{align-items:stretch;flex-direction:column}.location-pick-button{width:100%}}
