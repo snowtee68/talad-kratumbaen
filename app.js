@@ -1544,7 +1544,7 @@
   start();
 })();
 
-/* === PWA install experience: Main v5.7.9.12 === */
+/* === PWA install experience: Main v5.7.9.13 === */
 let deferredInstallPrompt = null;
 
 function isAppStandalone(){
@@ -1621,7 +1621,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=5.7.9.12', {scope:'./'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=5.7.9.13', {scope:'./'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
