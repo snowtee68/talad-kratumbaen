@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#9b1c1f">
+  <title>เรียกวินรับ-ส่งของ | ตลาดกระทุ่มแบน</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css?v=0.2.0">
+</head>
+<body>
+<header class="topbar">
+  <div class="container nav">
+    <a class="brand" href="../">← ตลาดกระทุ่มแบน</a>
+    <div class="nav-actions">
+      <button id="accountBtn" class="ghost">เข้าสู่ระบบ</button>
+      <button id="riderModeBtn" class="ghost hidden">โหมดวิน</button>
+    </div>
+  </div>
+</header>
+
+<main class="container">
+  <section class="hero card">
+    <div>
+      <span class="eyebrow">RIDER TEST · v0.2 MULTI-STOP</span>
+      <h1>🛵 เรียกวินรับ-ส่งของ</h1>
+      <p>ทดลองจับคู่งานรับ-ส่งของในชุมชน โดยเว็บไม่รับเงินค่าสินค้าและไม่ให้วินสำรองค่าสินค้า</p>
+    </div>
+    <div class="rulebox">
+      <b>ค่าบริการทดสอบ</b>
+      <span>0–2 กม. 25 บาท · ทุก 2 กม. ถัดไป +10 บาท · จุดรับเพิ่ม +10 บาท/จุด · สูงสุด 10 กม.</span>
+      <small>ระยะทางคำนวณแบบเส้นตรงเพื่อประมาณการ รุ่นจริงสามารถเปลี่ยนสูตรภายหลังได้</small>
+    </div>
+  </section>
+
+  <section id="guestNotice" class="notice">เข้าสู่ระบบเพื่อสร้างงานหรือสมัครเป็นวิน</section>
+
+  <section id="customerPanel" class="section hidden">
+    <div class="section-head">
+      <div><span class="eyebrow">สำหรับลูกค้า / ร้านค้า</span><h2>สร้างงานรับ-ส่งของ</h2></div>
+    </div>
+    <form id="jobForm" class="card form-card">
+      <div class="multi-stop-head">
+        <div>
+          <b>📦 จุดรับสินค้า</b>
+          <p class="muted">เพิ่มได้สูงสุด 5 จุด ระบบจะคิดระยะทางตามลำดับที่กรอก</p>
+        </div>
+        <button id="addPickupBtn" type="button" class="ghost">＋ เพิ่มจุดรับ</button>
+      </div>
+
+      <div id="pickupStops" class="pickup-stops"></div>
+
+      <div class="location-block dropoff-block" data-stop-type="dropoff">
+        <div class="location-title"><b>🏠 จุดส่งปลายทาง</b><button type="button" class="location-btn stop-location-btn">ใช้ตำแหน่งปัจจุบัน</button></div>
+        <label>ชื่อจุดส่ง<input class="stop-label" required placeholder="เช่น บ้านลูกค้า / หมู่บ้าน..."></label>
+        <div class="form-grid two">
+          <label>Latitude<input class="stop-lat" type="number" step="any" required></label>
+          <label>Longitude<input class="stop-lng" type="number" step="any" required></label>
+        </div>
+        <label>รายละเอียดจุดส่ง / จุดสังเกต<input class="stop-note" placeholder="เช่น บ้านรั้วสีขาว"></label>
+      </div>
+
+      <div class="form-grid two">
+        <label>ผู้จ่ายค่าวิน
+          <select name="payer" required>
+            <option value="caller">ผู้เรียกจ่าย</option>
+            <option value="recipient">ผู้รับปลายทางจ่าย</option>
+          </select>
+        </label>
+        <label>หมายเหตุของงาน<input name="job_note" placeholder="เช่น เป็นของแตกง่าย"></label>
+      </div>
+
+      <div id="farePreview" class="fare-preview">ระบุพิกัดจุดรับและจุดส่งเพื่อคำนวณค่าบริการ</div>
+      <button class="primary big" type="submit">สร้างงานเรียกวิน</button>
+      <p class="muted">ระบบทดสอบนี้ไม่รับชำระเงินผ่านเว็บ ผู้ที่ระบุไว้ชำระค่าวินโดยตรงเมื่อส่งงาน</p>
+    </form>
+
+    <div class="section-head"><div><span class="eyebrow">ติดตามงาน</span><h2>งานของฉัน</h2></div><button id="refreshMyJobs" class="ghost">รีเฟรช</button></div>
+    <div id="myJobs" class="job-list"></div>
+  </section>
+
+  <section id="riderPanel" class="section hidden">
+    <div class="section-head"><div><span class="eyebrow">สำหรับวิน</span><h2>ศูนย์งานวิน</h2></div></div>
+
+    <div id="riderRegisterCard" class="card hidden">
+      <h3>สมัครเป็นวินทดสอบ</h3>
+      <form id="riderForm" class="form-grid two">
+        <label>ชื่อที่แสดง<input name="display_name" required></label>
+        <label>เบอร์โทร<input name="phone" required></label>
+        <label>รถ / รุ่น<input name="vehicle_label" placeholder="เช่น Honda Wave สีแดง"></label>
+        <label>ทะเบียนรถ<input name="plate" placeholder="เช่น 1กข 1234"></label>
+        <button class="primary" type="submit">ส่งสมัครวิน</button>
+      </form>
+      <p class="muted">บัญชีวินต้องได้รับการอนุมัติจาก Admin ก่อนรับงาน</p>
+    </div>
+
+    <div id="riderStatusCard" class="card hidden">
+      <div class="rider-status-row">
+        <div><b id="riderName">วิน</b><div id="riderApproval" class="muted"></div></div>
+        <label class="switch-row"><input id="onlineToggle" type="checkbox"> พร้อมรับงาน</label>
+      </div>
+    </div>
+
+    <div id="riderWorkArea" class="hidden">
+      <div class="section-head"><div><span class="eyebrow">งานใหม่</span><h2>งานที่รอวินรับ</h2></div><button id="refreshOpenJobs" class="ghost">รีเฟรช</button></div>
+      <div id="openJobs" class="job-list"></div>
+      <div class="section-head"><div><span class="eyebrow">งานของฉัน</span><h2>งานที่กำลังทำ</h2></div></div>
+      <div id="riderJobs" class="job-list"></div>
+    </div>
+
+    <div id="adminRiderArea" class="hidden">
+      <div class="section-head"><div><span class="eyebrow">Admin</span><h2>วินที่รออนุมัติ</h2></div></div>
+      <div id="pendingRiders" class="job-list"></div>
+    </div>
+  </section>
+</main>
+
+<div id="authModal" class="modal hidden">
+  <div class="backdrop" data-close="authModal"></div>
+  <div class="modal-card">
+    <button class="close" data-close="authModal">×</button>
+    <h2>เข้าสู่ระบบ / สมัครสมาชิก</h2>
+    <form id="authForm">
+      <label>อีเมล<input name="email" type="email" required></label>
+      <label>รหัสผ่าน<div class="password-wrap"><input name="password" type="password" minlength="6" required><button type="button" id="showPass">👁️</button></div></label>
+      <div class="row"><button class="primary" type="submit">เข้าสู่ระบบ</button><button class="ghost" id="signUpBtn" type="button">สมัครสมาชิก</button></div>
+    </form>
+  </div>
+</div>
+
+<footer><div class="container">Rider Test v0.2 Multi-stop · ตลาดกระทุ่มแบน · ไม่ใช่ระบบชำระเงิน</div></footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="app.js?v=0.2.0"></script>
+</body>
+</html>
