@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=0.3.0">
+  <link rel="stylesheet" href="styles.css?v=0.3.2">
 </head>
 <body>
 <header class="topbar">
@@ -24,7 +24,7 @@
 <main class="container">
   <section class="hero card">
     <div>
-      <span class="eyebrow">RIDER TEST · v0.3 SMART PICKUP</span>
+      <span class="eyebrow">RIDER TEST · v0.3.2 JOB ALERT</span>
       <h1>🛵 เรียกวินรับ-ส่งของ</h1>
       <p>ทดลองจับคู่งานรับ-ส่งของในชุมชน โดยเว็บไม่รับเงินค่าสินค้าและไม่ให้วินสำรองค่าสินค้า</p>
     </div>
@@ -103,6 +103,16 @@
         <div><b id="riderName">วิน</b><div id="riderApproval" class="muted"></div></div>
         <label class="switch-row"><input id="onlineToggle" type="checkbox"> พร้อมรับงาน</label>
       </div>
+      <div id="jobAlertControls" class="job-alert-controls hidden">
+        <div>
+          <b id="jobAlertStatus">🔕 ยังไม่ได้เปิดเสียงแจ้งเตือน</b>
+          <small>เมื่อเปิดพร้อมรับงาน ระบบจะตรวจงานใหม่ประมาณทุก 10 วินาที ขณะ Rider Dashboard เปิดอยู่</small>
+        </div>
+        <div class="row">
+          <button id="enableJobAlertBtn" type="button" class="primary">🔔 เปิดการแจ้งเตือนงาน</button>
+          <button id="disableJobAlertBtn" type="button" class="ghost hidden">🔕 ปิดเสียงแจ้งเตือน</button>
+        </div>
+      </div>
     </div>
 
     <div id="riderWorkArea" class="hidden">
@@ -119,6 +129,21 @@
   </section>
 </main>
 
+
+<div id="jobAlertModal" class="modal hidden">
+  <div class="backdrop" data-close="jobAlertModal"></div>
+  <div class="modal-card job-alert-modal-card">
+    <button id="alertCloseBtn" class="close" type="button">×</button>
+    <div class="job-alert-icon">🛵</div>
+    <h2 id="jobAlertTitle">มีงานใหม่</h2>
+    <div id="jobAlertBody" class="job-alert-body"></div>
+    <div class="row alert-actions">
+      <button id="alertViewJobsBtn" class="primary" type="button">ดูงานใหม่</button>
+      <button class="ghost" type="button" data-close="jobAlertModal">ไว้ทีหลัง</button>
+    </div>
+  </div>
+</div>
+
 <div id="authModal" class="modal hidden">
   <div class="backdrop" data-close="authModal"></div>
   <div class="modal-card">
@@ -132,10 +157,10 @@
   </div>
 </div>
 
-<footer><div class="container">Rider Test v0.3.1 Smart Pickup · ตลาดกระทุ่มแบน · ไม่ใช่ระบบชำระเงิน</div></footer>
+<footer><div class="container">Rider Test v0.3.2 Job Alert · ตลาดกระทุ่มแบน · ไม่ใช่ระบบชำระเงิน</div></footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
-<script src="app.js?v=0.3.1"></script>
+<script src="app.js?v=0.3.2"></script>
 </body>
 </html>

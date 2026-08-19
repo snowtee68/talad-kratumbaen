@@ -16,6 +16,11 @@
   let shopSearchTimer = null;
   let marketShopIndex = [];
   let marketShopLoadError = null;
+  let jobAlertEnabled = false;
+  let jobAlertPollTimer = null;
+  let knownOpenJobIds = new Set();
+  let audioContext = null;
+  const JOB_ALERT_POLL_MS = 10000;
 
   function haversine(lat1,lng1,lat2,lng2){
     const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLng=(lng2-lng1)*Math.PI/180;
@@ -29,6 +34,7 @@
   function closeModal(id){ $('#'+id)?.classList.add('hidden'); }
 
   async function init(){
+    jobAlertEnabled=localStorage.getItem('rider_job_alert_enabled')==='1';
     const {data:{session:s}} = await db.auth.getSession(); session=s;
     db.auth.onAuthStateChange(async (_e,s2)=>{session=s2; await refreshAuth();});
     wire(); renderPickupStops(1); await Promise.all([refreshAuth(), loadMarketShopIndex()]);
@@ -46,6 +52,10 @@
     $('#jobForm').addEventListener('click',handleFormClick);
     $('#riderForm').onsubmit=registerRider;
     $('#onlineToggle').onchange=toggleOnline;
+    $('#enableJobAlertBtn').onclick=enableJobAlerts;
+    $('#disableJobAlertBtn').onclick=disableJobAlerts;
+    $('#alertViewJobsBtn').onclick=()=>{ closeModal('jobAlertModal'); $('#openJobs')?.scrollIntoView({behavior:'smooth',block:'start'}); };
+    $('#alertCloseBtn').onclick=()=>closeModal('jobAlertModal');
     $('#riderModeBtn').onclick=()=>$('#riderPanel').scrollIntoView({behavior:'smooth'});
     $('#refreshMyJobs').onclick=loadMyJobs;
     $('#refreshOpenJobs').onclick=loadRiderJobs;
@@ -172,7 +182,7 @@
     $('#riderPanel').classList.toggle('hidden',!session);
     $('#riderModeBtn').classList.toggle('hidden',!session);
     profile=null;riderProfile=null;
-    if(!session) return;
+    if(!session){ stopJobAlertPolling(); return; }
     const uid=session.user.id;
     const {data:p}=await db.from('market_profiles').select('role,display_name').eq('id',uid).maybeSingle(); profile=p;
     const {data:r}=await db.from('rider_profiles').select('*').eq('user_id',uid).maybeSingle(); riderProfile=r;
@@ -252,12 +262,110 @@
     $('#riderStatusCard').classList.toggle('hidden',!riderProfile);
     const approved=riderProfile?.approval_status==='approved';
     $('#riderWorkArea').classList.toggle('hidden',!approved);
-    if(riderProfile){$('#riderName').textContent=riderProfile.display_name;$('#riderApproval').textContent='สถานะ: '+(approved?'อนุมัติแล้ว':riderProfile.approval_status==='rejected'?'ไม่อนุมัติ':'รอ Admin อนุมัติ');$('#onlineToggle').checked=!!riderProfile.online;$('#onlineToggle').disabled=!approved;}
+    if(riderProfile){
+      $('#riderName').textContent=riderProfile.display_name;
+      $('#riderApproval').textContent='สถานะ: '+(approved?'อนุมัติแล้ว':riderProfile.approval_status==='rejected'?'ไม่อนุมัติ':'รอ Admin อนุมัติ');
+      $('#onlineToggle').checked=!!riderProfile.online;
+      $('#onlineToggle').disabled=!approved;
+      $('#jobAlertControls').classList.toggle('hidden',!approved);
+      updateJobAlertUi();
+      if(approved && riderProfile.online && jobAlertEnabled) startJobAlertPolling(); else stopJobAlertPolling();
+    }
     $('#adminRiderArea').classList.toggle('hidden',profile?.role!=='admin');
   }
 
   async function registerRider(e){e.preventDefault();const fd=new FormData(e.currentTarget);const {error}=await db.from('rider_profiles').insert({user_id:session.user.id,display_name:fd.get('display_name'),phone:fd.get('phone'),vehicle_label:fd.get('vehicle_label')||null,plate:fd.get('plate')||null});if(error)return alert(error.message);alert('ส่งสมัครแล้ว รอ Admin อนุมัติ');await refreshAuth()}
-  async function toggleOnline(){const online=$('#onlineToggle').checked;const {error}=await db.from('rider_profiles').update({online}).eq('user_id',session.user.id);if(error){alert(error.message);$('#onlineToggle').checked=!online}else{riderProfile.online=online;await loadRiderJobs()}}
+  async function toggleOnline(){
+    const online=$('#onlineToggle').checked;
+    const {error}=await db.from('rider_profiles').update({online}).eq('user_id',session.user.id);
+    if(error){ alert(error.message); $('#onlineToggle').checked=!online; return; }
+    riderProfile.online=online;
+    if(online && jobAlertEnabled) startJobAlertPolling(); else stopJobAlertPolling();
+    await loadRiderJobs();
+  }
+
+  function updateJobAlertUi(){
+    const status=$('#jobAlertStatus');
+    if(status) status.textContent=jobAlertEnabled?'🔔 แจ้งเตือนงานเปิดอยู่':'🔕 ยังไม่ได้เปิดเสียงแจ้งเตือน';
+    $('#enableJobAlertBtn')?.classList.toggle('hidden',jobAlertEnabled);
+    $('#disableJobAlertBtn')?.classList.toggle('hidden',!jobAlertEnabled);
+  }
+
+  async function enableJobAlerts(){
+    try{
+      // Audio on mobile browsers must be unlocked by a direct user gesture.
+      audioContext = audioContext || new (window.AudioContext||window.webkitAudioContext)();
+      if(audioContext.state==='suspended') await audioContext.resume();
+      await playJobAlertTone(true);
+      jobAlertEnabled=true;
+      localStorage.setItem('rider_job_alert_enabled','1');
+      updateJobAlertUi();
+      await primeKnownOpenJobs();
+      if(riderProfile?.online) startJobAlertPolling();
+      alert('เปิดเสียงแจ้งเตือนงานแล้ว เมื่อมีงานใหม่ขณะหน้านี้เปิดอยู่ ระบบจะส่งเสียงและสั่นถ้าอุปกรณ์รองรับ');
+    }catch(err){ alert('ไม่สามารถเปิดเสียงแจ้งเตือนได้: '+(err?.message||err)); }
+  }
+
+  function disableJobAlerts(){
+    jobAlertEnabled=false;
+    localStorage.removeItem('rider_job_alert_enabled');
+    stopJobAlertPolling();
+    updateJobAlertUi();
+  }
+
+  async function playJobAlertTone(test=false){
+    const Ctx=window.AudioContext||window.webkitAudioContext;
+    if(!Ctx) return;
+    audioContext=audioContext||new Ctx();
+    if(audioContext.state==='suspended') await audioContext.resume();
+    const start=audioContext.currentTime;
+    const notes=test?[660]:[880,1040,880];
+    notes.forEach((freq,i)=>{
+      const osc=audioContext.createOscillator(), gain=audioContext.createGain();
+      osc.type='sine'; osc.frequency.value=freq;
+      gain.gain.setValueAtTime(0.0001,start+i*0.22);
+      gain.gain.exponentialRampToValueAtTime(.22,start+i*0.22+.02);
+      gain.gain.exponentialRampToValueAtTime(.0001,start+i*0.22+.17);
+      osc.connect(gain); gain.connect(audioContext.destination);
+      osc.start(start+i*0.22); osc.stop(start+i*0.22+.19);
+    });
+  }
+
+  async function primeKnownOpenJobs(){
+    const {data}=await db.from('rider_jobs').select('id').eq('status','open').limit(100);
+    knownOpenJobIds=new Set((data||[]).map(x=>x.id));
+  }
+
+  function startJobAlertPolling(){
+    if(jobAlertPollTimer || !jobAlertEnabled || !riderProfile?.online) return;
+    pollForNewJobs();
+    jobAlertPollTimer=setInterval(pollForNewJobs,JOB_ALERT_POLL_MS);
+  }
+  function stopJobAlertPolling(){ if(jobAlertPollTimer){clearInterval(jobAlertPollTimer);jobAlertPollTimer=null;} }
+
+  async function pollForNewJobs(){
+    if(!jobAlertEnabled || !riderProfile?.online || document.hidden) return;
+    const {data,error}=await db.from('rider_jobs').select('id,pickup_count,distance_km,fare_estimate,dropoff_label,created_at').eq('status','open').order('created_at',{ascending:false}).limit(30);
+    if(error) return;
+    const rows=data||[];
+    const fresh=rows.filter(j=>!knownOpenJobIds.has(j.id));
+    rows.forEach(j=>knownOpenJobIds.add(j.id));
+    if(fresh.length){
+      await loadRiderJobs();
+      notifyNewJob(fresh[0],fresh.length);
+    }
+  }
+
+  async function notifyNewJob(job,count){
+    try{await playJobAlertTone(false);}catch(_){ }
+    if(navigator.vibrate) try{navigator.vibrate([250,120,250,120,450]);}catch(_){ }
+    const title=count>1?`มีงานใหม่ ${count} งาน`:'มีงานใหม่';
+    $('#jobAlertTitle').textContent='🛵 '+title;
+    $('#jobAlertBody').innerHTML=`<b>${Number(job.pickup_count||1)} จุดรับ → ${esc(job.dropoff_label||'จุดส่ง')}</b><div class="job-meta alert-meta"><span>${fmt(job.distance_km||0)} กม.</span><span>ประมาณ ${job.fare_estimate||'-'} บาท</span></div>`;
+    openModal('jobAlertModal');
+  }
+
+  document.addEventListener('visibilitychange',()=>{ if(!document.hidden && jobAlertEnabled && riderProfile?.online){ primeKnownOpenJobs().then(startJobAlertPolling); } });
 
   const jobSelect='*, rider_job_stops(*)';
   function sortStops(j){ return [...(j.rider_job_stops||[])].sort((a,b)=>a.stop_order-b.stop_order); }
