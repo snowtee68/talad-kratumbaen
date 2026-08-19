@@ -13,6 +13,7 @@
   const statusText = {open:'รอวินรับงาน',assigned:'วินกำลังรับของ',arrived_pickup:'ถึงจุดรับ',picked_up:'รับของครบแล้ว',delivering:'กำลังจัดส่ง',completed:'ส่งสำเร็จ',cancelled:'ยกเลิก'};
   const MAX_PICKUPS = 5;
   const EXTRA_PICKUP_FEE = 10;
+  let shopSearchTimer = null;
 
   function haversine(lat1,lng1,lat2,lng2){
     const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLng=(lng2-lng1)*Math.PI/180;
@@ -39,7 +40,7 @@
     $('#signUpBtn').onclick=signup;
     $('#jobForm').onsubmit=createJob;
     $('#addPickupBtn').onclick=()=>{ const n=$$('.pickup-stop').length; if(n>=MAX_PICKUPS)return alert(`เพิ่มจุดรับได้สูงสุด ${MAX_PICKUPS} จุด`); addPickupStop(); updateFare(); };
-    $('#jobForm').addEventListener('input',e=>{ if(e.target.matches('.stop-lat,.stop-lng,.stop-label')) updateFare(); });
+    $('#jobForm').addEventListener('input',handleJobFormInput);
     $('#jobForm').addEventListener('click',handleFormClick);
     $('#riderForm').onsubmit=registerRider;
     $('#onlineToggle').onchange=toggleOnline;
@@ -60,11 +61,21 @@
         <div class="pickup-stop-index">📍 จุดรับ ${index}</div>
         ${index>1?'<button type="button" class="remove-stop">ลบจุดนี้</button>':''}
       </div>
-      <div class="location-title"><span class="muted">ควรเรียงตามเส้นทางที่ต้องการให้วินไปรับ</span><button type="button" class="location-btn stop-location-btn">ใช้ตำแหน่งปัจจุบัน</button></div>
-      <label>ชื่อจุดรับ<input class="stop-label" required placeholder="เช่น ร้าน A / SNOWTEE"></label>
+      <div class="pickup-methods">
+        <div class="shop-search-wrap">
+          <label>🔎 ค้นหาร้านในตลาด
+            <input class="shop-search" autocomplete="off" placeholder="พิมพ์ชื่อร้าน เช่น SNOWTEE">
+          </label>
+          <div class="shop-results hidden"></div>
+        </div>
+        <div class="or-divider"><span>หรือ</span></div>
+        <button type="button" class="location-btn stop-location-btn">📍 ใช้ตำแหน่งปัจจุบัน</button>
+      </div>
+      <input class="stop-label" type="hidden" required><input class="stop-lat" type="hidden"><input class="stop-lng" type="hidden"><input class="stop-shop-id" type="hidden">
+      <div class="selected-location"><span class="location-state">ยังไม่ได้เลือกจุดรับ</span></div>
       <div class="form-grid two">
-        <label>Latitude<input class="stop-lat" type="number" step="any" required></label>
-        <label>Longitude<input class="stop-lng" type="number" step="any" required></label>
+        <label>ชื่อจุดรับ / ผู้ติดต่อ<input class="stop-contact-name" placeholder="กรณีไม่ใช่ร้านในระบบ"></label>
+        <label>เบอร์โทรจุดรับ<input class="stop-contact-phone" type="tel" inputmode="tel" placeholder="08x-xxx-xxxx"></label>
       </div>
       <label>รายละเอียดจุดรับ / จุดสังเกต<input class="stop-note" placeholder="เช่น หน้าร้านติดสะพาน"></label>`;
     $('#pickupStops').appendChild(el);
@@ -72,10 +83,64 @@
   }
   function renumberPickupStops(){ $$('.pickup-stop').forEach((el,i)=>{ const x=$('.pickup-stop-index',el); if(x)x.textContent=`📍 จุดรับ ${i+1}`; const rm=$('.remove-stop',el); if(i===0&&rm)rm.remove(); }); }
   function handleFormClick(e){
+    const result=e.target.closest('.shop-result');
+    if(result){ const block=result.closest('.pickup-stop'); try{return selectMarketShop(block,JSON.parse(result.dataset.shop));}catch(_){return;} }
     const loc=e.target.closest('.stop-location-btn');
     if(loc){ const block=loc.closest('.location-block'); return captureLocationForBlock(block); }
     const rm=e.target.closest('.remove-stop');
     if(rm){ rm.closest('.pickup-stop')?.remove(); renumberPickupStops(); updateFare(); }
+  }
+
+
+  function handleJobFormInput(e){
+    if(e.target.matches('.stop-lat,.stop-lng,.stop-label')) updateFare();
+    if(e.target.matches('.shop-search')){
+      const input=e.target, block=input.closest('.pickup-stop');
+      clearTimeout(shopSearchTimer);
+      shopSearchTimer=setTimeout(()=>searchMarketShops(input.value.trim(),block),220);
+    }
+  }
+
+  async function searchMarketShops(keyword,block){
+    const box=$('.shop-results',block);
+    if(!keyword || keyword.length<1){box.classList.add('hidden');box.innerHTML='';return;}
+    const safe=keyword.replace(/[%,]/g,' ').trim();
+    const {data,error}=await db.from('market_shops')
+      .select('id,name,phone,landmark,address,latitude,longitude,status')
+      .eq('status','approved')
+      .ilike('name',`%${safe}%`)
+      .order('name')
+      .limit(8);
+    if(error){box.innerHTML=`<div class="shop-result-empty">ค้นหาร้านไม่สำเร็จ</div>`;box.classList.remove('hidden');return;}
+    if(!data?.length){box.innerHTML=`<div class="shop-result-empty">ไม่พบร้าน “${esc(keyword)}”</div>`;box.classList.remove('hidden');return;}
+    box.innerHTML=data.map(shop=>{
+      const hasCoords=Number.isFinite(Number(shop.latitude))&&Number.isFinite(Number(shop.longitude))&&Number(shop.latitude)&&Number(shop.longitude);
+      return `<button type="button" class="shop-result" data-shop='${esc(JSON.stringify(shop))}'>
+        <b>${esc(shop.name)}</b>
+        <small>${hasCoords?'📍 มีพิกัดพร้อมนำทาง':'⚠️ ร้านยังไม่มีพิกัด'}${shop.landmark?` · ${esc(shop.landmark)}`:''}</small>
+      </button>`;
+    }).join('');
+    box.classList.remove('hidden');
+  }
+
+  function selectMarketShop(block,shop){
+    const lat=Number(shop.latitude),lng=Number(shop.longitude);
+    if(!Number.isFinite(lat)||!Number.isFinite(lng)||!lat||!lng){
+      alert('ร้านนี้ยังไม่มีพิกัดในระบบ กรุณาใช้ตำแหน่งปัจจุบันขณะอยู่ที่ร้าน หรือเลือกจุดอื่น');
+      return;
+    }
+    $('.stop-shop-id',block).value=shop.id||'';
+    $('.stop-label',block).value=shop.name||'';
+    $('.stop-lat',block).value=lat;
+    $('.stop-lng',block).value=lng;
+    $('.stop-contact-name',block).value=shop.name||'';
+    $('.stop-contact-phone',block).value=shop.phone||'';
+    if(!$('.stop-note',block).value) $('.stop-note',block).value=shop.landmark||shop.address||'';
+    const state=$('.location-state',block);
+    state.innerHTML=`<b>🏪 ${esc(shop.name)}</b>${shop.landmark?`<small>จุดสังเกต: ${esc(shop.landmark)}</small>`:''}${shop.phone?`<small>📞 ${esc(shop.phone)}</small>`:''}`;
+    $('.shop-search',block).value=shop.name||'';
+    $('.shop-results',block).classList.add('hidden');
+    updateFare();
   }
 
   async function login(e){e.preventDefault();const fd=new FormData(e.currentTarget);const {error}=await db.auth.signInWithPassword({email:fd.get('email'),password:fd.get('password')});if(error)return alert(error.message);closeModal('authModal')}
@@ -101,6 +166,10 @@
     navigator.geolocation.getCurrentPosition(pos=>{
       $('.stop-lat',block).value=pos.coords.latitude.toFixed(7);
       $('.stop-lng',block).value=pos.coords.longitude.toFixed(7);
+      const shopId=$('.stop-shop-id',block); if(shopId) shopId.value='';
+      const label=$('.stop-label',block);
+      if(label && !label.value) label.value=block.dataset.stopType==='pickup'?'ตำแหน่งจุดรับ':'ตำแหน่งจุดส่ง';
+      const state=$('.location-state',block); if(state) state.innerHTML=`<b>📍 ใช้ตำแหน่ง GPS แล้ว</b><small>ความแม่นยำประมาณ ${Math.round(pos.coords.accuracy)} เมตร</small>`;
       updateFare();
       alert(`บันทึกตำแหน่งลงในจุดนี้แล้ว (ความแม่นยำประมาณ ${Math.round(pos.coords.accuracy)} เมตร)`);
     },err=>alert('ไม่สามารถอ่านตำแหน่งได้: '+err.message),{enableHighAccuracy:true,timeout:12000,maximumAge:0});
@@ -113,8 +182,12 @@
       const label=$('.stop-label',b).value.trim();
       const lat=Number($('.stop-lat',b).value),lng=Number($('.stop-lng',b).value);
       const note=$('.stop-note',b).value.trim();
+      const shopId=$('.stop-shop-id',b)?.value||null;
+      const contactName=$('.stop-contact-name',b)?.value.trim()||'';
+      const contactPhone=$('.stop-contact-phone',b)?.value.trim()||'';
       if(requireLabels&&(!label||!Number.isFinite(lat)||!Number.isFinite(lng)||!lat||!lng)) throw new Error(`กรอกข้อมูล${type==='pickup'?'จุดรับ':'จุดส่ง'}ให้ครบ`);
-      return {type,label,lat,lng,note,order:i+1};
+      if(requireLabels&&type==='pickup'&&!shopId&&(!contactName||!contactPhone)) throw new Error('จุดรับที่ไม่ใช่ร้านในระบบ กรุณากรอกชื่อผู้ติดต่อและเบอร์โทร');
+      return {type,label,lat,lng,note,shop_id:shopId,contact_name:contactName,contact_phone:contactPhone,order:i+1};
     });
   }
   function routeDistance(stops){
@@ -141,7 +214,7 @@
     if(pickups<1||pickups>MAX_PICKUPS)return alert(`จุดรับต้องมี 1–${MAX_PICKUPS} จุด`);
     const km=routeDistance(stops),fare=fareForRoute(km,pickups); if(!fare)return alert('พื้นที่ทดสอบรองรับระยะทางรวมไม่เกิน 10 กม.');
     const fd=new FormData(e.currentTarget);
-    const payload=stops.map(s=>({type:s.type,label:s.label,lat:s.lat,lng:s.lng,note:s.note}));
+    const payload=stops.map(s=>({type:s.type,label:s.label,lat:s.lat,lng:s.lng,note:s.note,shop_id:s.shop_id,contact_name:s.contact_name,contact_phone:s.contact_phone}));
     const {data:job,error}=await db.rpc('rider_create_multistop_job',{
       p_stops:payload,
       p_job_note:fd.get('job_note')||'',
@@ -187,7 +260,9 @@
     const nextIncomplete=stops.find(s=>s.stop_type==='pickup'&&!s.completed_at);
     return `<div class="route-list">${stops.map((s,i)=>{
       const done=!!s.completed_at, current=mode==='rider'&&nextIncomplete?.id===s.id;
-      return `<div class="route-stop ${done?'done':''} ${current?'current':''}"><div class="route-num">${done?'✓':i+1}</div><div class="route-detail"><b>${s.stop_type==='pickup'?'📦 รับ':'🏠 ส่ง'}: ${esc(s.label)}</b>${s.note?`<small>${esc(s.note)}</small>`:''}${mode==='rider'?`<div class="stop-actions"><button class="ghost" data-action="navigate-stop" data-lat="${s.lat}" data-lng="${s.lng}">นำทาง</button>${current?`<button class="primary" data-action="complete-pickup" data-id="${s.job_id}" data-stop-id="${s.id}">รับของจุดนี้แล้ว</button>`:''}</div>`:''}</div></div>`;
+      const contact=mode==='rider'&&(s.contact_name||s.contact_phone)?`<div class="stop-contact">${s.contact_name?`<small>ผู้ติดต่อ: ${esc(s.contact_name)}</small>`:''}${s.contact_phone?`<small>📞 ${esc(s.contact_phone)}</small>`:''}</div>`:'';
+      const callBtn=mode==='rider'&&s.contact_phone?`<a class="ghost call-link" href="tel:${esc(s.contact_phone)}">📞 โทร</a>`:'';
+      return `<div class="route-stop ${done?'done':''} ${current?'current':''}"><div class="route-num">${done?'✓':i+1}</div><div class="route-detail"><b>${s.stop_type==='pickup'?'📦 รับ':'🏠 ส่ง'}: ${esc(s.label)}</b>${s.note?`<small>${esc(s.note)}</small>`:''}${contact}${mode==='rider'?`<div class="stop-actions"><button class="ghost" data-action="navigate-stop" data-lat="${s.lat}" data-lng="${s.lng}">🧭 นำทาง</button>${callBtn}${current?`<button class="primary" data-action="complete-pickup" data-id="${s.job_id}" data-stop-id="${s.id}">รับของจุดนี้แล้ว</button>`:''}</div>`:''}</div></div>`;
     }).join('')}</div>`;
   }
 

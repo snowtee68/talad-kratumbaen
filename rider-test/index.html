@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=0.2.0">
+  <link rel="stylesheet" href="styles.css?v=0.3.0">
 </head>
 <body>
 <header class="topbar">
@@ -24,7 +24,7 @@
 <main class="container">
   <section class="hero card">
     <div>
-      <span class="eyebrow">RIDER TEST · v0.2 MULTI-STOP</span>
+      <span class="eyebrow">RIDER TEST · v0.3 SMART PICKUP</span>
       <h1>🛵 เรียกวินรับ-ส่งของ</h1>
       <p>ทดลองจับคู่งานรับ-ส่งของในชุมชน โดยเว็บไม่รับเงินค่าสินค้าและไม่ให้วินสำรองค่าสินค้า</p>
     </div>
@@ -45,7 +45,7 @@
       <div class="multi-stop-head">
         <div>
           <b>📦 จุดรับสินค้า</b>
-          <p class="muted">เพิ่มได้สูงสุด 5 จุด ระบบจะคิดระยะทางตามลำดับที่กรอก</p>
+          <p class="muted">เพิ่มได้สูงสุด 5 จุด · ค้นหาร้านในตลาดได้จากชื่อร้าน โดยไม่ต้องกรอกพิกัดเอง</p>
         </div>
         <button id="addPickupBtn" type="button" class="ghost">＋ เพิ่มจุดรับ</button>
       </div>
@@ -53,13 +53,15 @@
       <div id="pickupStops" class="pickup-stops"></div>
 
       <div class="location-block dropoff-block" data-stop-type="dropoff">
-        <div class="location-title"><b>🏠 จุดส่งปลายทาง</b><button type="button" class="location-btn stop-location-btn">ใช้ตำแหน่งปัจจุบัน</button></div>
+        <div class="location-title"><b>🏠 จุดส่งปลายทาง</b><button type="button" class="location-btn stop-location-btn">📍 ใช้ตำแหน่งปัจจุบัน</button></div>
         <label>ชื่อจุดส่ง<input class="stop-label" required placeholder="เช่น บ้านลูกค้า / หมู่บ้าน..."></label>
+        <input class="stop-lat" type="hidden"><input class="stop-lng" type="hidden"><input class="stop-shop-id" type="hidden">
+        <div class="location-state">ยังไม่ได้ระบุตำแหน่ง</div>
         <div class="form-grid two">
-          <label>Latitude<input class="stop-lat" type="number" step="any" required></label>
-          <label>Longitude<input class="stop-lng" type="number" step="any" required></label>
+          <label>ชื่อผู้รับ / ผู้ติดต่อ<input class="stop-contact-name" placeholder="เช่น คุณสมชาย"></label>
+          <label>เบอร์โทรผู้รับ<input class="stop-contact-phone" type="tel" inputmode="tel" placeholder="08x-xxx-xxxx"></label>
         </div>
-        <label>รายละเอียดจุดส่ง / จุดสังเกต<input class="stop-note" placeholder="เช่น บ้านรั้วสีขาว"></label>
+        <label>รายละเอียดจุดส่ง / จุดสังเกต<input class="stop-note" placeholder="เช่น บ้านรั้วสีขาว ข้างร้านขายยา"></label>
       </div>
 
       <div class="form-grid two">
@@ -130,10 +132,10 @@
   </div>
 </div>
 
-<footer><div class="container">Rider Test v0.2 Multi-stop · ตลาดกระทุ่มแบน · ไม่ใช่ระบบชำระเงิน</div></footer>
+<footer><div class="container">Rider Test v0.3 Smart Pickup · ตลาดกระทุ่มแบน · ไม่ใช่ระบบชำระเงิน</div></footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
-<script src="app.js?v=0.2.0"></script>
+<script src="app.js?v=0.3.0"></script>
 </body>
 </html>
