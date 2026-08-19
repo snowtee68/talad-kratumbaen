@@ -14,6 +14,8 @@
   const MAX_PICKUPS = 5;
   const EXTRA_PICKUP_FEE = 10;
   let shopSearchTimer = null;
+  let marketShopIndex = [];
+  let marketShopLoadError = null;
 
   function haversine(lat1,lng1,lat2,lng2){
     const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLng=(lng2-lng1)*Math.PI/180;
@@ -29,7 +31,7 @@
   async function init(){
     const {data:{session:s}} = await db.auth.getSession(); session=s;
     db.auth.onAuthStateChange(async (_e,s2)=>{session=s2; await refreshAuth();});
-    wire(); renderPickupStops(1); await refreshAuth();
+    wire(); renderPickupStops(1); await Promise.all([refreshAuth(), loadMarketShopIndex()]);
   }
 
   function wire(){
@@ -101,18 +103,35 @@
     }
   }
 
+  async function loadMarketShopIndex(){
+    marketShopLoadError=null;
+    const {data,error}=await db.from('market_shops')
+      .select('id,name,phone,landmark,address,latitude,longitude')
+      .eq('status','approved')
+      .order('name');
+    if(error){
+      marketShopIndex=[];
+      marketShopLoadError=error.message||'โหลดรายชื่อร้านไม่สำเร็จ';
+      console.error('loadMarketShopIndex',error);
+      return;
+    }
+    marketShopIndex=data||[];
+  }
+
   async function searchMarketShops(keyword,block){
     const box=$('.shop-results',block);
     if(!keyword || keyword.length<1){box.classList.add('hidden');box.innerHTML='';return;}
-    const safe=keyword.replace(/[%,]/g,' ').trim();
-    const {data,error}=await db.from('market_shops')
-      .select('id,name,phone,landmark,address,latitude,longitude,status')
-      .eq('status','approved')
-      .ilike('name',`%${safe}%`)
-      .order('name')
-      .limit(8);
-    if(error){box.innerHTML=`<div class="shop-result-empty">ค้นหาร้านไม่สำเร็จ</div>`;box.classList.remove('hidden');return;}
-    if(!data?.length){box.innerHTML=`<div class="shop-result-empty">ไม่พบร้าน “${esc(keyword)}”</div>`;box.classList.remove('hidden');return;}
+    if(!marketShopIndex.length && !marketShopLoadError) await loadMarketShopIndex();
+    if(marketShopLoadError){
+      box.innerHTML=`<div class="shop-result-empty">ค้นหาร้านไม่สำเร็จ กรุณารีเฟรชหน้าอีกครั้ง</div>`;
+      box.classList.remove('hidden');
+      return;
+    }
+    const q=keyword.trim().toLocaleLowerCase('th-TH');
+    const data=marketShopIndex.filter(shop=>
+      [shop.name,shop.address,shop.landmark].filter(Boolean).join(' ').toLocaleLowerCase('th-TH').includes(q)
+    ).slice(0,8);
+    if(!data.length){box.innerHTML=`<div class="shop-result-empty">ไม่พบร้าน “${esc(keyword)}”</div>`;box.classList.remove('hidden');return;}
     box.innerHTML=data.map(shop=>{
       const hasCoords=Number.isFinite(Number(shop.latitude))&&Number.isFinite(Number(shop.longitude))&&Number(shop.latitude)&&Number(shop.longitude);
       return `<button type="button" class="shop-result" data-shop='${esc(JSON.stringify(shop))}'>
