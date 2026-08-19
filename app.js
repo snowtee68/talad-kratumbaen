@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v5.7.9.11 Search Category UX loaded');
+  console.info('Talad Krathumbaen Main v5.7.9.15 Search Button UX loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -1332,9 +1332,13 @@
     document.querySelectorAll('[data-analytics-days]').forEach(btn=>btn.addEventListener('click',()=>loadAnalyticsDashboard(Number(btn.dataset.analyticsDays)||7)));
     $('accountBtn').addEventListener('click',()=>session?$('dashboard').scrollIntoView({behavior:'smooth'}):openModal('authModal'));
     $('addShopBtn').addEventListener('click',()=>{if(!session)return openModal('authModal');$('shopForm').reset();fillOpeningHours($('shopForm'),{});$('shopFormTitle').textContent='เพิ่มร้านของฉัน';openModal('shopModal');});
-    let searchTimer=null;
     $('searchBtn').addEventListener('click',()=>resetShopList({scroll:true}));
-    $('searchInput').addEventListener('input',()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>resetShopList({scroll:!!$('searchInput').value.trim()}),250);});
+    $('searchInput').addEventListener('keydown',ev=>{
+      if(ev.key==='Enter'){
+        ev.preventDefault();
+        resetShopList({scroll:true});
+      }
+    });
     $('authForm').addEventListener('submit',async ev=>{
       ev.preventDefault();
       if(!db)return alert('ยังไม่ได้ตั้งค่า Supabase');
