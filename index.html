@@ -4,6 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#b31217">
+  <meta name="application-name" content="ตลาดกระทุ่มแบน">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="ตลาดกระทุ่มแบน">
+  <link rel="manifest" href="manifest.webmanifest?v=5.7.9.12">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=5.7.9.12">
   <title>ตลาดกระทุ่มแบน</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -11,7 +17,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
-  <link rel="stylesheet" href="styles.css?v=5.7.9.10-support-openchat">
+  <link rel="stylesheet" href="styles.css?v=5.7.9.12-install-app">
 </head>
 <body>
 <header class="site-header">
@@ -35,6 +41,7 @@
         <p>รวมร้านอาหาร เครื่องดื่ม แฟชั่น และบริการ พร้อมแผนที่ เบอร์โทร และเส้นทาง</p>
         <div class="search-box"><span>🔎</span><input id="searchInput" placeholder="ค้นหาชื่อร้าน สินค้า หรือหมวดหมู่"><button id="searchBtn">ค้นหา</button></div>
         <div id="categoryButtons" class="chips"></div>
+        <div class="install-app-wrap"><button id="installAppBtn" class="install-app-button" type="button">📲 เพิ่มไปหน้าจอหลัก</button><small id="installAppHint">เปิดเว็บครั้งต่อไปได้เหมือนแอปจากหน้าจอมือถือ</small></div>
       </div>
     </div>
   </section>
@@ -85,7 +92,7 @@
   </section>
 </main>
 
-<footer><div class="container support-footer"><div>ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ <span class="version-badge">Main v5.7.9.11</span></div><a class="support-openchat-link" href="https://line.me/ti/g2/26r6PGveA0bN-PKo8YNyw7dd2lF_ejymNdCNKw?utm_source=invitation&utm_medium=link_copy&utm_campaign=default" target="_blank" rel="noopener noreferrer">💬 สอบถาม / แจ้งปัญหาการใช้งาน</a></div></footer>
+<footer><div class="container support-footer"><div>ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ <span class="version-badge">Main v5.7.9.12</span></div><a class="support-openchat-link" href="https://line.me/ti/g2/26r6PGveA0bN-PKo8YNyw7dd2lF_ejymNdCNKw?utm_source=invitation&utm_medium=link_copy&utm_campaign=default" target="_blank" rel="noopener noreferrer">💬 สอบถาม / แจ้งปัญหาการใช้งาน</a></div></footer>
 
 <nav class="floating-navigation" aria-label="ทางลัดหน้าเว็บ">
   <button id="floatingBackBtn" type="button" class="floating-nav-button" aria-label="ย้อนกลับ">← <span>กลับ</span></button>
@@ -93,6 +100,8 @@
   <a class="floating-nav-button support" href="https://line.me/ti/g2/26r6PGveA0bN-PKo8YNyw7dd2lF_ejymNdCNKw?utm_source=invitation&utm_medium=link_copy&utm_campaign=default" target="_blank" rel="noopener noreferrer" aria-label="สอบถามหรือแจ้งปัญหาการใช้งานผ่าน LINE OpenChat">💬 <span>ช่วยเหลือ</span></a>
 </nav>
 
+
+<div id="installAppModal" class="modal hidden"><div class="backdrop" data-close="installAppModal"></div><div class="modal-card small install-modal-card"><button class="close" data-close="installAppModal">×</button><h2>📲 เพิ่มไปหน้าจอหลัก</h2><div id="installAppInstructions" class="install-app-instructions"></div></div></div>
 
 <div id="favoritesModal" class="modal hidden"><div class="backdrop" data-close="favoritesModal"></div><div class="modal-card"><button class="close" data-close="favoritesModal">×</button><div class="section-head"><div><span class="eyebrow red">บัญชีของฉัน</span><h2>❤️ ร้านชื่นชอบของฉัน</h2></div><span id="favoriteCount"></span></div><div id="favoriteGrid" class="grid compact"></div></div></div>
 
@@ -127,6 +136,6 @@
 <script src="config.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-<script src="app.js?v=5.7.9.10-support-openchat"></script>
+<script src="app.js?v=5.7.9.12-install-app"></script>
 </body>
 </html>
