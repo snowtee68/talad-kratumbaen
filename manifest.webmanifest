@@ -1,0 +1,17 @@
+{
+  "name": "ตลาดกระทุ่มแบน",
+  "short_name": "ตลาดกระทุ่มแบน",
+  "description": "ศูนย์รวมร้านค้า โปรโมชั่น แผนที่ และข้อมูลร้านค้าในชุมชนตลาดกระทุ่มแบน",
+  "lang": "th",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#fff8f6",
+  "theme_color": "#b31217",
+  "icons": [
+    {"src":"icons/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any"},
+    {"src":"icons/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any"},
+    {"src":"icons/icon-maskable-512.png","sizes":"512x512","type":"image/png","purpose":"maskable"}
+  ]
+}

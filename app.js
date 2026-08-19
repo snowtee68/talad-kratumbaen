@@ -1543,3 +1543,87 @@
   }
   start();
 })();
+
+/* === PWA install experience: Main v5.7.9.12 === */
+let deferredInstallPrompt = null;
+
+function isAppStandalone(){
+  return window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+
+function isIOSDevice(){
+  return /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
+function refreshInstallButton(){
+  const btn = document.getElementById('installAppBtn');
+  const hint = document.getElementById('installAppHint');
+  if(!btn) return;
+  const installed = isAppStandalone();
+  btn.classList.toggle('hidden', installed);
+  if(hint) hint.classList.toggle('hidden', installed);
+}
+
+function showInstallInstructions(html){
+  const box = document.getElementById('installAppInstructions');
+  const modal = document.getElementById('installAppModal');
+  if(box) box.innerHTML = html;
+  if(modal) modal.classList.remove('hidden');
+}
+
+window.addEventListener('beforeinstallprompt', (event) => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+  refreshInstallButton();
+});
+
+window.addEventListener('appinstalled', () => {
+  deferredInstallPrompt = null;
+  refreshInstallButton();
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  refreshInstallButton();
+  const installBtn = document.getElementById('installAppBtn');
+  if(installBtn){
+    installBtn.addEventListener('click', async () => {
+      if(isAppStandalone()){
+        refreshInstallButton();
+        return;
+      }
+      if(deferredInstallPrompt){
+        deferredInstallPrompt.prompt();
+        try{
+          const choice = await deferredInstallPrompt.userChoice;
+          if(choice?.outcome === 'accepted') deferredInstallPrompt = null;
+        }catch(_err){}
+        refreshInstallButton();
+        return;
+      }
+      if(isIOSDevice()){
+        showInstallInstructions(`
+          <p><b>บน iPhone / iPad</b></p>
+          <ol>
+            <li>เปิดหน้านี้ด้วย <b>Safari</b></li>
+            <li>แตะปุ่ม <b>แชร์ ⬆️</b></li>
+            <li>เลื่อนหา <b>“เพิ่มไปยังหน้าจอโฮม”</b></li>
+            <li>แตะ <b>เพิ่ม</b></li>
+          </ol>
+          <p class="install-note">จากนั้นไอคอน “ตลาดกระทุ่มแบน” จะอยู่บนหน้าจอเหมือนแอป</p>`);
+        return;
+      }
+      showInstallInstructions(`
+        <p><b>อุปกรณ์นี้ยังไม่แสดงหน้าต่างติดตั้งอัตโนมัติ</b></p>
+        <p>ให้เปิดเมนูของเบราว์เซอร์ แล้วเลือก <b>ติดตั้งแอป</b> หรือ <b>เพิ่มไปยังหน้าจอหลัก</b></p>
+        <p class="install-note">บน Android แนะนำ Chrome หรือ Edge เวอร์ชันปัจจุบัน</p>`);
+    });
+  }
+
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js?v=5.7.9.12', {scope:'./'}).catch((err) => {
+        console.warn('Service worker registration failed:', err);
+      });
+    });
+  }
+});
