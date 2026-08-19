@@ -322,7 +322,7 @@ fieldset{border:1px solid var(--line);border-radius:14px;padding:14px}legend{fon
 .support-footer{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}.support-openchat-link{display:inline-flex;align-items:center;gap:7px;color:#fff;text-decoration:none;border:1px solid rgba(255,255,255,.28);border-radius:999px;padding:9px 13px;font-weight:700}.support-openchat-link:hover{background:rgba(255,255,255,.1)}.floating-nav-button.support{background:#fff;color:var(--ink);text-decoration:none;border-color:rgba(127,13,17,.18)}
 @media(max-width:600px){.floating-navigation{gap:6px}.floating-nav-button{min-width:0;padding:9px 11px;font-size:12px}.floating-nav-button.support{flex:1}.support-footer{align-items:flex-start;flex-direction:column}.support-openchat-link{width:100%;justify-content:center}}
 
-/* === Install to Home Screen: Main v5.7.9.13 === */
+/* === Install to Home Screen: Main v5.7.9.14 === */
 .install-app-wrap{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px}
 .install-app-button{border:0;border-radius:14px;padding:11px 16px;background:#b31217;color:#fff;font:inherit;font-weight:700;cursor:pointer;box-shadow:0 8px 22px rgba(179,18,23,.18)}
 .install-app-button:hover{transform:translateY(-1px)}

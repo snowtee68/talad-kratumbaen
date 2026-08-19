@@ -1544,7 +1544,7 @@
   start();
 })();
 
-/* === PWA install experience: Main v5.7.9.13 === */
+/* === PWA install experience: Main v5.7.9.14 === */
 let deferredInstallPrompt = null;
 
 function isAppStandalone(){
@@ -1554,6 +1554,15 @@ function isAppStandalone(){
 function isIOSDevice(){
   return /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 }
+
+function isSamsungInternet(){
+  return /SamsungBrowser/i.test(navigator.userAgent);
+}
+
+function isAndroidDevice(){
+  return /Android/i.test(navigator.userAgent);
+}
+
 
 function refreshInstallButton(){
   const btn = document.getElementById('installAppBtn');
@@ -1591,6 +1600,21 @@ document.addEventListener('DOMContentLoaded', () => {
         refreshInstallButton();
         return;
       }
+      // Samsung Internet can install the site through a browser-generated Android package
+      // that may trigger Play Protect warnings on newer Android versions. Do not invoke it.
+      if(isAndroidDevice() && isSamsungInternet()){
+        showInstallInstructions(`
+          <p><b>สำหรับ Samsung Internet</b></p>
+          <p>เพื่อหลีกเลี่ยงคำเตือนจาก Google Play Protect ให้เปิดเว็บไซต์นี้ด้วย <b>Google Chrome</b> ก่อนติดตั้ง</p>
+          <ol>
+            <li>คัดลอกลิงก์หน้านี้</li>
+            <li>เปิด <b>Google Chrome</b></li>
+            <li>วางลิงก์และเปิดเว็บไซต์</li>
+            <li>กด <b>📲 เพิ่มไปหน้าจอหลัก</b> อีกครั้ง แล้วกด <b>ติดตั้ง</b></li>
+          </ol>
+          <p class="install-note">ไม่จำเป็นต้องปิด Google Play Protect หรืออนุญาตแอปที่ถูกบล็อก</p>`);
+        return;
+      }
       if(deferredInstallPrompt){
         deferredInstallPrompt.prompt();
         try{
@@ -1621,7 +1645,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=5.7.9.13', {scope:'./'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=5.7.9.14', {scope:'./'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
