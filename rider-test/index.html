@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=0.3.2">
+  <link rel="stylesheet" href="styles.css?v=0.3.3">
 </head>
 <body>
 <header class="topbar">
@@ -24,7 +24,7 @@
 <main class="container">
   <section class="hero card">
     <div>
-      <span class="eyebrow">RIDER TEST · v0.3.2 JOB ALERT</span>
+      <span class="eyebrow">RIDER TEST · v0.3.3 ADMIN RIDER APPROVAL</span>
       <h1>🛵 เรียกวินรับ-ส่งของ</h1>
       <p>ทดลองจับคู่งานรับ-ส่งของในชุมชน โดยเว็บไม่รับเงินค่าสินค้าและไม่ให้วินสำรองค่าสินค้า</p>
     </div>
@@ -125,6 +125,8 @@
     <div id="adminRiderArea" class="hidden">
       <div class="section-head"><div><span class="eyebrow">Admin</span><h2>วินที่รออนุมัติ</h2></div></div>
       <div id="pendingRiders" class="job-list"></div>
+      <div class="section-head admin-approved-head"><div><span class="eyebrow">Admin</span><h2>วินในระบบ</h2></div><button id="refreshRidersBtn" type="button" class="ghost">รีเฟรช</button></div>
+      <div id="approvedRiders" class="job-list"></div>
     </div>
   </section>
 </main>
@@ -157,10 +159,10 @@
   </div>
 </div>
 
-<footer><div class="container">Rider Test v0.3.2 Job Alert · ตลาดกระทุ่มแบน · ไม่ใช่ระบบชำระเงิน</div></footer>
+<footer><div class="container">Rider Test v0.3.3 Admin Rider Approval · ตลาดกระทุ่มแบน · ไม่ใช่ระบบชำระเงิน</div></footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
-<script src="app.js?v=0.3.2"></script>
+<script src="app.js?v=0.3.3"></script>
 </body>
 </html>

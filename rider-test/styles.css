@@ -11,3 +11,7 @@
 
 /* v0.3.2 Job alert */
 .job-alert-controls{margin-top:14px;border-top:1px solid var(--line);padding-top:14px;display:flex;justify-content:space-between;gap:14px;align-items:center}.job-alert-controls>div:first-child{display:grid;gap:3px}.job-alert-controls small{color:var(--muted);font-size:12px}.job-alert-modal-card{text-align:center;max-width:430px}.job-alert-icon{font-size:54px;line-height:1;margin:4px 0 12px;animation:riderBell .7s ease-in-out 2}.job-alert-body{padding:14px;background:#fff7ed;border:1px solid #fed7aa;border-radius:14px;margin:12px 0 16px;text-align:left}.alert-meta{margin-top:8px}.alert-actions{justify-content:center}.alert-actions button{min-width:120px}@keyframes riderBell{0%,100%{transform:rotate(0)}25%{transform:rotate(-12deg)}75%{transform:rotate(12deg)}}@media(max-width:720px){.job-alert-controls{align-items:stretch;flex-direction:column}.job-alert-controls .row{display:grid;grid-template-columns:1fr}.job-alert-controls button{width:100%}.job-alert-modal-card{width:min(430px,calc(100vw - 24px))}}
+
+/* v0.3.3 Admin rider approval */
+.admin-approved-head{margin-top:28px}
+#adminRiderArea .status{white-space:nowrap}

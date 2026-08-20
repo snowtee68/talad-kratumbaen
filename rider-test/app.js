@@ -187,7 +187,7 @@
     const {data:p}=await db.from('market_profiles').select('role,display_name').eq('id',uid).maybeSingle(); profile=p;
     const {data:r}=await db.from('rider_profiles').select('*').eq('user_id',uid).maybeSingle(); riderProfile=r;
     renderRiderState();
-    await Promise.all([loadMyJobs(),loadRiderJobs(),loadPendingRiders()]);
+    await Promise.all([loadMyJobs(),loadRiderJobs(),loadPendingRiders(),loadApprovedRiders()]);
   }
 
   function captureLocationForBlock(block){
@@ -420,7 +420,7 @@
     if(action==='complete-delivery'){if(!confirm('ยืนยันว่าส่งของถึงปลายทางแล้ว?'))return;const {error}=await db.rpc('rider_complete_delivery',{p_job_id:id});if(error)return alert(error.message);await Promise.all([loadRiderJobs(),loadMyJobs()]);}
     if(action==='route') await showRoute(id);
     if(action==='navigate-stop') window.open(gmaps(b.dataset.lat,b.dataset.lng),'_blank');
-    if(action==='approve-rider'){const {error}=await db.rpc('rider_admin_set_approval',{p_user_id:id,p_status:b.dataset.status});if(error)return alert(error.message);await loadPendingRiders();}
+    if(action==='approve-rider'){const next=b.dataset.status;const label=next==='approved'?'อนุมัติวินคนนี้?':next==='suspended'?'ระงับวินคนนี้?':next==='pending'?'เปิดให้รออนุมัติอีกครั้ง?':'ไม่อนุมัติวินคนนี้?';if(!confirm(label))return;const {error}=await db.rpc('rider_admin_set_approval',{p_user_id:id,p_status:next});if(error)return alert(error.message);await Promise.all([loadPendingRiders(),loadApprovedRiders()]);}
   }
 
   async function showRoute(id){
@@ -432,6 +432,10 @@
   }
 
   async function loadPendingRiders(){if(profile?.role!=='admin')return;const {data,error}=await db.from('rider_profiles').select('*').eq('approval_status','pending').order('created_at');if(error)return;$('#pendingRiders').innerHTML=(data||[]).map(r=>`<article class="job-card"><div><b>${esc(r.display_name)}</b><div class="job-meta"><span>${esc(r.phone)}</span><span>${esc(r.vehicle_label||'')}</span><span>${esc(r.plate||'')}</span></div></div><div class="job-actions"><button class="primary" data-action="approve-rider" data-id="${r.user_id}" data-status="approved">อนุมัติ</button><button class="danger" data-action="approve-rider" data-id="${r.user_id}" data-status="rejected">ไม่อนุมัติ</button></div></article>`).join('')||'<div class="notice">ไม่มีวินรออนุมัติ</div>'}
+
+  async function loadApprovedRiders(){if(profile?.role!=='admin')return;const {data,error}=await db.from('rider_profiles').select('*').neq('approval_status','pending').order('created_at',{ascending:false});if(error){$('#approvedRiders').innerHTML='<div class="notice">โหลดรายชื่อวินไม่สำเร็จ</div>';return;}$('#approvedRiders').innerHTML=(data||[]).map(r=>{const st=r.approval_status||'pending';const badge=st==='approved'?'✅ อนุมัติแล้ว':st==='suspended'?'⛔ ระงับ':'❌ ไม่อนุมัติ';const actions=st==='approved'?`<button class="danger" data-action="approve-rider" data-id="${r.user_id}" data-status="suspended">ระงับ</button>`:`<button class="primary" data-action="approve-rider" data-id="${r.user_id}" data-status="approved">อนุมัติ/เปิดใช้งาน</button><button class="ghost" data-action="approve-rider" data-id="${r.user_id}" data-status="pending">กลับไปรออนุมัติ</button>`;return `<article class="job-card"><div class="job-top"><div><b>${esc(r.display_name)}</b><div class="job-meta"><span>📞 ${esc(r.phone)}</span><span>🏍️ ${esc(r.vehicle_label||'-')}</span><span>ทะเบียน ${esc(r.plate||'-')}</span><span>${r.online?'🟢 พร้อมรับงาน':'⚪ ออฟไลน์'}</span></div></div><span class="status">${badge}</span></div><div class="job-actions">${actions}</div></article>`}).join('')||'<div class="notice">ยังไม่มีวินที่ผ่านการพิจารณา</div>'}
+
+  $('#refreshRidersBtn')?.addEventListener('click',()=>Promise.all([loadPendingRiders(),loadApprovedRiders()]));
 
   init();
 })();
