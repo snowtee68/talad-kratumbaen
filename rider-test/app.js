@@ -27,9 +27,9 @@
   let alertLoopEndsAt = 0;
   let alertSpeechActive = false;
   const JOB_ALERT_MAX_MS = 30000;
-  const JOB_ALERT_REPEAT_MS = 5200;
+  const JOB_ALERT_REPEAT_MS = 1800;
   const JOB_ALERT_TEXT = 'มีงานใหม่เข้ามา มีงานใหม่เข้ามา';
-  const JOB_ALERT_AUDIO_SRC = 'job-alert-long.wav?v=0.3.6.2';
+  const JOB_ALERT_AUDIO_SRC = 'job-alert-long.wav?v=0.3.6.3';
 
   function haversine(lat1,lng1,lat2,lng2){
     const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLng=(lng2-lng1)*Math.PI/180;
@@ -376,6 +376,11 @@
       const a=getJobAlertAudio();
       a.pause(); a.currentTime=0; a.volume=1;
       await a.play();
+      await new Promise(resolve=>{
+        const done=()=>{ a.removeEventListener('ended',done); resolve(); };
+        a.addEventListener('ended',done,{once:true});
+        setTimeout(done,3400);
+      });
       return true;
     }catch(err){
       console.warn('HTML job alert audio failed, using WebAudio fallback',err);
@@ -386,13 +391,13 @@
     if(audioContext.state==='suspended'){ try{ await audioContext.resume(); }catch(_){ } }
     const start=audioContext.currentTime;
     const osc=audioContext.createOscillator(), gain=audioContext.createGain();
-    osc.type='square'; osc.frequency.value=980;
+    osc.type='square'; osc.frequency.value=1080;
     gain.gain.setValueAtTime(0.0001,start);
-    gain.gain.exponentialRampToValueAtTime(.48,start+.03);
-    gain.gain.setValueAtTime(.48,start+1.55);
-    gain.gain.exponentialRampToValueAtTime(.0001,start+1.78);
+    gain.gain.exponentialRampToValueAtTime(.78,start+.03);
+    gain.gain.setValueAtTime(.78,start+2.45);
+    gain.gain.exponentialRampToValueAtTime(.0001,start+2.68);
     osc.connect(gain); gain.connect(audioContext.destination);
-    osc.start(start); osc.stop(start+1.8);
+    osc.start(start); osc.stop(start+2.7);
     return true;
   }
 
