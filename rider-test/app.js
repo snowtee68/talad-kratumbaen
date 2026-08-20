@@ -63,7 +63,9 @@
     $('#testJobAlertBtn').onclick=()=>startJobAlertLoop({test:true});
     $('#alertViewJobsBtn').onclick=()=>{ stopJobAlertLoop(); closeModal('jobAlertModal'); $('#openJobs')?.scrollIntoView({behavior:'smooth',block:'start'}); };
     $('#alertCloseBtn').onclick=()=>{ stopJobAlertLoop(); closeModal('jobAlertModal'); };
-    $('#riderModeBtn').onclick=()=>$('#riderPanel').scrollIntoView({behavior:'smooth'});
+    const goRider=()=>{ if(!session){ openModal('authModal'); return; } $('#riderPanel').scrollIntoView({behavior:'smooth'}); };
+    $('#riderModeBtn').onclick=goRider;
+    $('#heroRiderBtn').onclick=goRider;
     $('#refreshMyJobs').onclick=loadMyJobs;
     $('#refreshOpenJobs').onclick=loadRiderJobs;
     document.addEventListener('click',handleAction);
@@ -187,7 +189,8 @@
     $('#guestNotice').classList.toggle('hidden',!!session);
     $('#customerPanel').classList.toggle('hidden',!session);
     $('#riderPanel').classList.toggle('hidden',!session);
-    $('#riderModeBtn').classList.toggle('hidden',!session);
+    $('#riderModeBtn').classList.remove('hidden');
+    $('#riderModeBtn').textContent=session?'🛵 โหมดวิน':'🛵 สมัคร/โหมดวิน';
     profile=null;riderProfile=null;
     if(!session){ stopJobAlertRealtime(); return; }
     const uid=session.user.id;
