@@ -21,12 +21,15 @@
   let jobAlertRealtimeState = 'disconnected';
   let knownOpenJobKeys = new Set();
   let audioContext = null;
+  let jobAlertAudio = null;
+  let audioUnlocked = false;
   let alertLoopTimer = null;
   let alertLoopEndsAt = 0;
   let alertSpeechActive = false;
   const JOB_ALERT_MAX_MS = 30000;
-  const JOB_ALERT_REPEAT_MS = 6000;
-  const JOB_ALERT_TEXT = 'มีงานใหม่เข้ามา กรุณาตรวจสอบงาน';
+  const JOB_ALERT_REPEAT_MS = 5200;
+  const JOB_ALERT_TEXT = 'มีงานใหม่เข้ามา มีงานใหม่เข้ามา';
+  const JOB_ALERT_AUDIO_SRC = 'job-alert-long.wav?v=0.3.6.2';
 
   function haversine(lat1,lng1,lat2,lng2){
     const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLng=(lng2-lng1)*Math.PI/180;
@@ -307,18 +310,54 @@
     $('#disableJobAlertBtn')?.classList.toggle('hidden',!jobAlertEnabled);
   }
 
+  function getJobAlertAudio(){
+    if(!jobAlertAudio){
+      jobAlertAudio=new Audio(JOB_ALERT_AUDIO_SRC);
+      jobAlertAudio.preload='auto';
+      jobAlertAudio.volume=1;
+      jobAlertAudio.playsInline=true;
+    }
+    return jobAlertAudio;
+  }
+
+  async function unlockJobAlertAudio(){
+    const a=getJobAlertAudio();
+    try{
+      a.pause(); a.currentTime=0; a.volume=0.06;
+      await a.play();
+      await new Promise(r=>setTimeout(r,120));
+      a.pause(); a.currentTime=0; a.volume=1;
+      audioUnlocked=true;
+    }catch(err){
+      a.volume=1;
+      console.warn('Unable to unlock HTML audio',err);
+    }
+    // Prime Thai speech from the same direct user gesture.
+    try{
+      if('speechSynthesis' in window && window.SpeechSynthesisUtterance){
+        window.speechSynthesis.cancel();
+        const u=new SpeechSynthesisUtterance('เปิดแจ้งเตือนงานแล้ว');
+        u.lang='th-TH'; u.rate=1; u.pitch=1; u.volume=0.85;
+        const voices=window.speechSynthesis.getVoices?.()||[];
+        const th=voices.find(v=>String(v.lang||'').toLowerCase().startsWith('th'));
+        if(th) u.voice=th;
+        window.speechSynthesis.speak(u);
+      }
+    }catch(_){ }
+  }
+
   async function enableJobAlerts(){
     try{
-      // Audio on mobile browsers must be unlocked by a direct user gesture.
-      audioContext = audioContext || new (window.AudioContext||window.webkitAudioContext)();
-      if(audioContext.state==='suspended') await audioContext.resume();
-      await playJobAlertTone(true);
+      // Must be called from this button click so iPhone/Android grants audio playback.
+      await unlockJobAlertAudio();
+      const Ctx=window.AudioContext||window.webkitAudioContext;
+      if(Ctx){ audioContext=audioContext||new Ctx(); if(audioContext.state==='suspended') await audioContext.resume(); }
       jobAlertEnabled=true;
       localStorage.setItem('rider_job_alert_enabled','1');
       updateJobAlertUi();
       await primeKnownOpenJobs();
       if(riderProfile?.online) startJobAlertRealtime();
-      alert('เปิดแจ้งเตือนงานแล้ว เมื่อเปิดพร้อมรับงาน ระบบจะรับงานใหม่ผ่าน Realtime และแจ้งด้วยเสียง/สั่น/Popup ขณะ Rider Dashboard เชื่อมต่ออยู่');
+      alert('เปิดแจ้งเตือนงานแล้ว กรุณาเปิดเสียงโทรศัพท์ไว้ เมื่อมีงานใหม่จะมีเสียงตี๊ดยาว + เสียงพูดแจ้งงาน + Popup');
     }catch(err){ alert('ไม่สามารถเปิดเสียงแจ้งเตือนได้: '+(err?.message||err)); }
   }
 
@@ -331,26 +370,36 @@
   }
 
   async function playJobAlertTone(test=false){
+    // Primary path: a real preloaded WAV. Once unlocked by the Enable button,
+    // iPhone is much more reliable playing this from a Realtime callback.
+    try{
+      const a=getJobAlertAudio();
+      a.pause(); a.currentTime=0; a.volume=1;
+      await a.play();
+      return true;
+    }catch(err){
+      console.warn('HTML job alert audio failed, using WebAudio fallback',err);
+    }
     const Ctx=window.AudioContext||window.webkitAudioContext;
-    if(!Ctx) return;
+    if(!Ctx) return false;
     audioContext=audioContext||new Ctx();
-    if(audioContext.state==='suspended') await audioContext.resume();
+    if(audioContext.state==='suspended'){ try{ await audioContext.resume(); }catch(_){ } }
     const start=audioContext.currentTime;
-    const notes=test?[660]:[880,1040,880];
-    notes.forEach((freq,i)=>{
-      const osc=audioContext.createOscillator(), gain=audioContext.createGain();
-      osc.type='sine'; osc.frequency.value=freq;
-      gain.gain.setValueAtTime(0.0001,start+i*0.22);
-      gain.gain.exponentialRampToValueAtTime(.22,start+i*0.22+.02);
-      gain.gain.exponentialRampToValueAtTime(.0001,start+i*0.22+.17);
-      osc.connect(gain); gain.connect(audioContext.destination);
-      osc.start(start+i*0.22); osc.stop(start+i*0.22+.19);
-    });
+    const osc=audioContext.createOscillator(), gain=audioContext.createGain();
+    osc.type='square'; osc.frequency.value=980;
+    gain.gain.setValueAtTime(0.0001,start);
+    gain.gain.exponentialRampToValueAtTime(.48,start+.03);
+    gain.gain.setValueAtTime(.48,start+1.55);
+    gain.gain.exponentialRampToValueAtTime(.0001,start+1.78);
+    osc.connect(gain); gain.connect(audioContext.destination);
+    osc.start(start); osc.stop(start+1.8);
+    return true;
   }
 
 
   function stopJobAlertLoop(){
     if(alertLoopTimer){ clearTimeout(alertLoopTimer); alertLoopTimer=null; }
+    if(jobAlertAudio){ try{ jobAlertAudio.pause(); jobAlertAudio.currentTime=0; }catch(_){ } }
     alertLoopEndsAt=0;
     alertSpeechActive=false;
     if('speechSynthesis' in window){
@@ -398,7 +447,7 @@
     alertLoopEndsAt=Date.now()+(test?15000:JOB_ALERT_MAX_MS);
     if(test){
       $('#jobAlertTitle').textContent='🔊 ทดสอบเสียงแจ้งเตือน';
-      $('#jobAlertBody').innerHTML='<b>เสียงทดสอบ:</b> “มีงานใหม่เข้ามา กรุณาตรวจสอบงาน”<div class="job-meta alert-meta"><span>กด × หรือ “ปิดเสียง” เพื่อหยุด</span></div>';
+      $('#jobAlertBody').innerHTML='<b>เสียงทดสอบ:</b> ตี๊ดยาว → “มีงานใหม่เข้ามา มีงานใหม่เข้ามา”<div class="job-meta alert-meta"><span>กด × หรือ “ปิดเสียง” เพื่อหยุด</span></div>';
       openModal('jobAlertModal');
     }
     runJobAlertCycle();
