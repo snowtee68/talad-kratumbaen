@@ -15,3 +15,9 @@
 /* v0.3.3 Admin rider approval */
 .admin-approved-head{margin-top:28px}
 #adminRiderArea .status{white-space:nowrap}
+
+
+/* v0.3.4 Voice job alert */
+#testJobAlertBtn{white-space:nowrap}
+.job-alert-body small{display:block;color:var(--muted);margin-top:10px;line-height:1.5}
+@media(max-width:720px){#testJobAlertBtn{width:100%}}

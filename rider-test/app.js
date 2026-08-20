@@ -20,7 +20,13 @@
   let jobAlertPollTimer = null;
   let knownOpenJobIds = new Set();
   let audioContext = null;
+  let alertLoopTimer = null;
+  let alertLoopEndsAt = 0;
+  let alertSpeechActive = false;
   const JOB_ALERT_POLL_MS = 10000;
+  const JOB_ALERT_MAX_MS = 30000;
+  const JOB_ALERT_REPEAT_MS = 6000;
+  const JOB_ALERT_TEXT = 'มีงานใหม่เข้ามา กรุณาตรวจสอบงาน';
 
   function haversine(lat1,lng1,lat2,lng2){
     const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLng=(lng2-lng1)*Math.PI/180;
@@ -42,7 +48,7 @@
 
   function wire(){
     $('#accountBtn').onclick = async () => { if(session){ await db.auth.signOut(); } else openModal('authModal'); };
-    $$('[data-close]').forEach(el=>el.onclick=()=>closeModal(el.dataset.close));
+    $$('[data-close]').forEach(el=>el.onclick=()=>{ if(el.dataset.close==='jobAlertModal') stopJobAlertLoop(); closeModal(el.dataset.close); });
     $('#showPass').onclick=()=>{const p=$('#authForm [name=password]');p.type=p.type==='password'?'text':'password'};
     $('#authForm').onsubmit=login;
     $('#signUpBtn').onclick=signup;
@@ -54,8 +60,9 @@
     $('#onlineToggle').onchange=toggleOnline;
     $('#enableJobAlertBtn').onclick=enableJobAlerts;
     $('#disableJobAlertBtn').onclick=disableJobAlerts;
-    $('#alertViewJobsBtn').onclick=()=>{ closeModal('jobAlertModal'); $('#openJobs')?.scrollIntoView({behavior:'smooth',block:'start'}); };
-    $('#alertCloseBtn').onclick=()=>closeModal('jobAlertModal');
+    $('#testJobAlertBtn').onclick=()=>startJobAlertLoop({test:true});
+    $('#alertViewJobsBtn').onclick=()=>{ stopJobAlertLoop(); closeModal('jobAlertModal'); $('#openJobs')?.scrollIntoView({behavior:'smooth',block:'start'}); };
+    $('#alertCloseBtn').onclick=()=>{ stopJobAlertLoop(); closeModal('jobAlertModal'); };
     $('#riderModeBtn').onclick=()=>$('#riderPanel').scrollIntoView({behavior:'smooth'});
     $('#refreshMyJobs').onclick=loadMyJobs;
     $('#refreshOpenJobs').onclick=loadRiderJobs;
@@ -310,6 +317,7 @@
     jobAlertEnabled=false;
     localStorage.removeItem('rider_job_alert_enabled');
     stopJobAlertPolling();
+    stopJobAlertLoop();
     updateJobAlertUi();
   }
 
@@ -329,6 +337,62 @@
       osc.connect(gain); gain.connect(audioContext.destination);
       osc.start(start+i*0.22); osc.stop(start+i*0.22+.19);
     });
+  }
+
+
+  function stopJobAlertLoop(){
+    if(alertLoopTimer){ clearTimeout(alertLoopTimer); alertLoopTimer=null; }
+    alertLoopEndsAt=0;
+    alertSpeechActive=false;
+    if('speechSynthesis' in window){
+      try{ window.speechSynthesis.cancel(); }catch(_){ }
+    }
+    if(navigator.vibrate){ try{ navigator.vibrate(0); }catch(_){ } }
+  }
+
+  function speakJobAlert(){
+    return new Promise(resolve=>{
+      if(!('speechSynthesis' in window) || !window.SpeechSynthesisUtterance) return resolve(false);
+      try{
+        window.speechSynthesis.cancel();
+        const u=new SpeechSynthesisUtterance(JOB_ALERT_TEXT);
+        u.lang='th-TH'; u.rate=0.95; u.pitch=1.03; u.volume=1;
+        const voices=window.speechSynthesis.getVoices?.()||[];
+        const th=voices.find(v=>String(v.lang||'').toLowerCase().startsWith('th'));
+        if(th) u.voice=th;
+        alertSpeechActive=true;
+        const done=ok=>{ alertSpeechActive=false; resolve(ok); };
+        u.onend=()=>done(true); u.onerror=()=>done(false);
+        window.speechSynthesis.speak(u);
+      }catch(_){ alertSpeechActive=false; resolve(false); }
+    });
+  }
+
+  async function runJobAlertCycle(){
+    if(!alertLoopEndsAt || Date.now()>alertLoopEndsAt){ stopJobAlertLoop(); return; }
+    try{ await playJobAlertTone(false); }catch(_){ }
+    if(navigator.vibrate){ try{ navigator.vibrate([300,140,300,140,550]); }catch(_){ } }
+    const spoke=await speakJobAlert();
+    if(!spoke){ try{ await playJobAlertTone(false); }catch(_){ } }
+    if(alertLoopEndsAt && Date.now()<alertLoopEndsAt){
+      alertLoopTimer=setTimeout(runJobAlertCycle,JOB_ALERT_REPEAT_MS);
+    }else stopJobAlertLoop();
+  }
+
+  async function startJobAlertLoop({test=false}={}){
+    stopJobAlertLoop();
+    // A direct button gesture helps browsers unlock audio/speech.
+    try{
+      const Ctx=window.AudioContext||window.webkitAudioContext;
+      if(Ctx){ audioContext=audioContext||new Ctx(); if(audioContext.state==='suspended') await audioContext.resume(); }
+    }catch(_){ }
+    alertLoopEndsAt=Date.now()+(test?15000:JOB_ALERT_MAX_MS);
+    if(test){
+      $('#jobAlertTitle').textContent='🔊 ทดสอบเสียงแจ้งเตือน';
+      $('#jobAlertBody').innerHTML='<b>เสียงทดสอบ:</b> “มีงานใหม่เข้ามา กรุณาตรวจสอบงาน”<div class="job-meta alert-meta"><span>กด × หรือ “ปิดเสียง” เพื่อหยุด</span></div>';
+      openModal('jobAlertModal');
+    }
+    runJobAlertCycle();
   }
 
   async function primeKnownOpenJobs(){
@@ -357,12 +421,11 @@
   }
 
   async function notifyNewJob(job,count){
-    try{await playJobAlertTone(false);}catch(_){ }
-    if(navigator.vibrate) try{navigator.vibrate([250,120,250,120,450]);}catch(_){ }
     const title=count>1?`มีงานใหม่ ${count} งาน`:'มีงานใหม่';
     $('#jobAlertTitle').textContent='🛵 '+title;
-    $('#jobAlertBody').innerHTML=`<b>${Number(job.pickup_count||1)} จุดรับ → ${esc(job.dropoff_label||'จุดส่ง')}</b><div class="job-meta alert-meta"><span>${fmt(job.distance_km||0)} กม.</span><span>ประมาณ ${job.fare_estimate||'-'} บาท</span></div>`;
+    $('#jobAlertBody').innerHTML=`<b>${Number(job.pickup_count||1)} จุดรับ → ${esc(job.dropoff_label||'จุดส่ง')}</b><div class="job-meta alert-meta"><span>${fmt(job.distance_km||0)} กม.</span><span>ประมาณ ${job.fare_estimate||'-'} บาท</span></div><small>เสียงจะเตือนซ้ำสูงสุดประมาณ 30 วินาที หรือจนกดปิดเสียง/ดูงาน</small>`;
     openModal('jobAlertModal');
+    startJobAlertLoop({test:false});
   }
 
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden && jobAlertEnabled && riderProfile?.online){ primeKnownOpenJobs().then(startJobAlertPolling); } });
@@ -414,7 +477,7 @@
     const b=e.target.closest('[data-action]');if(!b)return;
     const id=b.dataset.id,action=b.dataset.action;
     if(action==='claim'){const {error}=await db.rpc('rider_claim_job',{p_job_id:id});if(error)return alert(error.message);await Promise.all([loadRiderJobs(),loadMyJobs()]);}
-    if(action==='cancel'){if(!confirm('ยกเลิกงานนี้?'))return;const {error}=await db.rpc('rider_cancel_job',{p_job_id:id});if(error)return alert(error.message);await loadMyJobs();}
+    if(action==='cancel'){if(!confirm(`ยกเลิกงานนี้?\n\nยกเลิกได้เฉพาะก่อนมีวินรับงานเท่านั้น`))return;const {error}=await db.rpc('rider_cancel_job',{p_job_id:id});if(error)return alert('ยกเลิกไม่ได้: '+error.message);await loadMyJobs();}
     if(action==='complete-pickup'){const {error}=await db.rpc('rider_complete_pickup_stop',{p_job_id:id,p_stop_id:b.dataset.stopId});if(error)return alert(error.message);await Promise.all([loadRiderJobs(),loadMyJobs()]);}
     if(action==='start-delivery'){const {error}=await db.rpc('rider_start_delivery',{p_job_id:id});if(error)return alert(error.message);await Promise.all([loadRiderJobs(),loadMyJobs()]);}
     if(action==='complete-delivery'){if(!confirm('ยืนยันว่าส่งของถึงปลายทางแล้ว?'))return;const {error}=await db.rpc('rider_complete_delivery',{p_job_id:id});if(error)return alert(error.message);await Promise.all([loadRiderJobs(),loadMyJobs()]);}

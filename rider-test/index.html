@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=0.3.3">
+  <link rel="stylesheet" href="styles.css?v=0.3.4">
 </head>
 <body>
 <header class="topbar">
@@ -24,7 +24,7 @@
 <main class="container">
   <section class="hero card">
     <div>
-      <span class="eyebrow">RIDER TEST · v0.3.3 ADMIN RIDER APPROVAL</span>
+      <span class="eyebrow">RIDER TEST · v0.3.4 VOICE JOB ALERT</span>
       <h1>🛵 เรียกวินรับ-ส่งของ</h1>
       <p>ทดลองจับคู่งานรับ-ส่งของในชุมชน โดยเว็บไม่รับเงินค่าสินค้าและไม่ให้วินสำรองค่าสินค้า</p>
     </div>
@@ -110,6 +110,7 @@
         </div>
         <div class="row">
           <button id="enableJobAlertBtn" type="button" class="primary">🔔 เปิดการแจ้งเตือนงาน</button>
+          <button id="testJobAlertBtn" type="button" class="ghost">🔊 ทดสอบเสียง</button>
           <button id="disableJobAlertBtn" type="button" class="ghost hidden">🔕 ปิดเสียงแจ้งเตือน</button>
         </div>
       </div>
@@ -141,7 +142,7 @@
     <div id="jobAlertBody" class="job-alert-body"></div>
     <div class="row alert-actions">
       <button id="alertViewJobsBtn" class="primary" type="button">ดูงานใหม่</button>
-      <button class="ghost" type="button" data-close="jobAlertModal">ไว้ทีหลัง</button>
+      <button class="ghost" type="button" data-close="jobAlertModal">🔇 ปิดเสียง</button>
     </div>
   </div>
 </div>
@@ -159,10 +160,10 @@
   </div>
 </div>
 
-<footer><div class="container">Rider Test v0.3.3 Admin Rider Approval · ตลาดกระทุ่มแบน · ไม่ใช่ระบบชำระเงิน</div></footer>
+<footer><div class="container">Rider Test v0.3.4 Voice Job Alert · ตลาดกระทุ่มแบน · ไม่ใช่ระบบชำระเงิน</div></footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
-<script src="app.js?v=0.3.3"></script>
+<script src="app.js?v=0.3.4"></script>
 </body>
 </html>
