@@ -24,7 +24,7 @@
 <main class="container">
   <section class="hero card">
     <div>
-      <span class="eyebrow">RIDER TEST · v0.3.4 VOICE JOB ALERT</span>
+      <span class="eyebrow">RIDER TEST · v0.3.6 REALTIME JOB ALERT</span>
       <h1>🛵 เรียกวินรับ-ส่งของ</h1>
       <p>ทดลองจับคู่งานรับ-ส่งของในชุมชน โดยเว็บไม่รับเงินค่าสินค้าและไม่ให้วินสำรองค่าสินค้า</p>
     </div>
@@ -106,7 +106,7 @@
       <div id="jobAlertControls" class="job-alert-controls hidden">
         <div>
           <b id="jobAlertStatus">🔕 ยังไม่ได้เปิดเสียงแจ้งเตือน</b>
-          <small>เมื่อเปิดพร้อมรับงาน ระบบจะตรวจงานใหม่ประมาณทุก 10 วินาที ขณะ Rider Dashboard เปิดอยู่</small>
+          <small>เมื่อเปิดพร้อมรับงาน ระบบจะเชื่อมต่อ Supabase Realtime และแจ้งงานใหม่ทันทีขณะ Rider Dashboard เชื่อมต่ออยู่</small>
         </div>
         <div class="row">
           <button id="enableJobAlertBtn" type="button" class="primary">🔔 เปิดการแจ้งเตือนงาน</button>
@@ -160,10 +160,10 @@
   </div>
 </div>
 
-<footer><div class="container">Rider Test v0.3.4 Voice Job Alert · ตลาดกระทุ่มแบน · ไม่ใช่ระบบชำระเงิน</div></footer>
+<footer><div class="container">Rider Test v0.3.6 Realtime Job Alert · ตลาดกระทุ่มแบน · ไม่ใช่ระบบชำระเงิน</div></footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
-<script src="app.js?v=0.3.4"></script>
+<script src="app.js?v=0.3.6"></script>
 </body>
 </html>

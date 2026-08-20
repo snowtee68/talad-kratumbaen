@@ -17,13 +17,13 @@
   let marketShopIndex = [];
   let marketShopLoadError = null;
   let jobAlertEnabled = false;
-  let jobAlertPollTimer = null;
-  let knownOpenJobIds = new Set();
+  let jobAlertRealtimeChannel = null;
+  let jobAlertRealtimeState = 'disconnected';
+  let knownOpenJobKeys = new Set();
   let audioContext = null;
   let alertLoopTimer = null;
   let alertLoopEndsAt = 0;
   let alertSpeechActive = false;
-  const JOB_ALERT_POLL_MS = 10000;
   const JOB_ALERT_MAX_MS = 30000;
   const JOB_ALERT_REPEAT_MS = 6000;
   const JOB_ALERT_TEXT = 'มีงานใหม่เข้ามา กรุณาตรวจสอบงาน';
@@ -189,7 +189,7 @@
     $('#riderPanel').classList.toggle('hidden',!session);
     $('#riderModeBtn').classList.toggle('hidden',!session);
     profile=null;riderProfile=null;
-    if(!session){ stopJobAlertPolling(); return; }
+    if(!session){ stopJobAlertRealtime(); return; }
     const uid=session.user.id;
     const {data:p}=await db.from('market_profiles').select('role,display_name').eq('id',uid).maybeSingle(); profile=p;
     const {data:r}=await db.from('rider_profiles').select('*').eq('user_id',uid).maybeSingle(); riderProfile=r;
@@ -276,7 +276,7 @@
       $('#onlineToggle').disabled=!approved;
       $('#jobAlertControls').classList.toggle('hidden',!approved);
       updateJobAlertUi();
-      if(approved && riderProfile.online && jobAlertEnabled) startJobAlertPolling(); else stopJobAlertPolling();
+      if(approved && riderProfile.online && jobAlertEnabled) startJobAlertRealtime(); else stopJobAlertRealtime();
     }
     $('#adminRiderArea').classList.toggle('hidden',profile?.role!=='admin');
   }
@@ -287,13 +287,19 @@
     const {error}=await db.from('rider_profiles').update({online}).eq('user_id',session.user.id);
     if(error){ alert(error.message); $('#onlineToggle').checked=!online; return; }
     riderProfile.online=online;
-    if(online && jobAlertEnabled) startJobAlertPolling(); else stopJobAlertPolling();
+    if(online && jobAlertEnabled) startJobAlertRealtime(); else stopJobAlertRealtime();
     await loadRiderJobs();
   }
 
   function updateJobAlertUi(){
     const status=$('#jobAlertStatus');
-    if(status) status.textContent=jobAlertEnabled?'🔔 แจ้งเตือนงานเปิดอยู่':'🔕 ยังไม่ได้เปิดเสียงแจ้งเตือน';
+    if(status){
+      if(!jobAlertEnabled) status.textContent='🔕 ยังไม่ได้เปิดเสียงแจ้งเตือน';
+      else if(jobAlertRealtimeState==='connected') status.textContent='🟢 Realtime พร้อมแจ้งงานทันที';
+      else if(jobAlertRealtimeState==='error') status.textContent='🟠 Realtime เชื่อมต่อไม่สำเร็จ — กดปิด/เปิดแจ้งเตือนใหม่';
+      else if(riderProfile?.online) status.textContent='🟡 กำลังเชื่อมต่อ Realtime…';
+      else status.textContent='🔔 แจ้งเตือนเปิดอยู่ · เปิด “พร้อมรับงาน” เพื่อเชื่อมต่อ Realtime';
+    }
     $('#enableJobAlertBtn')?.classList.toggle('hidden',jobAlertEnabled);
     $('#disableJobAlertBtn')?.classList.toggle('hidden',!jobAlertEnabled);
   }
@@ -308,15 +314,15 @@
       localStorage.setItem('rider_job_alert_enabled','1');
       updateJobAlertUi();
       await primeKnownOpenJobs();
-      if(riderProfile?.online) startJobAlertPolling();
-      alert('เปิดเสียงแจ้งเตือนงานแล้ว เมื่อมีงานใหม่ขณะหน้านี้เปิดอยู่ ระบบจะส่งเสียงและสั่นถ้าอุปกรณ์รองรับ');
+      if(riderProfile?.online) startJobAlertRealtime();
+      alert('เปิดแจ้งเตือนงานแล้ว เมื่อเปิดพร้อมรับงาน ระบบจะรับงานใหม่ผ่าน Realtime และแจ้งด้วยเสียง/สั่น/Popup ขณะ Rider Dashboard เชื่อมต่ออยู่');
     }catch(err){ alert('ไม่สามารถเปิดเสียงแจ้งเตือนได้: '+(err?.message||err)); }
   }
 
   function disableJobAlerts(){
     jobAlertEnabled=false;
     localStorage.removeItem('rider_job_alert_enabled');
-    stopJobAlertPolling();
+    stopJobAlertRealtime();
     stopJobAlertLoop();
     updateJobAlertUi();
   }
@@ -396,39 +402,67 @@
   }
 
   async function primeKnownOpenJobs(){
-    const {data}=await db.from('rider_jobs').select('id').eq('status','open').limit(100);
-    knownOpenJobIds=new Set((data||[]).map(x=>x.id));
+    const {data}=await db.from('rider_jobs').select('id,updated_at').eq('status','open').limit(100);
+    knownOpenJobKeys=new Set((data||[]).map(x=>`${x.id}|${x.updated_at||''}`));
   }
 
-  function startJobAlertPolling(){
-    if(jobAlertPollTimer || !jobAlertEnabled || !riderProfile?.online) return;
-    pollForNewJobs();
-    jobAlertPollTimer=setInterval(pollForNewJobs,JOB_ALERT_POLL_MS);
+  async function hasCurrentRiderWithdrawn(jobId){
+    if(!session?.user?.id || !jobId) return false;
+    const {data,error}=await db.from('rider_job_withdrawals')
+      .select('id')
+      .eq('job_id',jobId)
+      .eq('rider_id',session.user.id)
+      .limit(1);
+    if(error) return false;
+    return !!data?.length;
   }
-  function stopJobAlertPolling(){ if(jobAlertPollTimer){clearInterval(jobAlertPollTimer);jobAlertPollTimer=null;} }
 
-  async function pollForNewJobs(){
-    if(!jobAlertEnabled || !riderProfile?.online || document.hidden) return;
-    const {data,error}=await db.from('rider_jobs').select('id,pickup_count,distance_km,fare_estimate,dropoff_label,created_at').eq('status','open').order('created_at',{ascending:false}).limit(30);
-    if(error) return;
-    const rows=data||[];
-    const fresh=rows.filter(j=>!knownOpenJobIds.has(j.id));
-    rows.forEach(j=>knownOpenJobIds.add(j.id));
-    if(fresh.length){
-      await loadRiderJobs();
-      notifyNewJob(fresh[0],fresh.length);
+  async function handleRealtimeJobChange(payload){
+    if(!jobAlertEnabled || !riderProfile?.online) return;
+    const job=payload?.new;
+    if(!job?.id || job.status!=='open') return;
+    const key=`${job.id}|${job.updated_at||''}`;
+    if(knownOpenJobKeys.has(key)) return;
+    knownOpenJobKeys.add(key);
+    if(Number(job.reassign_count||0)>0 && await hasCurrentRiderWithdrawn(job.id)) return;
+    await loadRiderJobs();
+    notifyNewJob(job,1);
+  }
+
+  function startJobAlertRealtime(){
+    if(jobAlertRealtimeChannel || !jobAlertEnabled || !riderProfile?.online) return;
+    jobAlertRealtimeState='connecting';
+    updateJobAlertUi();
+    jobAlertRealtimeChannel=db
+      .channel(`rider-open-jobs-${session?.user?.id||'anon'}`)
+      .on('postgres_changes',{event:'*',schema:'public',table:'rider_jobs'},handleRealtimeJobChange)
+      .subscribe((status,err)=>{
+        jobAlertRealtimeState=status==='SUBSCRIBED'?'connected':status==='CHANNEL_ERROR'?'error':status==='TIMED_OUT'?'error':status==='CLOSED'?'disconnected':'connecting';
+        updateJobAlertUi();
+        if(err) console.error('Rider Realtime subscription',err);
+      });
+  }
+
+  function stopJobAlertRealtime(){
+    if(jobAlertRealtimeChannel){
+      const channel=jobAlertRealtimeChannel;
+      jobAlertRealtimeChannel=null;
+      try{ db.removeChannel(channel); }catch(_){ try{ channel.unsubscribe(); }catch(__){} }
     }
+    jobAlertRealtimeState='disconnected';
+    updateJobAlertUi();
   }
 
   async function notifyNewJob(job,count){
-    const title=count>1?`มีงานใหม่ ${count} งาน`:'มีงานใหม่';
+    const reopened=Number(job.reassign_count||0)>0;
+    const title=count>1?`มีงานใหม่ ${count} งาน`:(reopened?'งานกลับมารอวินใหม่':'มีงานใหม่');
     $('#jobAlertTitle').textContent='🛵 '+title;
-    $('#jobAlertBody').innerHTML=`<b>${Number(job.pickup_count||1)} จุดรับ → ${esc(job.dropoff_label||'จุดส่ง')}</b><div class="job-meta alert-meta"><span>${fmt(job.distance_km||0)} กม.</span><span>ประมาณ ${job.fare_estimate||'-'} บาท</span></div><small>เสียงจะเตือนซ้ำสูงสุดประมาณ 30 วินาที หรือจนกดปิดเสียง/ดูงาน</small>`;
+    $('#jobAlertBody').innerHTML=`<b>${Number(job.pickup_count||1)} จุดรับ → ${esc(job.dropoff_label||'จุดส่ง')}</b><div class="job-meta alert-meta"><span>${fmt(job.distance_km||0)} กม.</span><span>ประมาณ ${job.fare_estimate||'-'} บาท</span></div><small>${reopened?'วินก่อนหน้าถอนตัว ระบบเปิดให้อีกคนรับงานต่อ · ':''}เสียงจะเตือนซ้ำสูงสุดประมาณ 30 วินาที หรือจนกดปิดเสียง/ดูงาน</small>`;
     openModal('jobAlertModal');
     startJobAlertLoop({test:false});
   }
 
-  document.addEventListener('visibilitychange',()=>{ if(!document.hidden && jobAlertEnabled && riderProfile?.online){ primeKnownOpenJobs().then(startJobAlertPolling); } });
+  document.addEventListener('visibilitychange',()=>{ if(!document.hidden && jobAlertEnabled && riderProfile?.online){ primeKnownOpenJobs().then(startJobAlertRealtime); } });
 
   const jobSelect='*, rider_job_stops(*)';
   function sortStops(j){ return [...(j.rider_job_stops||[])].sort((a,b)=>a.stop_order-b.stop_order); }
@@ -464,19 +498,36 @@
     if(mode==='open')actions=`<button class="primary" data-action="claim" data-id="${j.id}">รับงาน</button>`;
     if(mode==='customer'&&j.status==='open')actions=`<button class="danger" data-action="cancel" data-id="${j.id}">ยกเลิกงาน</button>`;
     if(mode==='rider'){
-      if(j.status==='picked_up') actions=`<button class="primary" data-action="start-delivery" data-id="${j.id}">เริ่มจัดส่ง</button>`;
-      else if(j.status==='delivering') actions=`<button class="primary" data-action="complete-delivery" data-id="${j.id}">ส่งสำเร็จ</button>`;
+      const hasPickedUpAny=stops.some(s=>s.stop_type==='pickup'&&s.completed_at);
+      if((j.status==='assigned'||j.status==='arrived_pickup')&&!hasPickedUpAny){
+        actions+=`<button class="danger" data-action="withdraw" data-id="${j.id}">ถอนตัวจากงาน</button>`;
+      }
+      if(j.status==='picked_up') actions+=`<button class="primary" data-action="start-delivery" data-id="${j.id}">เริ่มจัดส่ง</button>`;
+      else if(j.status==='delivering') actions+=`<button class="primary" data-action="complete-delivery" data-id="${j.id}">ส่งสำเร็จ</button>`;
       actions += `<button class="ghost" data-action="route" data-id="${j.id}">ดูเส้นทางทั้งหมด</button>`;
     }
     const title=pickupCount>1?`รับ ${pickupCount} จุด → ${esc(j.dropoff_label)}`:`${esc(j.pickup_label)} → ${esc(j.dropoff_label)}`;
     const extra=j.extra_stop_fee?`<span>ค่าจุดเพิ่ม ${j.extra_stop_fee} บาท</span>`:'';
-    return `<article class="job-card" data-job-id="${j.id}"><div class="job-top"><div><b>${title}</b><div class="job-meta"><span>${pickupCount} จุดรับ</span><span>${fmt(j.distance_km)} กม.</span><span>ประมาณ ${j.fare_estimate} บาท</span>${extra}<span>${payer}จ่าย</span></div></div><span class="status ${j.status}">${statusText[j.status]||j.status}</span></div>${stops.length?routeMarkup(stops,mode):`<div class="route-summary">รายละเอียดพิกัดจะแสดงหลังรับงาน</div>`}<div class="job-meta"><span>สร้าง ${fmtTime(j.created_at)}</span>${j.assigned_rider_name?`<span>วิน: ${esc(j.assigned_rider_name)}</span>`:''}</div><div class="job-actions">${actions}</div></article>`;
+    const reassigned=Number(j.reassign_count||0)>0;
+    const reassignNotice=reassigned&&j.status==='open'?`<div class="notice compact">♻️ วินก่อนหน้าถอนตัว กำลังค้นหาวินคนใหม่${Number(j.reassign_count)>1?` · ครั้งที่ ${j.reassign_count}`:''}</div>`:'';
+    return `<article class="job-card" data-job-id="${j.id}"><div class="job-top"><div><b>${title}</b><div class="job-meta"><span>${pickupCount} จุดรับ</span><span>${fmt(j.distance_km)} กม.</span><span>ประมาณ ${j.fare_estimate} บาท</span>${extra}<span>${payer}จ่าย</span>${reassigned?`<span>♻️ เปิดหาวินใหม่ ${j.reassign_count} ครั้ง</span>`:''}</div></div><span class="status ${j.status}">${statusText[j.status]||j.status}</span></div>${reassignNotice}${stops.length?routeMarkup(stops,mode):`<div class="route-summary">รายละเอียดพิกัดจะแสดงหลังรับงาน</div>`}<div class="job-meta"><span>สร้าง ${fmtTime(j.created_at)}</span>${j.assigned_rider_name?`<span>วิน: ${esc(j.assigned_rider_name)}</span>`:''}</div><div class="job-actions">${actions}</div></article>`;
   }
 
   async function handleAction(e){
     const b=e.target.closest('[data-action]');if(!b)return;
     const id=b.dataset.id,action=b.dataset.action;
     if(action==='claim'){const {error}=await db.rpc('rider_claim_job',{p_job_id:id});if(error)return alert(error.message);await Promise.all([loadRiderJobs(),loadMyJobs()]);}
+    if(action==='withdraw'){
+      const reason=prompt('เหตุผลที่ถอนตัวจากงาน\nเช่น รถเสีย / เหตุฉุกเฉิน / ติดต่อจุดรับไม่ได้ / เส้นทางมีปัญหา');
+      if(reason===null)return;
+      if(!reason.trim())return alert('กรุณาระบุเหตุผลที่ถอนตัว');
+      if(!confirm('ยืนยันถอนตัวจากงาน?\nงานจะกลับไปเปิดให้วินคนอื่นรับทันที'))return;
+      const {error}=await db.rpc('rider_withdraw_job',{p_job_id:id,p_reason:reason.trim()});
+      if(error)return alert('ถอนตัวไม่ได้: '+error.message);
+      stopJobAlertLoop();
+      alert('ถอนตัวเรียบร้อย ระบบเปิดงานให้วินคนอื่นรับต่อแล้ว');
+      await Promise.all([loadRiderJobs(),loadMyJobs()]);
+    }
     if(action==='cancel'){if(!confirm(`ยกเลิกงานนี้?\n\nยกเลิกได้เฉพาะก่อนมีวินรับงานเท่านั้น`))return;const {error}=await db.rpc('rider_cancel_job',{p_job_id:id});if(error)return alert('ยกเลิกไม่ได้: '+error.message);await loadMyJobs();}
     if(action==='complete-pickup'){const {error}=await db.rpc('rider_complete_pickup_stop',{p_job_id:id,p_stop_id:b.dataset.stopId});if(error)return alert(error.message);await Promise.all([loadRiderJobs(),loadMyJobs()]);}
     if(action==='start-delivery'){const {error}=await db.rpc('rider_start_delivery',{p_job_id:id});if(error)return alert(error.message);await Promise.all([loadRiderJobs(),loadMyJobs()]);}
@@ -496,7 +547,16 @@
 
   async function loadPendingRiders(){if(profile?.role!=='admin')return;const {data,error}=await db.from('rider_profiles').select('*').eq('approval_status','pending').order('created_at');if(error)return;$('#pendingRiders').innerHTML=(data||[]).map(r=>`<article class="job-card"><div><b>${esc(r.display_name)}</b><div class="job-meta"><span>${esc(r.phone)}</span><span>${esc(r.vehicle_label||'')}</span><span>${esc(r.plate||'')}</span></div></div><div class="job-actions"><button class="primary" data-action="approve-rider" data-id="${r.user_id}" data-status="approved">อนุมัติ</button><button class="danger" data-action="approve-rider" data-id="${r.user_id}" data-status="rejected">ไม่อนุมัติ</button></div></article>`).join('')||'<div class="notice">ไม่มีวินรออนุมัติ</div>'}
 
-  async function loadApprovedRiders(){if(profile?.role!=='admin')return;const {data,error}=await db.from('rider_profiles').select('*').neq('approval_status','pending').order('created_at',{ascending:false});if(error){$('#approvedRiders').innerHTML='<div class="notice">โหลดรายชื่อวินไม่สำเร็จ</div>';return;}$('#approvedRiders').innerHTML=(data||[]).map(r=>{const st=r.approval_status||'pending';const badge=st==='approved'?'✅ อนุมัติแล้ว':st==='suspended'?'⛔ ระงับ':'❌ ไม่อนุมัติ';const actions=st==='approved'?`<button class="danger" data-action="approve-rider" data-id="${r.user_id}" data-status="suspended">ระงับ</button>`:`<button class="primary" data-action="approve-rider" data-id="${r.user_id}" data-status="approved">อนุมัติ/เปิดใช้งาน</button><button class="ghost" data-action="approve-rider" data-id="${r.user_id}" data-status="pending">กลับไปรออนุมัติ</button>`;return `<article class="job-card"><div class="job-top"><div><b>${esc(r.display_name)}</b><div class="job-meta"><span>📞 ${esc(r.phone)}</span><span>🏍️ ${esc(r.vehicle_label||'-')}</span><span>ทะเบียน ${esc(r.plate||'-')}</span><span>${r.online?'🟢 พร้อมรับงาน':'⚪ ออฟไลน์'}</span></div></div><span class="status">${badge}</span></div><div class="job-actions">${actions}</div></article>`}).join('')||'<div class="notice">ยังไม่มีวินที่ผ่านการพิจารณา</div>'}
+  async function loadApprovedRiders(){
+    if(profile?.role!=='admin')return;
+    const [{data,error},{data:withdrawals}]=await Promise.all([
+      db.from('rider_profiles').select('*').neq('approval_status','pending').order('created_at',{ascending:false}),
+      db.from('rider_job_withdrawals').select('rider_id').limit(5000)
+    ]);
+    if(error){$('#approvedRiders').innerHTML='<div class="notice">โหลดรายชื่อวินไม่สำเร็จ</div>';return;}
+    const withdrawCount={}; (withdrawals||[]).forEach(w=>withdrawCount[w.rider_id]=(withdrawCount[w.rider_id]||0)+1);
+    $('#approvedRiders').innerHTML=(data||[]).map(r=>{const st=r.approval_status||'pending';const badge=st==='approved'?'✅ อนุมัติแล้ว':st==='suspended'?'⛔ ระงับ':'❌ ไม่อนุมัติ';const actions=st==='approved'?`<button class="danger" data-action="approve-rider" data-id="${r.user_id}" data-status="suspended">ระงับ</button>`:`<button class="primary" data-action="approve-rider" data-id="${r.user_id}" data-status="approved">อนุมัติ/เปิดใช้งาน</button><button class="ghost" data-action="approve-rider" data-id="${r.user_id}" data-status="pending">กลับไปรออนุมัติ</button>`;return `<article class="job-card"><div class="job-top"><div><b>${esc(r.display_name)}</b><div class="job-meta"><span>📞 ${esc(r.phone)}</span><span>🏍️ ${esc(r.vehicle_label||'-')}</span><span>ทะเบียน ${esc(r.plate||'-')}</span><span>${r.online?'🟢 พร้อมรับงาน':'⚪ ออฟไลน์'}</span><span>ถอนงาน ${withdrawCount[r.user_id]||0} ครั้ง</span></div></div><span class="status">${badge}</span></div><div class="job-actions">${actions}</div></article>`}).join('')||'<div class="notice">ยังไม่มีวินที่ผ่านการพิจารณา</div>'
+  }
 
   $('#refreshRidersBtn')?.addEventListener('click',()=>Promise.all([loadPendingRiders(),loadApprovedRiders()]));
 

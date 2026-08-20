@@ -21,3 +21,6 @@
 #testJobAlertBtn{white-space:nowrap}
 .job-alert-body small{display:block;color:var(--muted);margin-top:10px;line-height:1.5}
 @media(max-width:720px){#testJobAlertBtn{width:100%}}
+
+/* v0.3.5 */
+.notice.compact{margin:10px 0;padding:10px 12px;font-size:.92rem}
