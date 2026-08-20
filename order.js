@@ -4,6 +4,10 @@
   if(!cfg.SUPABASE_URL||!cfg.SUPABASE_ANON_KEY||!window.supabase){console.warn('Order module: Supabase not configured');return;}
   const db=supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_ANON_KEY);
   const CART_KEY='talad_multishop_cart_v1';
+  // TEST MODE: keep ordering hidden from the public until the flow is fully tested.
+  // Change ORDER_PUBLIC_ENABLED to true when ready to launch publicly.
+  const ORDER_PUBLIC_ENABLED=false;
+  const ORDER_TEST_EMAILS=['snowtee68@gmail.com'];
   const MAX_PICKUPS=5, EXTRA_PICKUP_FEE=10;
   let session=null, productShopIds=new Set();
   const esc=(v='')=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -13,11 +17,14 @@
   const saveCart=c=>{localStorage.setItem(CART_KEY,JSON.stringify(c));updateCartBadge();};
   const statusText=s=>({awaiting_payment:'รอชำระเงิน',payment_review:'ร้านกำลังตรวจสอบเงิน',preparing:'กำลังเตรียมสินค้า',ready:'พร้อมรับสินค้า',cancelled:'ยกเลิกแล้ว'})[s]||s;
 
+  const canUseOrders=()=>ORDER_PUBLIC_ENABLED||ORDER_TEST_EMAILS.includes(String(session?.user?.email||'').toLowerCase());
+
   async function init(){
     const {data}=await db.auth.getSession();session=data.session;
-    db.auth.onAuthStateChange((_e,s)=>{session=s;renderNavState();});
-    injectUI();wire();renderNavState();updateCartBadge();await refreshProductShops();decorateShopCards();
-    new MutationObserver(()=>decorateShopCards()).observe(document.body,{childList:true,subtree:true});
+    injectUI();wire();renderNavState();updateCartBadge();applyOrderAccess();
+    db.auth.onAuthStateChange(async(_e,s)=>{session=s;renderNavState();applyOrderAccess();if(canUseOrders()){await refreshProductShops();decorateShopCards();}});
+    if(canUseOrders()){await refreshProductShops();decorateShopCards();}
+    new MutationObserver(()=>{if(canUseOrders())decorateShopCards();}).observe(document.body,{childList:true,subtree:true});
   }
 
   function injectUI(){
@@ -57,6 +64,13 @@
   function openModal(html,wide=false){const m=document.getElementById('marketOrderModal');m.querySelector('.market-order-panel').classList.toggle('wide',wide);document.getElementById('marketOrderBody').innerHTML=html;m.classList.remove('hidden');document.body.style.overflow='hidden';}
   function closeModal(){document.getElementById('marketOrderModal')?.classList.add('hidden');document.body.style.overflow='';}
   function requireLogin(){alert('กรุณาเข้าสู่ระบบก่อนทำรายการ');document.getElementById('accountBtn')?.click();}
+  function applyOrderAccess(){
+    const allowed=canUseOrders();
+    const nav=document.getElementById('marketOrdersBtn'),cart=document.getElementById('marketCartBtn');
+    if(nav)nav.style.display=allowed?'':'none';
+    if(cart)cart.style.display=allowed?'':'none';
+    if(!allowed){document.querySelectorAll('[data-market-order-shop]').forEach(el=>el.remove());closeModal();}
+  }
   function renderNavState(){const b=document.getElementById('marketOrdersBtn');if(b)b.title=session?'ดูออเดอร์และจัดการร้าน':'เข้าสู่ระบบเพื่อดูออเดอร์';}
   function updateCartBadge(){const c=getCart(),n=c.reduce((s,x)=>s+Number(x.qty||0),0);const x=document.querySelector('#marketCartBtn .count');if(x)x.textContent=n;}
 
@@ -96,6 +110,7 @@
     productShopIds=new Set((data||[]).map(x=>String(x.shop_id)));
   }
   function decorateShopCards(){
+    if(!canUseOrders())return;
     document.querySelectorAll('.card[data-id]').forEach(card=>{
       const id=String(card.dataset.id||''); if(!productShopIds.has(id)||card.querySelector('[data-market-order-shop]'))return;
       const actions=card.querySelector('.community-actions')||card.querySelector('.card-body');if(!actions)return;
@@ -108,6 +123,7 @@
   }
 
   async function openShopMenu(shopId){
+    if(!canUseOrders())return;
     const [{data:shop},{data:products,error}]=await Promise.all([
       db.from('market_shops').select('id,name,cover_url').eq('id',shopId).maybeSingle(),
       db.from('market_products').select('*').eq('shop_id',shopId).eq('active',true).order('sort_order').order('created_at')
@@ -170,6 +186,7 @@
   }
 
   async function openAccountHub(tab='customer'){
+    if(!canUseOrders())return;
     if(!session)return requireLogin();
     openModal(`<h2 class="mo-title">🛍️ ออเดอร์และร้านของฉัน</h2><div class="seller-tabs"><button data-hub-tab="customer" class="${tab==='customer'?'active':''}">ออเดอร์ที่ฉันสั่ง</button><button data-hub-tab="seller" class="${tab==='seller'?'active':''}">ร้าน / ออเดอร์ที่ได้รับ</button></div><div id="hubContent">กำลังโหลด...</div>`,true);await renderHubTab(tab);
   }
