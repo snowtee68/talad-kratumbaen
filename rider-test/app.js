@@ -27,9 +27,9 @@
   let alertLoopEndsAt = 0;
   let alertSpeechActive = false;
   const JOB_ALERT_MAX_MS = 30000;
-  const JOB_ALERT_REPEAT_MS = 1800;
-  const JOB_ALERT_TEXT = 'มีงานใหม่เข้ามา มีงานใหม่เข้ามา';
-  const JOB_ALERT_AUDIO_SRC = 'job-alert-long.wav?v=0.3.6.3';
+  const JOB_ALERT_REPEAT_MS = 1600;
+  const JOB_ALERT_TEXT = 'มีงานใหม่ครับ มีงานใหม่ครับ';
+  const JOB_ALERT_AUDIO_SRC = 'job-alert-burst.wav?v=0.3.6.4';
 
   function haversine(lat1,lng1,lat2,lng2){
     const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLng=(lng2-lng1)*Math.PI/180;
@@ -301,9 +301,9 @@
     const status=$('#jobAlertStatus');
     if(status){
       if(!jobAlertEnabled) status.textContent='🔕 ยังไม่ได้เปิดเสียงแจ้งเตือน';
-      else if(jobAlertRealtimeState==='connected') status.textContent='🟢 Realtime พร้อมแจ้งงานทันที';
-      else if(jobAlertRealtimeState==='error') status.textContent='🟠 Realtime เชื่อมต่อไม่สำเร็จ — กดปิด/เปิดแจ้งเตือนใหม่';
-      else if(riderProfile?.online) status.textContent='🟡 กำลังเชื่อมต่อ Realtime…';
+      else if(jobAlertRealtimeState==='connected') status.textContent='🟢 Realtime: เชื่อมต่อแล้ว · รอรับ Event งาน';
+      else if(jobAlertRealtimeState==='error') status.textContent='🔴 Realtime: เชื่อมต่อไม่สำเร็จ — ระบบจะลองเชื่อมใหม่';
+      else if(riderProfile?.online) status.textContent='🟡 Realtime: กำลังเชื่อมต่อ…';
       else status.textContent='🔔 แจ้งเตือนเปิดอยู่ · เปิด “พร้อมรับงาน” เพื่อเชื่อมต่อ Realtime';
     }
     $('#enableJobAlertBtn')?.classList.toggle('hidden',jobAlertEnabled);
@@ -452,7 +452,7 @@
     alertLoopEndsAt=Date.now()+(test?15000:JOB_ALERT_MAX_MS);
     if(test){
       $('#jobAlertTitle').textContent='🔊 ทดสอบเสียงแจ้งเตือน';
-      $('#jobAlertBody').innerHTML='<b>เสียงทดสอบ:</b> ตี๊ดยาว → “มีงานใหม่เข้ามา มีงานใหม่เข้ามา”<div class="job-meta alert-meta"><span>กด × หรือ “ปิดเสียง” เพื่อหยุด</span></div>';
+      $('#jobAlertBody').innerHTML='<b>เสียงทดสอบ:</b> ตี๊ดรัวประมาณ 2 วินาที → “มีงานใหม่ครับ มีงานใหม่ครับ”<div class="job-meta alert-meta"><span>กด × หรือ “ปิดเสียง” เพื่อหยุด</span></div>';
       openModal('jobAlertModal');
     }
     runJobAlertCycle();
@@ -476,6 +476,7 @@
 
   async function handleRealtimeJobChange(payload){
     if(!jobAlertEnabled || !riderProfile?.online) return;
+    console.log('[Rider Realtime event]', payload?.eventType, payload?.new);
     const job=payload?.new;
     if(!job?.id || job.status!=='open') return;
     const key=`${job.id}|${job.updated_at||''}`;
@@ -487,17 +488,45 @@
   }
 
   function startJobAlertRealtime(){
-    if(jobAlertRealtimeChannel || !jobAlertEnabled || !riderProfile?.online) return;
+    if(jobAlertRealtimeChannel || !jobAlertEnabled || !riderProfile?.online || !session?.user?.id) return;
     jobAlertRealtimeState='connecting';
     updateJobAlertUi();
-    jobAlertRealtimeChannel=db
-      .channel(`rider-open-jobs-${session?.user?.id||'anon'}`)
-      .on('postgres_changes',{event:'*',schema:'public',table:'rider_jobs'},handleRealtimeJobChange)
-      .subscribe((status,err)=>{
-        jobAlertRealtimeState=status==='SUBSCRIBED'?'connected':status==='CHANNEL_ERROR'?'error':status==='TIMED_OUT'?'error':status==='CLOSED'?'disconnected':'connecting';
+    const channelName=`rider-jobs-${session.user.id}-${Date.now()}`;
+    jobAlertRealtimeChannel=db.channel(channelName)
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'rider_jobs'},handleRealtimeJobChange)
+      .on('postgres_changes',{event:'UPDATE',schema:'public',table:'rider_jobs'},handleRealtimeJobChange)
+      .subscribe(async (status,err)=>{
+        console.log('[Rider Realtime status]',status,err||'');
+        if(status==='SUBSCRIBED'){
+          jobAlertRealtimeState='connected';
+          // Reconcile once after subscription so an event occurring during reconnect is not lost.
+          await reconcileOpenJobsForAlerts();
+        }else if(status==='CHANNEL_ERROR' || status==='TIMED_OUT'){
+          jobAlertRealtimeState='error';
+          const old=jobAlertRealtimeChannel; jobAlertRealtimeChannel=null;
+          try{ if(old) db.removeChannel(old); }catch(_){ }
+          setTimeout(()=>{ if(jobAlertEnabled && riderProfile?.online) startJobAlertRealtime(); },2500);
+        }else if(status==='CLOSED'){
+          jobAlertRealtimeState='disconnected';
+          jobAlertRealtimeChannel=null;
+          setTimeout(()=>{ if(jobAlertEnabled && riderProfile?.online) startJobAlertRealtime(); },2500);
+        }else jobAlertRealtimeState='connecting';
         updateJobAlertUi();
         if(err) console.error('Rider Realtime subscription',err);
       });
+  }
+
+  async function reconcileOpenJobsForAlerts(){
+    if(!jobAlertEnabled || !riderProfile?.online) return;
+    const {data,error}=await db.from('rider_jobs').select('id,updated_at,status,pickup_count,dropoff_label,distance_km,fare_estimate,reassign_count').eq('status','open').order('updated_at',{ascending:false}).limit(20);
+    if(error){ console.warn('Realtime reconcile failed',error); return; }
+    for(const job of (data||[]).reverse()){
+      const key=`${job.id}|${job.updated_at||''}`;
+      if(knownOpenJobKeys.has(key)) continue;
+      knownOpenJobKeys.add(key);
+      if(Number(job.reassign_count||0)>0 && await hasCurrentRiderWithdrawn(job.id)) continue;
+      await loadRiderJobs(); notifyNewJob(job,1); break;
+    }
   }
 
   function stopJobAlertRealtime(){
