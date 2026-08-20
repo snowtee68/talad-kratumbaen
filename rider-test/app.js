@@ -592,7 +592,7 @@
       const reg=await ensurePushRegistration();
       pushSubscription=await reg.pushManager.getSubscription();
       if(pushSubscription && Notification.permission==='granted'){
-        status.textContent='✅ Push Notification เปิดอยู่ — แจ้งได้แม้ไม่ได้เปิดหน้า Rider';
+        status.textContent='✅ Push Notification เปิดอยู่ — ใช้เสียงแจ้งเตือนของระบบมือถือเมื่อรองรับ';
         enable?.classList.add('hidden'); disable?.classList.remove('hidden');
       }else{
         status.textContent=Notification.permission==='denied'?'❌ การแจ้งเตือนถูกปฏิเสธในเครื่อง กรุณาเปิดสิทธิ์จาก Settings':'ยังไม่ได้เปิด Push Notification';

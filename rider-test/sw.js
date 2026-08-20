@@ -1,4 +1,4 @@
-const CACHE='rider-push-v0.4';
+const CACHE='rider-push-v0.4.1-system-sound';
 self.addEventListener('install',()=>self.skipWaiting());
 self.addEventListener('activate',event=>event.waitUntil((async()=>{
   const keys=await caches.keys(); await Promise.all(keys.filter(k=>k.startsWith('rider-push-')&&k!==CACHE).map(k=>caches.delete(k)));
@@ -15,6 +15,9 @@ self.addEventListener('push',event=>{
     badge:'../icons/icon-192.png',
     tag:data.tag||('rider-job-'+(data.job_id||'new')),
     renotify:true,
+    silent:false,
+    vibrate:[250,100,250,100,400],
+    timestamp:Date.now(),
     requireInteraction:true,
     data:{job_id:data.job_id||null,url:data.url||('./'+(data.job_id?`?job=${encodeURIComponent(data.job_id)}`:''))},
     actions:[{action:'open',title:'ดูงาน'}]
