@@ -29,7 +29,10 @@
   const JOB_ALERT_MAX_MS = 30000;
   const JOB_ALERT_REPEAT_MS = 1600;
   const JOB_ALERT_TEXT = 'มีงานใหม่ครับ มีงานใหม่ครับ';
-  const JOB_ALERT_AUDIO_SRC = 'job-alert-burst.wav?v=0.3.6.4';
+  const JOB_ALERT_AUDIO_SRC = 'job-alert-burst.wav?v=0.4.0';
+  const PUSH_VAPID_PUBLIC_KEY = cfg.RIDER_PUSH_VAPID_PUBLIC_KEY || '';
+  let pushRegistration = null;
+  let pushSubscription = null;
 
   function haversine(lat1,lng1,lat2,lng2){
     const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLng=(lng2-lng1)*Math.PI/180;
@@ -47,6 +50,8 @@
     const {data:{session:s}} = await db.auth.getSession(); session=s;
     db.auth.onAuthStateChange(async (_e,s2)=>{session=s2; await refreshAuth();});
     wire(); renderPickupStops(1); await Promise.all([refreshAuth(), loadMarketShopIndex()]);
+    await refreshPushState();
+    focusJobFromUrl();
   }
 
   function wire(){
@@ -64,6 +69,8 @@
     $('#enableJobAlertBtn').onclick=enableJobAlerts;
     $('#disableJobAlertBtn').onclick=disableJobAlerts;
     $('#testJobAlertBtn').onclick=()=>startJobAlertLoop({test:true});
+    $('#enablePushBtn')?.addEventListener('click',enableWebPush);
+    $('#disablePushBtn')?.addEventListener('click',disableWebPush);
     $('#alertViewJobsBtn').onclick=()=>{ stopJobAlertLoop(); closeModal('jobAlertModal'); $('#openJobs')?.scrollIntoView({behavior:'smooth',block:'start'}); };
     $('#alertCloseBtn').onclick=()=>{ stopJobAlertLoop(); closeModal('jobAlertModal'); };
     const goRider=()=>{ if(!session){ openModal('authModal'); return; } $('#riderPanel').scrollIntoView({behavior:'smooth'}); };
@@ -201,6 +208,7 @@
     const {data:r}=await db.from('rider_profiles').select('*').eq('user_id',uid).maybeSingle(); riderProfile=r;
     renderRiderState();
     await Promise.all([loadMyJobs(),loadRiderJobs(),loadPendingRiders(),loadApprovedRiders()]);
+    await refreshPushState();
   }
 
   function captureLocationForBlock(block){
@@ -266,6 +274,7 @@
       p_extra_stop_fee:fare.extra
     });
     if(error)return alert('สร้างงานไม่สำเร็จ: '+error.message);
+    triggerPushForOpenJob(job,'new_job');
     alert('สร้างงานเรียบร้อย หมายเลข '+job);
     e.currentTarget.reset(); renderPickupStops(1); updateFare(); await loadMyJobs();
   }
@@ -548,6 +557,108 @@
     startJobAlertLoop({test:false});
   }
 
+
+  function urlBase64ToUint8Array(base64String){
+    const padding='='.repeat((4-base64String.length%4)%4);
+    const base64=(base64String+padding).replace(/-/g,'+').replace(/_/g,'/');
+    const raw=atob(base64); const out=new Uint8Array(raw.length);
+    for(let i=0;i<raw.length;i++) out[i]=raw.charCodeAt(i);
+    return out;
+  }
+
+  function isIos(){ return /iphone|ipad|ipod/i.test(navigator.userAgent); }
+  function isStandalone(){ return window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone===true; }
+
+  async function ensurePushRegistration(){
+    if(!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) throw new Error('เบราว์เซอร์นี้ยังไม่รองรับ Web Push');
+    pushRegistration=pushRegistration||await navigator.serviceWorker.register('sw.js',{scope:'./'});
+    await navigator.serviceWorker.ready;
+    return pushRegistration;
+  }
+
+  async function refreshPushState(){
+    const status=$('#pushStatus');
+    const enable=$('#enablePushBtn'), disable=$('#disablePushBtn');
+    if(!status) return;
+    if(!session){ status.textContent='เข้าสู่ระบบก่อนเปิด Push Notification'; enable?.classList.remove('hidden'); disable?.classList.add('hidden'); return; }
+    if(!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)){
+      status.textContent='อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Web Push'; enable?.classList.add('hidden'); disable?.classList.add('hidden'); return;
+    }
+    if(isIos() && !isStandalone()){
+      status.textContent='iPhone/iPad: เพิ่ม Rider ไปหน้าจอโฮมก่อน แล้วเปิดจากไอคอนเพื่ออนุญาต Notification';
+      enable?.classList.remove('hidden'); disable?.classList.add('hidden'); return;
+    }
+    try{
+      const reg=await ensurePushRegistration();
+      pushSubscription=await reg.pushManager.getSubscription();
+      if(pushSubscription && Notification.permission==='granted'){
+        status.textContent='✅ Push Notification เปิดอยู่ — แจ้งได้แม้ไม่ได้เปิดหน้า Rider';
+        enable?.classList.add('hidden'); disable?.classList.remove('hidden');
+      }else{
+        status.textContent=Notification.permission==='denied'?'❌ การแจ้งเตือนถูกปฏิเสธในเครื่อง กรุณาเปิดสิทธิ์จาก Settings':'ยังไม่ได้เปิด Push Notification';
+        enable?.classList.remove('hidden'); disable?.classList.add('hidden');
+      }
+    }catch(err){ status.textContent='Push ยังไม่พร้อม: '+(err?.message||err); }
+  }
+
+  async function enableWebPush(){
+    if(!session) return openModal('authModal');
+    if(!PUSH_VAPID_PUBLIC_KEY) return alert('ยังไม่ได้ตั้งค่า Public VAPID Key สำหรับ Push');
+    if(isIos() && !isStandalone()) return alert('บน iPhone/iPad กรุณาเพิ่มหน้า Rider ไปยังหน้าจอโฮม แล้วเปิดจากไอคอนก่อน จากนั้นค่อยกดเปิด Push Notification');
+    try{
+      const permission=await Notification.requestPermission();
+      if(permission!=='granted') throw new Error('ไม่ได้รับอนุญาตให้ส่ง Notification');
+      const reg=await ensurePushRegistration();
+      let sub=await reg.pushManager.getSubscription();
+      if(!sub){
+        sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlBase64ToUint8Array(PUSH_VAPID_PUBLIC_KEY)});
+      }
+      const json=sub.toJSON();
+      const {error}=await db.rpc('rider_save_push_subscription',{
+        p_endpoint:json.endpoint,
+        p_p256dh:json.keys?.p256dh||'',
+        p_auth:json.keys?.auth||'',
+        p_user_agent:navigator.userAgent||''
+      });
+      if(error) throw error;
+      pushSubscription=sub;
+      await refreshPushState();
+      alert('เปิด Push Notification แล้ว\nเมื่อมีงานใหม่ ระบบสามารถแจ้งเตือนได้แม้ไม่ได้เปิดหน้า Rider (ขึ้นกับการตั้งค่าระบบของมือถือ)');
+    }catch(err){ alert('เปิด Push Notification ไม่สำเร็จ: '+(err?.message||err)); await refreshPushState(); }
+  }
+
+  async function disableWebPush(){
+    try{
+      const reg=await ensurePushRegistration();
+      const sub=await reg.pushManager.getSubscription();
+      if(sub){
+        const endpoint=sub.endpoint;
+        try{ await db.rpc('rider_delete_push_subscription',{p_endpoint:endpoint}); }catch(_){ }
+        await sub.unsubscribe();
+      }
+      pushSubscription=null;
+      await refreshPushState();
+    }catch(err){ alert('ปิด Push ไม่สำเร็จ: '+(err?.message||err)); }
+  }
+
+  async function triggerPushForOpenJob(jobId,reason){
+    if(!session || !jobId) return;
+    try{
+      const {error}=await db.functions.invoke('rider-push',{body:{job_id:jobId,reason}});
+      if(error) console.warn('Push dispatch failed',error);
+    }catch(err){ console.warn('Push dispatch failed',err); }
+  }
+
+  function focusJobFromUrl(){
+    const id=new URLSearchParams(location.search).get('job');
+    if(!id) return;
+    setTimeout(()=>{
+      const card=document.querySelector(`[data-job-id="${CSS.escape(id)}"]`);
+      if(card){ card.scrollIntoView({behavior:'smooth',block:'center'}); card.classList.add('push-highlight'); setTimeout(()=>card.classList.remove('push-highlight'),5000); }
+      else $('#openJobs')?.scrollIntoView({behavior:'smooth',block:'start'});
+    },1800);
+  }
+
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden && jobAlertEnabled && riderProfile?.online){ primeKnownOpenJobs().then(startJobAlertRealtime); } });
 
   const jobSelect='*, rider_job_stops(*)';
@@ -610,6 +721,7 @@
       if(!confirm('ยืนยันถอนตัวจากงาน?\nงานจะกลับไปเปิดให้วินคนอื่นรับทันที'))return;
       const {error}=await db.rpc('rider_withdraw_job',{p_job_id:id,p_reason:reason.trim()});
       if(error)return alert('ถอนตัวไม่ได้: '+error.message);
+      triggerPushForOpenJob(id,'reopened');
       stopJobAlertLoop();
       alert('ถอนตัวเรียบร้อย ระบบเปิดงานให้วินคนอื่นรับต่อแล้ว');
       await Promise.all([loadRiderJobs(),loadMyJobs()]);

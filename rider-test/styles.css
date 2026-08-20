@@ -24,3 +24,10 @@
 
 /* v0.3.5 */
 .notice.compact{margin:10px 0;padding:10px 12px;font-size:.92rem}
+
+
+/* v0.4 Web Push */
+.push-notification-box{margin-top:14px;padding:14px;border:1px solid #e7d6d6;border-radius:16px;background:#fff8f8;display:grid;gap:10px}
+.push-notification-box>div:first-child{display:grid;gap:4px}.push-notification-box small{display:block}
+.push-highlight{outline:4px solid rgba(155,28,31,.2);box-shadow:0 0 0 8px rgba(155,28,31,.08);transition:.2s}
+@media(max-width:640px){.push-notification-box .row{display:grid;grid-template-columns:1fr}.push-notification-box button{width:100%}}
