@@ -302,6 +302,8 @@
       const reject=e.target.closest('[data-reject-order]');if(reject)return sellerRejectOrder(reject.dataset.rejectOrder);
       const refund=e.target.closest('[data-refund-order]');if(refund)return openRefundModal(refund.dataset.refundOrder);
       if(e.target.closest('#submitRefundBtn'))return submitRefund();
+      if(e.target.closest('#enableOrderPushBtn'))return enableOrderPush();
+      if(e.target.closest('#disableOrderPushBtn'))return disableOrderPush();
       const rd=e.target.closest('[data-refund-destination]');if(rd)return openRefundDestination(rd.dataset.refundDestination);
       if(e.target.closest('#saveRefundDestinationBtn'))return saveRefundDestination();
       const rtype=e.target.closest('#refundDestinationType');if(rtype)return renderRefundDestinationFields();
@@ -432,6 +434,7 @@
     const btn=document.getElementById('submitCheckoutBtn');if(btn){btn.disabled=true;btn.textContent='กำลังสร้างออเดอร์...'}
     const {data,error}=await db.rpc('market_create_checkout_v041',{p_customer_name:name,p_customer_phone:phone,p_fulfillment_method:method,p_delivery_address:method==='delivery'?address:null,p_delivery_lat:method==='delivery'?lat:null,p_delivery_lng:method==='delivery'?lng:null,p_pickup_requested_at:pickupAt,p_orders:payload});
     if(error){if(btn){btn.disabled=false;btn.textContent='สร้างออเดอร์'}return alert('สร้างออเดอร์ไม่สำเร็จ: '+error.message)}
+    sendOrderPush('new_order',{group_id:data?.group_id});
     saveCart([]);await showCheckoutResult(data?.group_id||data);
   }
   async function showCheckoutResult(groupId){
@@ -457,13 +460,61 @@
         if(upErr)throw upErr;
       }catch(err){btn.disabled=false;btn.textContent='ส่งหลักฐานให้ร้านตรวจสอบ';return alert('อัปโหลดสลิปไม่สำเร็จ: '+err.message)}
     }
-    const {error}=await db.rpc('market_submit_payment',{p_order_id:orderId,p_payment_ref:ref||null,p_slip_path:path});btn.disabled=false;btn.textContent='ส่งหลักฐานให้ร้านตรวจสอบ';if(error){if(path)await safeRemove('order-slips',path);return alert(error.message)}if(path&&oldSlipPath&&oldSlipPath!==path)await safeRemove('order-slips',oldSlipPath);alert('แจ้งชำระเงินแล้ว ร้านค้าจะตรวจสอบยอด');openAccountHub('customer');
+    const {error}=await db.rpc('market_submit_payment',{p_order_id:orderId,p_payment_ref:ref||null,p_slip_path:path});btn.disabled=false;btn.textContent='ส่งหลักฐานให้ร้านตรวจสอบ';if(error){if(path)await safeRemove('order-slips',path);return alert(error.message)}if(path&&oldSlipPath&&oldSlipPath!==path)await safeRemove('order-slips',oldSlipPath);sendOrderPush('payment_submitted',{order_id:orderId});alert('แจ้งชำระเงินแล้ว ร้านค้าจะตรวจสอบยอด');openAccountHub('customer');
+  }
+
+
+  function vapidKeyToBytes(base64String){
+    const padding='='.repeat((4-base64String.length%4)%4),base64=(base64String+padding).replace(/-/g,'+').replace(/_/g,'/');
+    const raw=atob(base64);return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));
+  }
+  async function getOrderPushRegistration(){
+    if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
+    return navigator.serviceWorker.register('./order-push-sw.js',{scope:'./'});
+  }
+  async function getOrderPushSubscription(){
+    if(!('serviceWorker' in navigator))return null;
+    const reg=await navigator.serviceWorker.getRegistration('./')||await navigator.serviceWorker.getRegistration();
+    return reg?await reg.pushManager.getSubscription():null;
+  }
+  async function refreshOrderPushUI(){
+    const st=document.getElementById('orderPushStatus'),on=document.getElementById('enableOrderPushBtn'),off=document.getElementById('disableOrderPushBtn');
+    if(!st)return;
+    if(!('serviceWorker' in navigator)||!('PushManager' in window)){st.textContent='อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Web Push';if(on)on.style.display='none';return;}
+    const perm=Notification.permission,sub=perm==='granted'?await getOrderPushSubscription():null;
+    if(sub){st.textContent='✅ เปิดแจ้งเตือนบนอุปกรณ์นี้แล้ว แม้ไม่ได้เปิดหน้าเว็บ';if(on)on.style.display='none';if(off)off.style.display='';}
+    else{st.textContent=perm==='denied'?'❌ ปิดสิทธิ์แจ้งเตือนใน Browser กรุณาเปิดจากการตั้งค่าของเว็บไซต์':'ยังไม่ได้เปิด Push Notification บนอุปกรณ์นี้';if(on)on.style.display='';if(off)off.style.display='none';}
+  }
+  async function enableOrderPush(){
+    if(!session)return requireLogin();
+    try{
+      const permission=await Notification.requestPermission();
+      if(permission!=='granted')throw new Error('ยังไม่ได้อนุญาตการแจ้งเตือน');
+      const {data:cfg,error:cfgErr}=await db.from('market_push_config').select('vapid_public_key').eq('id',1).maybeSingle();
+      if(cfgErr||!cfg?.vapid_public_key)throw new Error('ยังไม่ได้ตั้งค่า Push Public Key');
+      const reg=await getOrderPushRegistration();
+      let sub=await reg.pushManager.getSubscription();
+      if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:vapidKeyToBytes(cfg.vapid_public_key)});
+      const j=sub.toJSON(),payload={user_id:session.user.id,endpoint:j.endpoint,p256dh:j.keys?.p256dh,auth:j.keys?.auth,user_agent:navigator.userAgent,updated_at:new Date().toISOString()};
+      const {error}=await db.from('market_push_subscriptions').upsert(payload,{onConflict:'user_id,endpoint'});if(error)throw error;
+      alert('เปิดการแจ้งเตือนบนมือถือแล้ว');await refreshOrderPushUI();
+    }catch(err){alert('เปิด Push Notification ไม่สำเร็จ: '+(err?.message||err))}
+  }
+  async function disableOrderPush(){
+    try{
+      const sub=await getOrderPushSubscription();if(sub){await db.from('market_push_subscriptions').delete().eq('user_id',session.user.id).eq('endpoint',sub.endpoint);await sub.unsubscribe();}
+      alert('ปิดการแจ้งเตือนบนอุปกรณ์นี้แล้ว');await refreshOrderPushUI();
+    }catch(err){alert('ปิด Push Notification ไม่สำเร็จ: '+(err?.message||err))}
+  }
+  async function sendOrderPush(eventName,{order_id=null,group_id=null}={}){
+    if(!session)return;
+    try{await db.functions.invoke('send-order-push',{body:{event:eventName,order_id,group_id}})}catch(err){console.warn('Push notify:',err?.message||err)}
   }
 
   async function openAccountHub(tab='customer'){
     if(!canUseOrders())return;
     if(!session)return requireLogin();
-    openModal(`<h2 class="mo-title">🛍️ ออเดอร์และร้านของฉัน</h2><div class="seller-tabs"><button data-hub-tab="customer" class="${tab==='customer'?'active':''}">ออเดอร์ที่ฉันสั่ง</button><button data-hub-tab="seller" class="${tab==='seller'?'active':''}">ร้าน / ออเดอร์ที่ได้รับ</button></div><div id="hubContent">กำลังโหลด...</div>`,true);await renderHubTab(tab);
+    openModal(`<h2 class="mo-title">🛍️ ออเดอร์และร้านของฉัน</h2><div id="orderPushSettings" class="payment-card"><b>🔔 การแจ้งเตือนบนมือถือ</b><div class="mo-muted" id="orderPushStatus">กำลังตรวจสอบ...</div><div class="mo-actions"><button id="enableOrderPushBtn" class="mo-primary">เปิดการแจ้งเตือนบนมือถือ</button><button id="disableOrderPushBtn" class="mo-secondary" style="display:none">ปิดการแจ้งเตือนเครื่องนี้</button></div></div><div class="seller-tabs"><button data-hub-tab="customer" class="${tab==='customer'?'active':''}">ออเดอร์ที่ฉันสั่ง</button><button data-hub-tab="seller" class="${tab==='seller'?'active':''}">ร้าน / ออเดอร์ที่ได้รับ</button></div><div id="hubContent">กำลังโหลด...</div>`,true);await refreshOrderPushUI();await renderHubTab(tab);
   }
   async function renderHubTab(tab){document.querySelectorAll('[data-hub-tab]').forEach(b=>b.classList.toggle('active',b.dataset.hubTab===tab));const box=document.getElementById('hubContent');if(!box)return;if(tab==='seller')return renderSellerHub(box);return renderCustomerHub(box);}
   async function renderCustomerHub(box){
@@ -593,24 +644,24 @@
   }
   async function sellerAcceptOrder(orderId){
     if(!confirm('รับออเดอร์นี้และเปิดให้ลูกค้าชำระเงิน?'))return;
-    const {data,error}=await db.rpc('market_shop_accept_order',{p_order_id:orderId});if(error)return alert(error.message);alert('รับออเดอร์แล้ว ลูกค้าสามารถชำระเงินได้');openSellerShop(data?.shop_id||document.getElementById('sellerShopId')?.value);
+    const {data,error}=await db.rpc('market_shop_accept_order',{p_order_id:orderId});if(error)return alert(error.message);sendOrderPush('shop_accepted',{order_id:orderId});alert('รับออเดอร์แล้ว ลูกค้าสามารถชำระเงินได้');openSellerShop(data?.shop_id||document.getElementById('sellerShopId')?.value);
   }
   async function sellerProposeRevision(orderId){
     const note=prompt('รายละเอียดที่ตกลง/ต้องการเสนอให้ลูกค้า\nเช่น หมูหมด เปลี่ยนเป็นไก่ / เพิ่มไข่ดาว 1 ฟอง');if(note===null)return;if(!note.trim())return alert('กรุณาระบุรายละเอียด');
     const current=prompt('ยอดรวมใหม่ที่ต้องการให้ลูกค้ายืนยัน (บาท)');if(current===null)return;const subtotal=Number(current);if(!Number.isFinite(subtotal)||subtotal<0)return alert('กรุณากรอกยอดใหม่ให้ถูกต้อง');
-    const {data,error}=await db.rpc('market_shop_propose_order_revision',{p_order_id:orderId,p_revision_note:note.trim(),p_revision_subtotal:subtotal});if(error)return alert(error.message);alert('ส่งรายการแก้ไขให้ลูกค้ายืนยันแล้ว');openSellerShop(data?.shop_id||document.getElementById('sellerShopId')?.value);
+    const {data,error}=await db.rpc('market_shop_propose_order_revision',{p_order_id:orderId,p_revision_note:note.trim(),p_revision_subtotal:subtotal});if(error)return alert(error.message);sendOrderPush('revision_requested',{order_id:orderId});alert('ส่งรายการแก้ไขให้ลูกค้ายืนยันแล้ว');openSellerShop(data?.shop_id||document.getElementById('sellerShopId')?.value);
   }
   async function customerConfirmRevision(orderId){
-    if(!confirm('ยืนยันรายการและยอดใหม่ที่ร้านเสนอ? หลังยืนยันจึงจะสามารถชำระเงินได้'))return;const {data,error}=await db.rpc('market_customer_confirm_order_revision',{p_order_id:orderId});if(error)return alert(error.message);alert('ยืนยันรายการใหม่แล้ว สามารถชำระเงินได้');openAccountHub('customer');
+    if(!confirm('ยืนยันรายการและยอดใหม่ที่ร้านเสนอ? หลังยืนยันจึงจะสามารถชำระเงินได้'))return;const {data,error}=await db.rpc('market_customer_confirm_order_revision',{p_order_id:orderId});if(error)return alert(error.message);sendOrderPush('revision_confirmed',{order_id:orderId});alert('ยืนยันรายการใหม่แล้ว สามารถชำระเงินได้');openAccountHub('customer');
   }
   async function customerCancelShopOrder(orderId){
-    const reason=prompt('เหตุผลที่ต้องการยกเลิกร้านนี้ (ไม่บังคับ)','');if(reason===null)return;if(!confirm('ยืนยันยกเลิกเฉพาะออเดอร์ของร้านนี้? ร้านอื่นในชุดยังดำเนินการต่อ'))return;const {data,error}=await db.rpc('market_customer_cancel_order',{p_order_id:orderId,p_reason:reason||null});if(error)return alert(error.message);alert('ยกเลิกร้านนี้แล้ว');openAccountHub('customer');
+    const reason=prompt('เหตุผลที่ต้องการยกเลิกร้านนี้ (ไม่บังคับ)','');if(reason===null)return;if(!confirm('ยืนยันยกเลิกเฉพาะออเดอร์ของร้านนี้? ร้านอื่นในชุดยังดำเนินการต่อ'))return;const {data,error}=await db.rpc('market_customer_cancel_order',{p_order_id:orderId,p_reason:reason||null});if(error)return alert(error.message);sendOrderPush('order_cancelled',{order_id:orderId});alert('ยกเลิกร้านนี้แล้ว');openAccountHub('customer');
   }
-  async function sellerSetStatus(orderId,status){if(status==='awaiting_payment'&&!confirm('ยืนยันว่าร้านยังไม่พบยอดชำระ?'))return;const {data,error}=await db.rpc('market_shop_set_order_status',{p_order_id:orderId,p_status:status});if(error)return alert(error.message);alert(status==='ready'?'แจ้งลูกค้าว่าสินค้าพร้อมแล้ว':'อัปเดตสถานะแล้ว');openSellerShop(data?.shop_id||data||document.getElementById('sellerShopId')?.value);}
+  async function sellerSetStatus(orderId,status){if(status==='awaiting_payment'&&!confirm('ยืนยันว่าร้านยังไม่พบยอดชำระ?'))return;const {data,error}=await db.rpc('market_shop_set_order_status',{p_order_id:orderId,p_status:status});if(error)return alert(error.message);if(status==='ready')sendOrderPush('order_ready',{order_id:orderId});else if(status==='preparing')sendOrderPush('payment_confirmed',{order_id:orderId});alert(status==='ready'?'แจ้งลูกค้าว่าสินค้าพร้อมแล้ว':'อัปเดตสถานะแล้ว');openSellerShop(data?.shop_id||data||document.getElementById('sellerShopId')?.value);}
   async function sellerRejectOrder(orderId){
     const reason=prompt('เหตุผลที่ปฏิเสธออเดอร์\nเช่น สินค้าหมด / ร้านใกล้ปิด / ทำไม่ทัน / อื่น ๆ');if(reason===null)return;if(!reason.trim())return alert('กรุณาระบุเหตุผล');
     if(!confirm('ยืนยันปฏิเสธออเดอร์นี้?\nหากลูกค้ายังไม่ชำระจะจบรายการทันที หากชำระแล้วระบบจะเข้าสู่ขั้นตอนคืนเงิน'))return;
-    const {data,error}=await db.rpc('market_shop_reject_order',{p_order_id:orderId,p_reason:reason.trim()});if(error)return alert(error.message);alert(data?.refund_required?'ยกเลิกออเดอร์แล้ว ⚠️ มีหลักฐาน/สถานะชำระเงิน กรุณาคืนเงินลูกค้าโดยตรง':'ยกเลิกออเดอร์แล้ว');openSellerShop(data?.shop_id||document.getElementById('sellerShopId')?.value);
+    const {data,error}=await db.rpc('market_shop_reject_order',{p_order_id:orderId,p_reason:reason.trim()});if(error)return alert(error.message);sendOrderPush('order_cancelled',{order_id:orderId});alert(data?.refund_required?'ยกเลิกออเดอร์แล้ว ⚠️ มีหลักฐาน/สถานะชำระเงิน กรุณาคืนเงินลูกค้าโดยตรง':'ยกเลิกออเดอร์แล้ว');openSellerShop(data?.shop_id||document.getElementById('sellerShopId')?.value);
   }
   async function customerCancelOrder(orderId){
     const reason=prompt('เหตุผลที่ยกเลิกร้านนี้ (ไม่บังคับ)\nเช่น เปลี่ยนใจ / สั่งผิด / รอนาน');if(reason===null)return;
@@ -644,7 +695,7 @@
     const orderId=document.getElementById('refundDestinationOrderId')?.value,type=document.getElementById('refundDestinationType')?.value,value=String(document.getElementById('refundDestinationValue')?.value||'').replace(/\D/g,''),name=document.getElementById('refundDestinationName')?.value.trim();
     const ppType=type==='promptpay'?document.getElementById('refundPromptpayType')?.value:null,bank=type==='bank'?document.getElementById('refundDestinationBank')?.value:null;
     if(!value||!name)return alert('กรุณากรอกข้อมูลรับเงินคืนให้ครบ');if(type==='promptpay'&&ppType==='phone'&&value.length!==10)return alert('เบอร์ PromptPay ต้องมี 10 หลัก');if(type==='promptpay'&&ppType==='national_id'&&value.length!==13)return alert('เลขบัตรประชาชน/เลขผู้เสียภาษีต้องมี 13 หลัก');if(type==='bank'&&!bank)return alert('กรุณาเลือกธนาคาร');if(type==='bank'&&(value.length<9||value.length>15))return alert('กรุณาตรวจเลขบัญชีธนาคาร');
-    const {error}=await db.rpc('market_customer_set_refund_destination',{p_order_id:orderId,p_type:type,p_promptpay_type:ppType,p_value:value,p_bank:bank,p_name:name});if(error)return alert(error.message);alert('บันทึกช่องทางรับเงินคืนแล้ว');window.__refundDestinationDraft=null;openAccountHub('customer');
+    const {error}=await db.rpc('market_customer_set_refund_destination',{p_order_id:orderId,p_type:type,p_promptpay_type:ppType,p_value:value,p_bank:bank,p_name:name});if(error)return alert(error.message);sendOrderPush('refund_destination',{order_id:orderId});alert('บันทึกช่องทางรับเงินคืนแล้ว');window.__refundDestinationDraft=null;openAccountHub('customer');
   }
   async function openRefundModal(orderId){
     const {data:o,error}=await db.from('market_orders').select('id,subtotal,refund_required,refund_status,refund_amount,refund_destination_type,refund_destination_promptpay_type,refund_destination_value,refund_destination_bank,refund_destination_name,refund_destination_submitted_at,group:market_delivery_groups(customer_name,customer_phone)').eq('id',orderId).maybeSingle();if(error||!o)return alert(error?.message||'ไม่พบออเดอร์');if(!o.refund_required)return alert('ออเดอร์นี้ไม่ต้องคืนเงิน');if((o.refund_status||'pending')==='completed')return alert('ลูกค้ายืนยันได้รับเงินคืนแล้ว');if(!o.refund_destination_submitted_at)return alert('ลูกค้ายังไม่ได้ระบุช่องทางรับเงินคืน กรุณารอก่อนโอน');
@@ -652,7 +703,7 @@
   }
   async function submitRefund(){
     if(!session)return requireLogin();const orderId=document.getElementById('refundOrderId')?.value,ref=document.getElementById('refundRef')?.value.trim(),file=document.getElementById('refundSlip')?.files?.[0];if(!orderId||!file)return alert('กรุณาแนบสลิปคืนเงิน');const btn=document.getElementById('submitRefundBtn');btn.disabled=true;btn.textContent='กำลังส่ง...';
-    let oldPath=null,newPath=null;try{const {data:o,error:readErr}=await db.from('market_orders').select('refund_slip_path').eq('id',orderId).maybeSingle();if(readErr)throw readErr;oldPath=o?.refund_slip_path||null;const packed=await compressImage(file,{maxSide:1800,targetBytes:600*1024,quality:.86,minQuality:.68});newPath=`${orderId}/${session.user.id}/refund-${Date.now()}.webp`;const {error:up}=await db.storage.from('order-slips').upload(newPath,packed,{contentType:'image/webp',upsert:false});if(up)throw up;const {data,error}=await db.rpc('market_shop_submit_refund',{p_order_id:orderId,p_refund_ref:ref||null,p_refund_slip_path:newPath});if(error)throw error;if(oldPath&&oldPath!==newPath)await safeRemove('order-slips',oldPath);alert('แจ้งคืนเงินแล้ว รอลูกค้ายืนยันว่าได้รับเงิน');openSellerShop(data?.shop_id||document.getElementById('sellerShopId')?.value);}catch(err){if(newPath)await safeRemove('order-slips',newPath);btn.disabled=false;btn.textContent='ส่งหลักฐานคืนเงินให้ลูกค้า';alert('แจ้งคืนเงินไม่สำเร็จ: '+err.message)}
+    let oldPath=null,newPath=null;try{const {data:o,error:readErr}=await db.from('market_orders').select('refund_slip_path').eq('id',orderId).maybeSingle();if(readErr)throw readErr;oldPath=o?.refund_slip_path||null;const packed=await compressImage(file,{maxSide:1800,targetBytes:600*1024,quality:.86,minQuality:.68});newPath=`${orderId}/${session.user.id}/refund-${Date.now()}.webp`;const {error:up}=await db.storage.from('order-slips').upload(newPath,packed,{contentType:'image/webp',upsert:false});if(up)throw up;const {data,error}=await db.rpc('market_shop_submit_refund',{p_order_id:orderId,p_refund_ref:ref||null,p_refund_slip_path:newPath});if(error)throw error;if(oldPath&&oldPath!==newPath)await safeRemove('order-slips',oldPath);sendOrderPush('refund_submitted',{order_id:orderId});alert('แจ้งคืนเงินแล้ว รอลูกค้ายืนยันว่าได้รับเงิน');openSellerShop(data?.shop_id||document.getElementById('sellerShopId')?.value);}catch(err){if(newPath)await safeRemove('order-slips',newPath);btn.disabled=false;btn.textContent='ส่งหลักฐานคืนเงินให้ลูกค้า';alert('แจ้งคืนเงินไม่สำเร็จ: '+err.message)}
   }
   async function customerConfirmRefund(orderId){
     if(!confirm('ยืนยันว่าคุณได้รับเงินคืนจากร้านครบแล้ว?'))return;const {data,error}=await db.rpc('market_customer_confirm_refund',{p_order_id:orderId});if(error)return alert(error.message);alert('ยืนยันได้รับเงินคืนแล้ว ขอบคุณครับ');openAccountHub('customer');
