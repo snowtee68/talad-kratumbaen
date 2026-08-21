@@ -151,7 +151,17 @@
     try{
       const C=window.AudioContext||window.webkitAudioContext,c=window.__marketOrderAudioContext||new C();window.__marketOrderAudioContext=c;c.resume?.();
       const now=c.currentTime;
-      [0,.16].forEach((d,i)=>{const o=c.createOscillator(),g=c.createGain();o.type='sine';o.frequency.value=i?880:660;g.gain.setValueAtTime(.0001,now+d);g.gain.exponentialRampToValueAtTime(.11,now+d+.015);g.gain.exponentialRampToValueAtTime(.0001,now+d+.13);o.connect(g);g.connect(c.destination);o.start(now+d);o.stop(now+d+.15);});
+      // Noticeable ~4 second order chime. Queue events still trigger only once per batch.
+      const notes=[660,880,660,880,740,990,740,990];
+      notes.forEach((freq,i)=>{
+        const d=i*.46,o=c.createOscillator(),g=c.createGain();
+        o.type='sine';o.frequency.value=freq;
+        g.gain.setValueAtTime(.0001,now+d);
+        g.gain.exponentialRampToValueAtTime(.28,now+d+.025);
+        g.gain.setValueAtTime(.22,now+d+.24);
+        g.gain.exponentialRampToValueAtTime(.0001,now+d+.40);
+        o.connect(g);g.connect(c.destination);o.start(now+d);o.stop(now+d+.42);
+      });
     }catch(_){}
   }
   function renderOrderNotifyBadge(){
