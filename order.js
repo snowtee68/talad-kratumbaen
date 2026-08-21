@@ -38,12 +38,12 @@
   }
 
   function injectUI(){
-    if(!document.querySelector('link[href*="order.css"]')){const css=document.createElement('link');css.rel='stylesheet';css.href='order.css?v=0.3.3';document.head.appendChild(css);}
+    if(!document.querySelector('link[href*="order.css"]')){const css=document.createElement('link');css.rel='stylesheet';css.href='order.css?v=0.3.4.1';document.head.appendChild(css);}
     const nav=document.querySelector('.nav-actions');
     if(nav&&!document.getElementById('marketOrdersBtn')){
       const b=document.createElement('button');b.id='marketOrdersBtn';b.className='ghost market-order-nav';b.textContent='🛍️ ออเดอร์';nav.insertBefore(b,document.getElementById('accountBtn')||null);
     }
-    const f=document.createElement('button');f.id='marketCartBtn';f.className='order-floating-cart';f.innerHTML='<span class="cart-icon">🛒</span><span class="cart-label">ตะกร้า</span><span class="count">0</span>';document.body.appendChild(f);
+    const f=document.createElement('button');f.type='button';f.id='marketCartBtn';f.className='order-floating-cart';f.innerHTML='<span class="cart-icon">🛒</span><span class="cart-label">ตะกร้า</span><span class="count">0</span>';document.body.appendChild(f);
     injectBottomNavStyles();attachCartToBottomNav();
     const modal=document.createElement('div');modal.id='marketOrderModal';modal.className='market-order-modal hidden';modal.innerHTML='<div class="mo-backdrop" data-mo-close></div><div class="market-order-panel"><button class="mo-close" data-mo-close>×</button><div id="marketOrderBody"></div></div>';document.body.appendChild(modal);
   }
@@ -52,7 +52,7 @@
     if(document.getElementById('orderBottomNavStyle'))return;
     const st=document.createElement('style');st.id='orderBottomNavStyle';st.textContent=`
       #marketCartBtn.order-bottom-cart{
-        position:relative !important;inset:auto !important;right:auto !important;bottom:auto !important;
+        position:relative !important;pointer-events:auto !important;touch-action:manipulation !important;inset:auto !important;right:auto !important;bottom:auto !important;
         width:auto !important;min-width:0 !important;height:auto !important;margin:0 !important;
         display:flex !important;align-items:center;justify-content:center;gap:6px;
         padding:12px 10px !important;border:1px solid rgba(120,70,55,.16) !important;
@@ -106,7 +106,16 @@
   }
 
   function wire(){
-    document.getElementById('marketCartBtn')?.addEventListener('click',renderCart);
+    // Bottom navigation in the base app may have its own click handlers.
+    // Capture the cart tap first so parent navigation cannot swallow it.
+    document.addEventListener('click',e=>{
+      const cart=e.target?.closest?.('#marketCartBtn');
+      if(!cart)return;
+      e.preventDefault();
+      e.stopPropagation();
+      if(typeof e.stopImmediatePropagation==='function')e.stopImmediatePropagation();
+      renderCart();
+    },true);
     document.getElementById('marketOrdersBtn')?.addEventListener('click',()=>session?openAccountHub():requireLogin());
     document.addEventListener('click',e=>{
       if(e.target.closest('[data-mo-close]'))return closeModal();
