@@ -34,18 +34,77 @@
     injectUI();wire();renderNavState();updateCartBadge();applyOrderAccess();
     db.auth.onAuthStateChange(async(_e,s)=>{session=s;renderNavState();applyOrderAccess();if(canUseOrders()){await refreshProductShops();decorateShopCards();}});
     if(canUseOrders()){await refreshProductShops();decorateShopCards();}
-    new MutationObserver(()=>{if(canUseOrders())decorateShopCards();}).observe(document.body,{childList:true,subtree:true});
+    new MutationObserver(()=>{if(canUseOrders())decorateShopCards();attachCartToBottomNav();}).observe(document.body,{childList:true,subtree:true});
   }
 
   function injectUI(){
-    if(!document.querySelector('link[href*="order.css"]')){const css=document.createElement('link');css.rel='stylesheet';css.href='order.css?v=0.3.2';document.head.appendChild(css);}
+    if(!document.querySelector('link[href*="order.css"]')){const css=document.createElement('link');css.rel='stylesheet';css.href='order.css?v=0.3.3';document.head.appendChild(css);}
     const nav=document.querySelector('.nav-actions');
     if(nav&&!document.getElementById('marketOrdersBtn')){
       const b=document.createElement('button');b.id='marketOrdersBtn';b.className='ghost market-order-nav';b.textContent='🛍️ ออเดอร์';nav.insertBefore(b,document.getElementById('accountBtn')||null);
     }
-    const f=document.createElement('button');f.id='marketCartBtn';f.className='order-floating-cart';f.innerHTML='🛒 ตะกร้า <span class="count">0</span>';document.body.appendChild(f);
+    const f=document.createElement('button');f.id='marketCartBtn';f.className='order-floating-cart';f.innerHTML='<span class="cart-icon">🛒</span><span class="cart-label">ตะกร้า</span><span class="count">0</span>';document.body.appendChild(f);
+    injectBottomNavStyles();attachCartToBottomNav();
     const modal=document.createElement('div');modal.id='marketOrderModal';modal.className='market-order-modal hidden';modal.innerHTML='<div class="mo-backdrop" data-mo-close></div><div class="market-order-panel"><button class="mo-close" data-mo-close>×</button><div id="marketOrderBody"></div></div>';document.body.appendChild(modal);
   }
+
+  function injectBottomNavStyles(){
+    if(document.getElementById('orderBottomNavStyle'))return;
+    const st=document.createElement('style');st.id='orderBottomNavStyle';st.textContent=`
+      #marketCartBtn.order-bottom-cart{
+        position:relative !important;inset:auto !important;right:auto !important;bottom:auto !important;
+        width:auto !important;min-width:0 !important;height:auto !important;margin:0 !important;
+        display:flex !important;align-items:center;justify-content:center;gap:6px;
+        padding:12px 10px !important;border:1px solid rgba(120,70,55,.16) !important;
+        border-radius:22px !important;background:#fff !important;color:#2b2020 !important;
+        box-shadow:none !important;font:inherit;font-weight:800;white-space:nowrap;z-index:auto !important;
+      }
+      #marketCartBtn.order-bottom-cart .cart-icon{font-size:20px;line-height:1}
+      #marketCartBtn.order-bottom-cart .cart-label{font-size:15px;line-height:1}
+      #marketCartBtn.order-bottom-cart .count{
+        position:absolute;top:-7px;right:8px;min-width:22px;height:22px;padding:0 5px;
+        display:grid;place-items:center;border-radius:999px;background:#c70f17;color:#fff;
+        border:2px solid #fff;font-size:12px;font-weight:900;line-height:1;
+      }
+      .market-four-bottom-nav{display:grid !important;grid-template-columns:repeat(4,minmax(0,1fr)) !important;gap:8px !important;align-items:stretch !important}
+      .market-four-bottom-nav > *{min-width:0 !important}
+      @media(max-width:520px){
+        .market-four-bottom-nav{gap:6px !important}
+        #marketCartBtn.order-bottom-cart{padding:11px 6px !important;border-radius:20px !important}
+        #marketCartBtn.order-bottom-cart .cart-label{font-size:14px}
+      }
+      body.order-has-bottom-cart{padding-bottom:max(96px,calc(82px + env(safe-area-inset-bottom))) !important}
+    `;document.head.appendChild(st);
+  }
+  function buttonByThaiLabel(label){
+    return [...document.querySelectorAll('button,a,[role="button"]')].find(el=>{
+      if(el.id==='marketCartBtn'||el.closest('#marketOrderModal'))return false;
+      const t=String(el.textContent||'').replace(/\s+/g,' ').trim();
+      return t===label||t.endsWith(' '+label)||t.includes(label);
+    })||null;
+  }
+  function commonAncestor(elements){
+    if(!elements.length)return null;
+    let n=elements[0];
+    while(n&&n!==document.body){if(elements.every(x=>n.contains(x)))return n;n=n.parentElement;}
+    return null;
+  }
+  function directChildUnder(parent,node){let n=node;while(n&&n.parentElement!==parent)n=n.parentElement;return n;}
+  function attachCartToBottomNav(){
+    const cart=document.getElementById('marketCartBtn');if(!cart)return;
+    const back=buttonByThaiLabel('กลับ'),home=buttonByThaiLabel('หน้าหลัก'),help=buttonByThaiLabel('ช่วยเหลือ');
+    if(!back||!home||!help)return;
+    let bar=commonAncestor([back,home,help]);if(!bar)return;
+    // Keep the detected container reasonably local to the three bottom-nav controls.
+    if(bar===document.body||bar.children.length>12)return;
+    const helpItem=directChildUnder(bar,help),homeItem=directChildUnder(bar,home);
+    if(!helpItem||!homeItem)return;
+    if(cart.parentElement!==bar){bar.insertBefore(cart,helpItem);}
+    else if(cart.nextElementSibling!==helpItem){bar.insertBefore(cart,helpItem);}
+    bar.classList.add('market-four-bottom-nav');cart.classList.add('order-bottom-cart');
+    document.body.classList.add('order-has-bottom-cart');
+  }
+
   function wire(){
     document.getElementById('marketCartBtn')?.addEventListener('click',renderCart);
     document.getElementById('marketOrdersBtn')?.addEventListener('click',()=>session?openAccountHub():requireLogin());
