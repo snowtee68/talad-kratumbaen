@@ -10,6 +10,9 @@
   const ORDER_TEST_EMAILS=['snowtee68@gmail.com'];
   const MAX_PICKUPS=5, EXTRA_PICKUP_FEE=10;
   let session=null, productShopIds=new Set(), productOptionDraft=[];
+  const ORDER_NOTIFY_KEY='talad_order_notify_v042';
+  let orderNotifyTimer=null,orderNotifyBusy=false,orderNotifyBaseline=false,orderNotifyAudioArmed=false;
+  let orderNotifyState={statuses:{},viewed:{},reminded:{},unread:0};
   const esc=(v='')=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const money=n=>Number(n||0).toLocaleString('th-TH',{minimumFractionDigits:0,maximumFractionDigits:2});
   const uuid=()=>crypto.randomUUID?.()||('xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0,v=c==='x'?r:(r&3|8);return v.toString(16)}));
@@ -42,19 +45,19 @@
   async function init(){
     const {data}=await db.auth.getSession();session=data.session;
     injectUI();wire();renderNavState();updateCartBadge();applyOrderAccess();
-    db.auth.onAuthStateChange(async(_e,s)=>{session=s;renderNavState();applyOrderAccess();if(canUseOrders()){await refreshProductShops();decorateShopCards();}});
-    if(canUseOrders()){await refreshProductShops();decorateShopCards();}
+    db.auth.onAuthStateChange(async(_e,s)=>{session=s;renderNavState();applyOrderAccess();stopOrderNotifications();if(canUseOrders()){await refreshProductShops();decorateShopCards();startOrderNotifications();}});
+    if(canUseOrders()){await refreshProductShops();decorateShopCards();startOrderNotifications();}
     new MutationObserver(()=>{if(canUseOrders())decorateShopCards();attachCartToBottomNav();}).observe(document.body,{childList:true,subtree:true});
   }
 
   function injectUI(){
-    if(!document.querySelector('link[href*="order.css"]')){const css=document.createElement('link');css.rel='stylesheet';css.href='order.css?v=0.4.0';document.head.appendChild(css);}
+    if(!document.querySelector('link[href*="order.css"]')){const css=document.createElement('link');css.rel='stylesheet';css.href='order.css?v=0.4.2';document.head.appendChild(css);}
     const nav=document.querySelector('.nav-actions');
     if(nav&&!document.getElementById('marketOrdersBtn')){
       const b=document.createElement('button');b.id='marketOrdersBtn';b.className='ghost market-order-nav';b.textContent='🛍️ ออเดอร์';nav.insertBefore(b,document.getElementById('accountBtn')||null);
     }
     const f=document.createElement('button');f.type='button';f.id='marketCartBtn';f.className='order-floating-cart';f.innerHTML='<span class="cart-icon">🛒</span><span class="cart-label">ตะกร้า</span><span class="count">0</span>';document.body.appendChild(f);
-    injectBottomNavStyles();attachCartToBottomNav();
+    injectBottomNavStyles();attachCartToBottomNav();injectOrderNotificationUI();
     const modal=document.createElement('div');modal.id='marketOrderModal';modal.className='market-order-modal hidden';modal.innerHTML='<div class="mo-backdrop" data-mo-close></div><div class="market-order-panel"><button class="mo-close" data-mo-close>×</button><div id="marketOrderBody"></div></div>';document.body.appendChild(modal);
   }
 
@@ -84,6 +87,11 @@
         #marketCartBtn.order-bottom-cart .cart-label{font-size:14px}
       }
       body.order-has-bottom-cart{padding-bottom:max(96px,calc(82px + env(safe-area-inset-bottom))) !important}
+      #orderNotifyBanner{position:fixed;top:max(12px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:100000;width:min(92vw,560px);background:#fff;border:1px solid rgba(120,70,55,.22);box-shadow:0 12px 34px rgba(38,24,20,.2);border-radius:18px;padding:13px 16px;display:none;cursor:pointer}
+      #orderNotifyBanner.show{display:flex;gap:11px;align-items:center}
+      #orderNotifyBanner .bell{font-size:24px}.order-notify-title{font-weight:900}.order-notify-detail{font-size:13px;opacity:.72;margin-top:2px}
+      #marketOrdersBtn{position:relative}.order-notify-badge{display:none;position:absolute;right:-8px;top:-9px;min-width:21px;height:21px;padding:0 5px;border-radius:999px;background:#c70f17;color:#fff;border:2px solid #fff;font-size:11px;font-weight:900;align-items:center;justify-content:center}
+      #marketOrdersBtn.has-order-notify .order-notify-badge{display:flex}
     `;document.head.appendChild(st);
   }
   function buttonByThaiLabel(label){
@@ -115,7 +123,125 @@
     document.body.classList.add('order-has-bottom-cart');
   }
 
+
+  function injectOrderNotificationUI(){
+    if(!document.getElementById('orderNotifyBanner')){
+      const b=document.createElement('div');b.id='orderNotifyBanner';b.setAttribute('role','status');b.setAttribute('aria-live','polite');
+      b.innerHTML='<div class="bell">🔔</div><div><div class="order-notify-title">มีอัปเดตออเดอร์</div><div class="order-notify-detail">แตะเพื่อดู</div></div>';
+      document.body.appendChild(b);
+    }
+    const nav=document.getElementById('marketOrdersBtn');
+    if(nav&&!nav.querySelector('.order-notify-badge')){const x=document.createElement('span');x.className='order-notify-badge';x.textContent='0';nav.appendChild(x);}
+    loadOrderNotifyState();renderOrderNotifyBadge();
+  }
+  function loadOrderNotifyState(){
+    try{const x=JSON.parse(localStorage.getItem(ORDER_NOTIFY_KEY)||'{}');orderNotifyState={statuses:x.statuses||{},viewed:x.viewed||{},reminded:x.reminded||{},unread:Number(x.unread||0)}}catch(_){orderNotifyState={statuses:{},viewed:{},reminded:{},unread:0}}
+  }
+  function saveOrderNotifyState(){
+    const trimObj=o=>Object.fromEntries(Object.entries(o||{}).slice(-300));
+    orderNotifyState.statuses=trimObj(orderNotifyState.statuses);orderNotifyState.viewed=trimObj(orderNotifyState.viewed);orderNotifyState.reminded=trimObj(orderNotifyState.reminded);
+    localStorage.setItem(ORDER_NOTIFY_KEY,JSON.stringify(orderNotifyState));
+  }
+  function armOrderNotificationAudio(){
+    if(orderNotifyAudioArmed)return;orderNotifyAudioArmed=true;
+    try{const C=window.AudioContext||window.webkitAudioContext;if(C){const c=new C();const o=c.createOscillator(),g=c.createGain();g.gain.value=0.0001;o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+.01);c.resume?.();window.__marketOrderAudioContext=c;}}catch(_){}
+  }
+  function playOrderNotificationSound(){
+    if(!orderNotifyAudioArmed)return;
+    try{
+      const C=window.AudioContext||window.webkitAudioContext,c=window.__marketOrderAudioContext||new C();window.__marketOrderAudioContext=c;c.resume?.();
+      const now=c.currentTime;
+      [0,.16].forEach((d,i)=>{const o=c.createOscillator(),g=c.createGain();o.type='sine';o.frequency.value=i?880:660;g.gain.setValueAtTime(.0001,now+d);g.gain.exponentialRampToValueAtTime(.11,now+d+.015);g.gain.exponentialRampToValueAtTime(.0001,now+d+.13);o.connect(g);g.connect(c.destination);o.start(now+d);o.stop(now+d+.15);});
+    }catch(_){}
+  }
+  function renderOrderNotifyBadge(){
+    const nav=document.getElementById('marketOrdersBtn'),b=nav?.querySelector('.order-notify-badge'),n=Math.max(0,Number(orderNotifyState.unread||0));
+    if(b)b.textContent=n>99?'99+':String(n);nav?.classList.toggle('has-order-notify',n>0);
+  }
+  function showOrderNotifyBanner(title,detail,count=1){
+    const b=document.getElementById('orderNotifyBanner');if(!b)return;
+    b.querySelector('.order-notify-title').textContent=title;b.querySelector('.order-notify-detail').textContent=detail||'แตะเพื่อดูออเดอร์';
+    b.classList.add('show');clearTimeout(b._hideTimer);b._hideTimer=setTimeout(()=>b.classList.remove('show'),6500);
+    orderNotifyState.unread=Math.min(999,Number(orderNotifyState.unread||0)+Math.max(1,count));saveOrderNotifyState();renderOrderNotifyBadge();playOrderNotificationSound();
+  }
+  function markNotificationAreaViewed(){
+    orderNotifyState.unread=0;saveOrderNotifyState();renderOrderNotifyBadge();document.getElementById('orderNotifyBanner')?.classList.remove('show');
+  }
+  function stopOrderNotifications(){if(orderNotifyTimer){clearInterval(orderNotifyTimer);orderNotifyTimer=null}orderNotifyBusy=false;orderNotifyBaseline=false;}
+  async function getMySellerShopIds(){
+    if(!session?.user?.id)return[];
+    const {data}=await db.from('market_shops').select('id').eq('owner_id',session.user.id);return(data||[]).map(x=>x.id);
+  }
+  async function pollOrderNotifications(){
+    if(orderNotifyBusy||!session||!canUseOrders())return;orderNotifyBusy=true;
+    try{
+      const sellerIds=await getMySellerShopIds(),events=[],now=Date.now();
+      let sellerOrders=[],customerOrders=[];
+      if(sellerIds.length){
+        const {data}=await db.from('market_orders').select('id,shop_id,status,created_at,updated_at,shop_response_due_at,payment_submitted_at').in('shop_id',sellerIds).order('created_at',{ascending:false}).limit(100);
+        sellerOrders=data||[];
+      }
+      {
+        const {data}=await db.from('market_orders').select('id,status,created_at,updated_at,shop_id').eq('customer_id',session.user.id).order('created_at',{ascending:false}).limit(100);
+        customerOrders=data||[];
+      }
+      const all=[...sellerOrders.map(o=>({role:'seller',...o})),...customerOrders.map(o=>({role:'customer',...o}))];
+      for(const o of all){
+        const key=o.role+':'+o.id,prev=orderNotifyState.statuses[key],cur=o.status;
+        if(orderNotifyBaseline&&prev!==undefined&&prev!==cur){
+          if(o.role==='seller'&&cur==='payment_review')events.push({type:'seller_payment',id:o.id});
+          if(o.role==='customer'&&cur==='awaiting_payment')events.push({type:'customer_pay',id:o.id});
+          if(o.role==='customer'&&cur==='awaiting_customer_confirmation')events.push({type:'customer_revision',id:o.id});
+          if(o.role==='customer'&&cur==='ready')events.push({type:'customer_ready',id:o.id});
+          if(o.role==='customer'&&cur==='cancelled')events.push({type:'customer_cancelled',id:o.id});
+        }
+        if(orderNotifyBaseline&&prev===undefined){
+          if(o.role==='seller'&&['pending_shop','awaiting_payment'].includes(cur))events.push({type:'seller_new',id:o.id});
+        }
+        orderNotifyState.statuses[key]=cur;
+      }
+      // Reminder: pending manual-accept orders that have not been opened for 3 minutes.
+      for(const o of sellerOrders.filter(x=>x.status==='pending_shop')){
+        const key='seller:'+o.id,age=now-new Date(o.created_at).getTime(),last=Number(orderNotifyState.reminded[key]||0);
+        if(age>=3*60*1000&&!orderNotifyState.viewed[key]&&now-last>=3*60*1000){events.push({type:'seller_reminder',id:o.id});orderNotifyState.reminded[key]=now;}
+      }
+      if(!orderNotifyBaseline){orderNotifyBaseline=true;saveOrderNotifyState();return;}
+      if(events.length){
+        const counts=events.reduce((a,e)=>(a[e.type]=(a[e.type]||0)+1,a),{});
+        let title='มีอัปเดตออเดอร์ '+events.length+' รายการ',parts=[];
+        if(counts.seller_new)parts.push('ออเดอร์ใหม่ '+counts.seller_new);
+        if(counts.seller_payment)parts.push('รอตรวจเงิน '+counts.seller_payment);
+        if(counts.seller_reminder)parts.push('ยังไม่ได้เปิดดู '+counts.seller_reminder);
+        if(counts.customer_pay)parts.push('ร้านรับแล้ว รอชำระ '+counts.customer_pay);
+        if(counts.customer_revision)parts.push('ร้านขอแก้รายการ '+counts.customer_revision);
+        if(counts.customer_ready)parts.push('สินค้าพร้อม '+counts.customer_ready);
+        if(counts.customer_cancelled)parts.push('ออเดอร์ยกเลิก '+counts.customer_cancelled);
+        showOrderNotifyBanner(title,parts.join(' · '),events.length);
+      }
+      saveOrderNotifyState();
+    }catch(err){console.warn('Order notification poll:',err?.message||err)}
+    finally{orderNotifyBusy=false}
+  }
+  async function startOrderNotifications(){
+    if(!session||!canUseOrders())return;stopOrderNotifications();loadOrderNotifyState();await pollOrderNotifications();
+    orderNotifyTimer=setInterval(pollOrderNotifications,15000);
+  }
+  function markSellerOrdersViewed(shopId){
+    if(!shopId)return;
+    db.from('market_orders').select('id').eq('shop_id',shopId).in('status',['pending_shop','awaiting_payment','payment_review']).limit(100).then(({data})=>{
+      for(const o of data||[])orderNotifyState.viewed['seller:'+o.id]=Date.now();saveOrderNotifyState();
+    });
+    markNotificationAreaViewed();
+  }
+
   function wire(){
+    document.addEventListener('pointerdown',armOrderNotificationAudio,{once:true,capture:true});
+    document.addEventListener('keydown',armOrderNotificationAudio,{once:true,capture:true});
+    document.addEventListener('click',e=>{
+      if(e.target?.closest?.('#orderNotifyBanner')){
+        e.preventDefault();markNotificationAreaViewed();session?openAccountHub():requireLogin();
+      }
+    });
     // Bottom navigation in the base app may have its own click handlers.
     // Capture the cart tap first so parent navigation cannot swallow it.
     document.addEventListener('click',e=>{
@@ -352,6 +478,7 @@
   }
 
   async function openSellerShop(shopId){
+    markSellerOrdersViewed(shopId);
     const [{data:shop},{data:setting},{data:products},{data:orders,error}]=await Promise.all([
       db.from('market_shops').select('id,name,owner_id').eq('id',shopId).maybeSingle(),db.from('market_shop_order_settings').select('*').eq('shop_id',shopId).maybeSingle(),db.from('market_products').select('*').eq('shop_id',shopId).order('sort_order').order('created_at'),db.from('market_orders').select('id,subtotal,status,payment_ref,payment_slip_path,payment_submitted_at,response_due_at,paid_at,customer_cancel_reason,customer_cancelled_at,rejection_reason,shop_response_due_at,shop_accepted_at,revision_note,revision_subtotal,revision_requested_at,revision_confirmed_at,refund_required,refund_status,refund_amount,refund_ref,refund_slip_path,refund_submitted_at,refund_confirmed_at,created_at,customer_id,group:market_delivery_groups(customer_name,customer_phone,delivery_address,fulfillment_method,pickup_requested_at,status),items:market_order_items(product_name,unit_price,qty,options_json,note)').eq('shop_id',shopId).order('created_at',{ascending:false}).limit(50)
     ]);if(error)return alert(error.message);
