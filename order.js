@@ -12,6 +12,7 @@
   let session=null, productShopIds=new Set(), productOptionDraft=[];
   const ORDER_NOTIFY_KEY='talad_order_notify_v042';
   let orderNotifyTimer=null,orderNotifyBusy=false,orderNotifyBaseline=false,orderNotifyAudioArmed=false;
+  let customerOrderTab='waiting',sellerOrderTab='action',customerOrderPage=1,sellerOrderPage=1,orderSearchTerm='',orderDateFilter='today';
   let orderNotifyState={statuses:{},viewed:{},reminded:{},unread:0};
   const esc=(v='')=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const money=n=>Number(n||0).toLocaleString('th-TH',{minimumFractionDigits:0,maximumFractionDigits:2});
@@ -96,6 +97,13 @@
       .order-group-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.order-group-head h3{margin:0 0 3px;font-size:18px}
       .order-group-count{display:inline-grid;place-items:center;min-width:25px;height:25px;padding:0 7px;border-radius:999px;background:#efe5df;color:#5a3328;font-size:13px}
       .order-group-empty{padding:16px;text-align:center;border:1px dashed rgba(120,70,55,.22);border-radius:14px;color:#8a7168;background:#fff}
+      .order-toolbar{position:sticky;top:0;z-index:4;background:#fff;padding:6px 0 10px;margin-bottom:12px}
+      .order-tab-strip{display:flex;gap:7px;overflow-x:auto;padding:2px 1px 8px;scrollbar-width:none}.order-tab-strip::-webkit-scrollbar{display:none}
+      .order-tab-strip button{flex:0 0 auto;border:1px solid rgba(120,70,55,.17);background:#fff;border-radius:999px;padding:9px 12px;font-weight:800;white-space:nowrap}
+      .order-tab-strip button.active{background:#5c3028;color:#fff}.order-tab-strip button span{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:rgba(120,70,55,.12);font-size:11px}.order-tab-strip button.active span{background:rgba(255,255,255,.2)}
+      .order-filter-row{display:grid;grid-template-columns:minmax(0,1fr) 110px;gap:8px}.order-filter-row input,.order-filter-row select{width:100%;border:1px solid rgba(120,70,55,.18);border-radius:12px;padding:10px 11px;background:#fff}
+      .order-load-more{text-align:center;padding:14px 0}.order-tab-content>.order-card{margin-bottom:12px}
+      @media(max-width:520px){.order-filter-row{grid-template-columns:1fr 96px}.order-toolbar{top:0}}
     `;document.head.appendChild(st);
   }
   function buttonByThaiLabel(label){
@@ -315,9 +323,13 @@
       const cancelCustomer=e.target.closest('[data-customer-cancel-order]');if(cancelCustomer)return customerCancelOrder(cancelCustomer.dataset.customerCancelOrder);
       const ship=e.target.closest('[data-create-delivery]');if(ship)return createDelivery(ship.dataset.createDelivery);
       const hubtab=e.target.closest('[data-hub-tab]');if(hubtab)return document.getElementById('hubContent')?renderHubTab(hubtab.dataset.hubTab):openAccountHub(hubtab.dataset.hubTab);
+      const cot=e.target.closest('[data-customer-order-tab]');if(cot){customerOrderTab=cot.dataset.customerOrderTab;customerOrderPage=1;return renderHubTab('customer');}
+      const sot=e.target.closest('[data-seller-order-tab]');if(sot){sellerOrderTab=sot.dataset.sellerOrderTab;sellerOrderPage=1;const sid=document.getElementById('sellerShopId')?.value;return sid?openSellerShop(sid):null;}
+      if(e.target.closest('#customerLoadMoreOrders')){customerOrderPage++;return renderHubTab('customer');}
+      if(e.target.closest('#sellerLoadMoreOrders')){sellerOrderPage++;const sid=document.getElementById('sellerShopId')?.value;return sid?openSellerShop(sid):null;}
     });
-    document.addEventListener('input',e=>{const el=e.target.closest('[data-draft-field]');if(el)draftFieldChanged(el);});
-    document.addEventListener('change',e=>{const el=e.target.closest('[data-draft-field]');if(el)draftFieldChanged(el);if(e.target.closest('[data-option-value]'))updateCustomProductTotal();});
+    document.addEventListener('input',e=>{const el=e.target.closest('[data-draft-field]');if(el)draftFieldChanged(el);const q=e.target.closest('#orderSearchInput');if(q){orderSearchTerm=q.value||'';customerOrderPage=1;sellerOrderPage=1;clearTimeout(window.__orderSearchTimer);window.__orderSearchTimer=setTimeout(()=>{const sid=document.getElementById('sellerShopId')?.value;if(sid)openSellerShop(sid);else renderHubTab('customer');},250);}});
+    document.addEventListener('change',e=>{const el=e.target.closest('[data-draft-field]');if(el)draftFieldChanged(el);if(e.target.closest('[data-option-value]'))updateCustomProductTotal();const df=e.target.closest('#orderDateFilter');if(df){orderDateFilter=df.value;customerOrderPage=1;sellerOrderPage=1;const sid=document.getElementById('sellerShopId')?.value;if(sid)openSellerShop(sid);else renderHubTab('customer');}});
   }
   function openModal(html,wide=false){const m=document.getElementById('marketOrderModal');m.querySelector('.market-order-panel').classList.toggle('wide',wide);document.getElementById('marketOrderBody').innerHTML=html;m.classList.remove('hidden');document.body.style.overflow='hidden';}
   function closeModal(){document.getElementById('marketOrderModal')?.classList.add('hidden');document.body.style.overflow='';}
@@ -545,19 +557,36 @@
       return `<div class="payment-card"><div class="order-card-head"><b>🏪 ${esc(o.shop?.name||'ร้าน')}</b><span class="status-pill status-${esc(o.status)}">${esc(statusText(o.status))}</span></div><div class="order-items">${(o.items||[]).map(i=>renderOrderItem(i,true)).join('')}</div><b>${money(o.subtotal)} บาท</b>${o.revision_confirmed_at&&o.revision_note?`<div class="mo-muted">รายการที่ตกลงแก้ไข: ${esc(o.revision_note)}</div>`:''}${o.rejection_reason?`<div class="warning-banner">ยกเลิก: ${esc(o.rejection_reason)}</div>`:''}${pending}${revision}${refund}${pay}</div>`;
     }).join('')}${deliveryState}</article>`;
   }
+  function orderDateMatches(dateValue){
+    if(orderDateFilter==='all')return true;
+    const d=new Date(dateValue),now=new Date(),startToday=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+    if(orderDateFilter==='today')return d>=startToday;
+    if(orderDateFilter==='yesterday'){const y=new Date(startToday);y.setDate(y.getDate()-1);return d>=y&&d<startToday;}
+    if(orderDateFilter==='7d'){const x=new Date(startToday);x.setDate(x.getDate()-6);return d>=x;}
+    return true;
+  }
+  function orderSearchMatchesGroup(g){
+    const q=String(orderSearchTerm||'').trim().toLowerCase();if(!q)return true;
+    const text=[g.id,...(g.orders||[]).flatMap(o=>[o.id,o.shop?.name,o.shop?.phone,o.rejection_reason])].filter(Boolean).join(' ').toLowerCase();
+    return text.includes(q);
+  }
+  function orderTabsToolbar(type,buckets){
+    const isSeller=type==='seller',tabs=isSeller?[
+      ['action','🔴 ต้องทำตอนนี้'],['preparing','🟠 กำลังเตรียม'],['ready','🟢 พร้อมรับ'],['done','⚪ จบแล้ว']
+    ]:[
+      ['waiting','⏳ รอดำเนินการ'],['processing','🍳 กำลังทำ'],['shipping','🛵 พร้อมรับ/จัดส่ง'],['done','✅ ประวัติ']
+    ];
+    const active=isSeller?sellerOrderTab:customerOrderTab,attr=isSeller?'data-seller-order-tab':'data-customer-order-tab';
+    return `<div class="order-toolbar"><div class="order-tab-strip">${tabs.map(([k,l])=>`<button ${attr}="${k}" class="${active===k?'active':''}">${l} <span>${buckets[k]?.length||0}</span></button>`).join('')}</div><div class="order-filter-row"><input id="orderSearchInput" value="${esc(orderSearchTerm)}" placeholder="ค้นหา Order / ร้าน / เบอร์โทร"><select id="orderDateFilter"><option value="today" ${orderDateFilter==='today'?'selected':''}>วันนี้</option><option value="yesterday" ${orderDateFilter==='yesterday'?'selected':''}>เมื่อวาน</option><option value="7d" ${orderDateFilter==='7d'?'selected':''}>7 วัน</option><option value="all" ${orderDateFilter==='all'?'selected':''}>ทั้งหมด</option></select></div></div>`;
+  }
   async function renderCustomerHub(box){
     box.innerHTML='กำลังโหลด...';
-    const {data:groups,error}=await db.from('market_delivery_groups').select('*,orders:market_orders(id,shop_id,subtotal,status,payment_ref,payment_submitted_at,rejection_reason,shop_response_due_at,shop_accepted_at,revision_note,revision_subtotal,revision_requested_at,revision_confirmed_at,refund_required,refund_status,refund_amount,refund_ref,refund_slip_path,refund_submitted_at,refund_confirmed_at,refund_destination_type,refund_destination_promptpay_type,refund_destination_value,refund_destination_bank,refund_destination_name,refund_destination_submitted_at,created_at,shop:market_shops(name,latitude,longitude,phone,landmark,address),items:market_order_items(product_name,unit_price,qty,options_json,note))').eq('customer_id',session.user.id).order('created_at',{ascending:false}).limit(30);
+    const {data:groups,error}=await db.from('market_delivery_groups').select('*,orders:market_orders(id,shop_id,subtotal,status,payment_ref,payment_submitted_at,rejection_reason,shop_response_due_at,shop_accepted_at,revision_note,revision_subtotal,revision_requested_at,revision_confirmed_at,refund_required,refund_status,refund_amount,refund_ref,refund_slip_path,refund_submitted_at,refund_confirmed_at,refund_destination_type,refund_destination_promptpay_type,refund_destination_value,refund_destination_bank,refund_destination_name,refund_destination_submitted_at,created_at,shop:market_shops(name,latitude,longitude,phone,landmark,address),items:market_order_items(product_name,unit_price,qty,options_json,note))').eq('customer_id',session.user.id).order('created_at',{ascending:false}).limit(100);
     if(error){box.innerHTML=`<div class="warning-banner">${esc(error.message)}</div>`;return}
-    const buckets={waiting:[],processing:[],shipping:[],done:[]};
-    for(const g of groups||[])buckets[customerGroupBucket(g)].push(g);
-    const section=(key,title,desc)=>`<section class="order-group-section"><div class="order-group-head"><div><h3>${title} <span class="order-group-count">${buckets[key].length}</span></h3><div class="mo-muted">${desc}</div></div></div>${buckets[key].length?buckets[key].map(customerGroupCard).join(''):'<div class="order-group-empty">ไม่มีรายการในหมวดนี้</div>'}</section>`;
-    box.innerHTML=(groups||[]).length?[
-      section('waiting','⏳ รอดำเนินการ','รอร้านรับ · รอยืนยันรายการ · รอชำระ · รอตรวจเงิน'),
-      section('processing','🍳 กำลังดำเนินการ','ร้านรับเงินแล้วและกำลังเตรียมสินค้า'),
-      section('shipping','🛵 พร้อมรับ / กำลังจัดส่ง','สินค้าพร้อมรับ · พร้อมเรียกวิน · กำลังจัดส่ง'),
-      section('done','✅ เสร็จสิ้น / ยกเลิก','รายการจบแล้ว ยกเลิก หรือคืนเงินเสร็จ')
-    ].join(''):'<p>ยังไม่มีออเดอร์</p>';
+    const filtered=(groups||[]).filter(g=>orderDateMatches(g.created_at)&&orderSearchMatchesGroup(g));
+    const buckets={waiting:[],processing:[],shipping:[],done:[]};for(const g of filtered)buckets[customerGroupBucket(g)].push(g);
+    const active=buckets[customerOrderTab]||[],limit=10*customerOrderPage,shown=active.slice(0,limit);
+    box.innerHTML=orderTabsToolbar('customer',buckets)+`<div class="order-tab-content">${shown.length?shown.map(customerGroupCard).join(''):'<div class="order-group-empty">ไม่มีรายการในหมวดนี้</div>'}${active.length>shown.length?`<div class="order-load-more"><div class="mo-muted">แสดง ${shown.length} จาก ${active.length} รายการ</div><button id="customerLoadMoreOrders" class="mo-secondary">โหลดเพิ่ม</button></div>`:''}</div>`;
   }
   async function renderSellerHub(box){
     box.innerHTML='กำลังโหลด...';const {data:shops,error}=await db.from('market_shops').select('id,name,status').eq('owner_id',session.user.id).order('created_at',{ascending:false});if(error){box.innerHTML=esc(error.message);return}box.innerHTML=`<div class="mo-muted">เลือกแท็บร้านเพื่อจัดสินค้า QR รับเงิน และดูออเดอร์ที่ลูกค้าสั่งเข้ามา</div>${(shops||[]).map(s=>`<button class="seller-shop-card" style="display:block;width:100%;text-align:left;background:#fff;cursor:pointer" data-seller-shop="${s.id}"><b>🏪 ${esc(s.name)}</b><div class="mo-muted">สถานะร้าน: ${esc(s.status)}</div></button>`).join('')||'<p>บัญชีนี้ยังไม่มีร้าน</p>'}`;
@@ -578,10 +607,16 @@
     if(['pending_shop','awaiting_customer_confirmation','awaiting_payment','payment_review'].includes(o.status)||o.refund_required&&o.refund_status!=='completed')return 'action';
     return 'done';
   }
+  function sellerOrderSearchMatches(o){
+    const q=String(orderSearchTerm||'').trim().toLowerCase();if(!q)return true;
+    const text=[o.id,o.group?.customer_name,o.group?.customer_phone,o.rejection_reason].filter(Boolean).join(' ').toLowerCase();
+    return text.includes(q);
+  }
   function renderSellerOrderSections(orders){
-    const b={action:[],preparing:[],ready:[],done:[]};for(const o of orders||[])b[sellerOrderBucket(o)].push(o);
-    const section=(key,title,desc)=>`<section class="order-group-section"><div class="order-group-head"><div><h3>${title} <span class="order-group-count">${b[key].length}</span></h3><div class="mo-muted">${desc}</div></div></div>${b[key].length?b[key].map(sellerOrderCard).join(''):'<div class="order-group-empty">ไม่มีรายการ</div>'}</section>`;
-    return [section('action','🔴 ต้องทำตอนนี้','ออเดอร์ใหม่ · รอลูกค้ายืนยัน · รอตรวจเงิน · งานคืนเงิน'),section('preparing','🟠 กำลังเตรียม','รับเงินแล้วและกำลังทำสินค้า'),section('ready','🟢 พร้อมส่ง / พร้อมรับ','สินค้าพร้อมให้ลูกค้ารับหรือเรียกวิน'),section('done','⚪ จบแล้ว','สำเร็จ · ยกเลิก · คืนเงินเสร็จ')].join('');
+    const b={action:[],preparing:[],ready:[],done:[]};
+    for(const o of (orders||[]).filter(x=>orderDateMatches(x.created_at)&&sellerOrderSearchMatches(x)))b[sellerOrderBucket(o)].push(o);
+    const active=b[sellerOrderTab]||[],limit=10*sellerOrderPage,shown=active.slice(0,limit);
+    return orderTabsToolbar('seller',b)+`<div class="order-tab-content">${shown.length?shown.map(sellerOrderCard).join(''):'<div class="order-group-empty">ไม่มีรายการในหมวดนี้</div>'}${active.length>shown.length?`<div class="order-load-more"><div class="mo-muted">แสดง ${shown.length} จาก ${active.length} รายการ</div><button id="sellerLoadMoreOrders" class="mo-secondary">โหลดเพิ่ม</button></div>`:''}</div>`;
   }
   function renderOrderItem(i,withTotal=false){const opts=Array.isArray(i.options_json)?i.options_json:[],opt=opts.length?`<div class="mo-muted">${opts.map(o=>`${esc(o.group_name)}: ${esc(o.value_name)}${Number(o.price_delta||0)?` (+${money(o.price_delta)}฿)`:''}`).join(' · ')}</div>`:'',note=i.note?`<div class="mo-muted">📝 ${esc(i.note)}</div>`:'',total=withTotal?` = ${money(Number(i.unit_price)*i.qty)} บาท`:'';return `<div style="margin-bottom:7px"><b>${esc(i.product_name)} × ${i.qty}${total}</b>${opt}${note}</div>`;}
   function sellerOrderCard(o){
