@@ -13,6 +13,7 @@
   const ORDER_NOTIFY_KEY='talad_order_notify_v042';
   let orderNotifyTimer=null,orderNotifyBusy=false,orderNotifyBaseline=false,orderNotifyAudioArmed=false;
   let customerOrderTab='waiting',sellerOrderTab='action',customerOrderPage=1,sellerOrderPage=1,orderSearchTerm='',orderDateFilter='today';
+  const ORDER_UI_VERSION='0.5.3';
   let orderNotifyState={statuses:{},viewed:{},reminded:{},unread:0};
   const esc=(v='')=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const money=n=>Number(n||0).toLocaleString('th-TH',{minimumFractionDigits:0,maximumFractionDigits:2});
@@ -97,13 +98,27 @@
       .order-group-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.order-group-head h3{margin:0 0 3px;font-size:18px}
       .order-group-count{display:inline-grid;place-items:center;min-width:25px;height:25px;padding:0 7px;border-radius:999px;background:#efe5df;color:#5a3328;font-size:13px}
       .order-group-empty{padding:16px;text-align:center;border:1px dashed rgba(120,70,55,.22);border-radius:14px;color:#8a7168;background:#fff}
-      .order-toolbar{position:sticky;top:0;z-index:4;background:#fff;padding:6px 0 10px;margin-bottom:12px}
       .order-tab-strip{display:flex;gap:7px;overflow-x:auto;padding:2px 1px 8px;scrollbar-width:none}.order-tab-strip::-webkit-scrollbar{display:none}
       .order-tab-strip button{flex:0 0 auto;border:1px solid rgba(120,70,55,.17);background:#fff;border-radius:999px;padding:9px 12px;font-weight:800;white-space:nowrap}
       .order-tab-strip button.active{background:#5c3028;color:#fff}.order-tab-strip button span{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:rgba(120,70,55,.12);font-size:11px}.order-tab-strip button.active span{background:rgba(255,255,255,.2)}
       .order-filter-row{display:grid;grid-template-columns:minmax(0,1fr) 110px;gap:8px}.order-filter-row input,.order-filter-row select{width:100%;border:1px solid rgba(120,70,55,.18);border-radius:12px;padding:10px 11px;background:#fff}
       .order-load-more{text-align:center;padding:14px 0}.order-tab-content>.order-card{margin-bottom:12px}
-      @media(max-width:520px){.order-filter-row{grid-template-columns:1fr 96px}.order-toolbar{top:0}}
+      .order-tabs-sticky{position:sticky;top:-1px;z-index:30;background:#fff;padding:8px 0 9px;border-bottom:1px solid rgba(120,70,55,.10);margin-bottom:10px}
+      .order-tabs-sticky .order-tab-strip{display:flex;gap:7px;overflow-x:auto;padding:2px 1px 8px;scrollbar-width:none}
+      .order-tabs-sticky .order-tab-strip::-webkit-scrollbar{display:none}
+      .order-tabs-sticky .order-tab-strip button{display:flex;align-items:center;gap:6px;flex:0 0 auto;border:1px solid rgba(120,70,55,.17);background:#fff;border-radius:999px;padding:9px 11px;font-weight:800;white-space:nowrap}
+      .order-tabs-sticky .order-tab-strip button.active{background:#5c3028;color:#fff}
+      .order-tab-count{display:inline-grid;place-items:center;min-width:21px;height:21px;padding:0 5px;border-radius:999px;background:rgba(120,70,55,.12);font-size:11px}
+      .order-tabs-sticky .order-tab-strip button.active .order-tab-count{background:rgba(255,255,255,.22)}
+      .order-active-pane{min-height:160px}.order-active-head{display:flex;justify-content:space-between;align-items:center;margin:8px 2px 12px;font-size:16px}.order-active-head span{font-size:13px;color:#8a7168}
+      .order-ui-version{text-align:right;font-size:10px;margin-top:4px;opacity:.45}
+      #marketOrderModal .market-order-panel.wide{max-height:92dvh;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+      @media(max-width:520px){
+        .order-filter-row{grid-template-columns:1fr 92px;gap:6px}
+        .order-tabs-sticky{top:-1px;padding-top:4px}
+        .order-tabs-sticky .order-tab-strip button{padding:9px 10px;font-size:13px}
+        #marketOrderModal .market-order-panel.wide{height:90dvh;max-height:90dvh;padding-bottom:90px}
+      }
     `;document.head.appendChild(st);
   }
   function buttonByThaiLabel(label){
@@ -577,16 +592,29 @@
       ['waiting','⏳ รอดำเนินการ'],['processing','🍳 กำลังทำ'],['shipping','🛵 พร้อมรับ/จัดส่ง'],['done','✅ ประวัติ']
     ];
     const active=isSeller?sellerOrderTab:customerOrderTab,attr=isSeller?'data-seller-order-tab':'data-customer-order-tab';
-    return `<div class="order-toolbar"><div class="order-tab-strip">${tabs.map(([k,l])=>`<button ${attr}="${k}" class="${active===k?'active':''}">${l} <span>${buckets[k]?.length||0}</span></button>`).join('')}</div><div class="order-filter-row"><input id="orderSearchInput" value="${esc(orderSearchTerm)}" placeholder="ค้นหา Order / ร้าน / เบอร์โทร"><select id="orderDateFilter"><option value="today" ${orderDateFilter==='today'?'selected':''}>วันนี้</option><option value="yesterday" ${orderDateFilter==='yesterday'?'selected':''}>เมื่อวาน</option><option value="7d" ${orderDateFilter==='7d'?'selected':''}>7 วัน</option><option value="all" ${orderDateFilter==='all'?'selected':''}>ทั้งหมด</option></select></div></div>`;
+    return `<div class="order-tabs-sticky" data-order-ui-version="${ORDER_UI_VERSION}">
+      <div class="order-tab-strip">${tabs.map(([k,l])=>`<button type="button" ${attr}="${k}" class="${active===k?'active':''}"><span class="order-tab-label">${l}</span><span class="order-tab-count">${buckets[k]?.length||0}</span></button>`).join('')}</div>
+      <div class="order-filter-row"><input id="orderSearchInput" value="${esc(orderSearchTerm)}" placeholder="ค้นหา Order / ชื่อ / เบอร์"><select id="orderDateFilter"><option value="today" ${orderDateFilter==='today'?'selected':''}>วันนี้</option><option value="yesterday" ${orderDateFilter==='yesterday'?'selected':''}>เมื่อวาน</option><option value="7d" ${orderDateFilter==='7d'?'selected':''}>7 วัน</option><option value="all" ${orderDateFilter==='all'?'selected':''}>ทั้งหมด</option></select></div>
+      <div class="mo-muted order-ui-version">UI v${ORDER_UI_VERSION}</div>
+    </div>`;
   }
   async function renderCustomerHub(box){
     box.innerHTML='กำลังโหลด...';
     const {data:groups,error}=await db.from('market_delivery_groups').select('*,orders:market_orders(id,shop_id,subtotal,status,payment_ref,payment_submitted_at,rejection_reason,shop_response_due_at,shop_accepted_at,revision_note,revision_subtotal,revision_requested_at,revision_confirmed_at,refund_required,refund_status,refund_amount,refund_ref,refund_slip_path,refund_submitted_at,refund_confirmed_at,refund_destination_type,refund_destination_promptpay_type,refund_destination_value,refund_destination_bank,refund_destination_name,refund_destination_submitted_at,created_at,shop:market_shops(name,latitude,longitude,phone,landmark,address),items:market_order_items(product_name,unit_price,qty,options_json,note))').eq('customer_id',session.user.id).order('created_at',{ascending:false}).limit(100);
     if(error){box.innerHTML=`<div class="warning-banner">${esc(error.message)}</div>`;return}
     const filtered=(groups||[]).filter(g=>orderDateMatches(g.created_at)&&orderSearchMatchesGroup(g));
-    const buckets={waiting:[],processing:[],shipping:[],done:[]};for(const g of filtered)buckets[customerGroupBucket(g)].push(g);
-    const active=buckets[customerOrderTab]||[],limit=10*customerOrderPage,shown=active.slice(0,limit);
-    box.innerHTML=orderTabsToolbar('customer',buckets)+`<div class="order-tab-content">${shown.length?shown.map(customerGroupCard).join(''):'<div class="order-group-empty">ไม่มีรายการในหมวดนี้</div>'}${active.length>shown.length?`<div class="order-load-more"><div class="mo-muted">แสดง ${shown.length} จาก ${active.length} รายการ</div><button id="customerLoadMoreOrders" class="mo-secondary">โหลดเพิ่ม</button></div>`:''}</div>`;
+    const buckets={waiting:[],processing:[],shipping:[],done:[]};
+    for(const g of filtered)buckets[customerGroupBucket(g)].push(g);
+
+    if(!buckets[customerOrderTab])customerOrderTab='waiting';
+    const active=buckets[customerOrderTab],limit=10*customerOrderPage,shown=active.slice(0,limit);
+    const title={waiting:'⏳ รอดำเนินการ',processing:'🍳 กำลังทำ',shipping:'🛵 พร้อมรับ / จัดส่ง',done:'✅ ประวัติ'}[customerOrderTab];
+
+    box.innerHTML=orderTabsToolbar('customer',buckets)+
+      `<section class="order-active-pane"><div class="order-active-head"><b>${title}</b><span>${active.length} รายการ</span></div>
+      ${shown.length?shown.map(customerGroupCard).join(''):'<div class="order-group-empty">ไม่มีรายการในหมวดนี้</div>'}
+      ${active.length>shown.length?`<div class="order-load-more"><div class="mo-muted">แสดง ${shown.length} จาก ${active.length} รายการ</div><button id="customerLoadMoreOrders" class="mo-secondary">โหลดเพิ่ม</button></div>`:''}
+      </section>`;
   }
   async function renderSellerHub(box){
     box.innerHTML='กำลังโหลด...';const {data:shops,error}=await db.from('market_shops').select('id,name,status').eq('owner_id',session.user.id).order('created_at',{ascending:false});if(error){box.innerHTML=esc(error.message);return}box.innerHTML=`<div class="mo-muted">เลือกแท็บร้านเพื่อจัดสินค้า QR รับเงิน และดูออเดอร์ที่ลูกค้าสั่งเข้ามา</div>${(shops||[]).map(s=>`<button class="seller-shop-card" style="display:block;width:100%;text-align:left;background:#fff;cursor:pointer" data-seller-shop="${s.id}"><b>🏪 ${esc(s.name)}</b><div class="mo-muted">สถานะร้าน: ${esc(s.status)}</div></button>`).join('')||'<p>บัญชีนี้ยังไม่มีร้าน</p>'}`;
@@ -615,8 +643,16 @@
   function renderSellerOrderSections(orders){
     const b={action:[],preparing:[],ready:[],done:[]};
     for(const o of (orders||[]).filter(x=>orderDateMatches(x.created_at)&&sellerOrderSearchMatches(x)))b[sellerOrderBucket(o)].push(o);
-    const active=b[sellerOrderTab]||[],limit=10*sellerOrderPage,shown=active.slice(0,limit);
-    return orderTabsToolbar('seller',b)+`<div class="order-tab-content">${shown.length?shown.map(sellerOrderCard).join(''):'<div class="order-group-empty">ไม่มีรายการในหมวดนี้</div>'}${active.length>shown.length?`<div class="order-load-more"><div class="mo-muted">แสดง ${shown.length} จาก ${active.length} รายการ</div><button id="sellerLoadMoreOrders" class="mo-secondary">โหลดเพิ่ม</button></div>`:''}</div>`;
+
+    if(!b[sellerOrderTab])sellerOrderTab='action';
+    const active=b[sellerOrderTab],limit=10*sellerOrderPage,shown=active.slice(0,limit);
+    const title={action:'🔴 ต้องทำตอนนี้',preparing:'🟠 กำลังเตรียม',ready:'🟢 พร้อมส่ง / พร้อมรับ',done:'⚪ จบแล้ว'}[sellerOrderTab];
+
+    return orderTabsToolbar('seller',b)+
+      `<section class="order-active-pane"><div class="order-active-head"><b>${title}</b><span>${active.length} รายการ</span></div>
+      ${shown.length?shown.map(sellerOrderCard).join(''):'<div class="order-group-empty">ไม่มีรายการในหมวดนี้</div>'}
+      ${active.length>shown.length?`<div class="order-load-more"><div class="mo-muted">แสดง ${shown.length} จาก ${active.length} รายการ</div><button id="sellerLoadMoreOrders" class="mo-secondary">โหลดเพิ่ม</button></div>`:''}
+      </section>`;
   }
   function renderOrderItem(i,withTotal=false){const opts=Array.isArray(i.options_json)?i.options_json:[],opt=opts.length?`<div class="mo-muted">${opts.map(o=>`${esc(o.group_name)}: ${esc(o.value_name)}${Number(o.price_delta||0)?` (+${money(o.price_delta)}฿)`:''}`).join(' · ')}</div>`:'',note=i.note?`<div class="mo-muted">📝 ${esc(i.note)}</div>`:'',total=withTotal?` = ${money(Number(i.unit_price)*i.qty)} บาท`:'';return `<div style="margin-bottom:7px"><b>${esc(i.product_name)} × ${i.qty}${total}</b>${opt}${note}</div>`;}
   function sellerOrderCard(o){
