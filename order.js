@@ -112,7 +112,7 @@
       .order-tabs-sticky .order-tab-strip button.active .order-tab-count{background:rgba(255,255,255,.22)}
       .order-active-pane{min-height:160px}.order-active-head{display:flex;justify-content:space-between;align-items:center;margin:8px 2px 12px;font-size:16px}.order-active-head span{font-size:13px;color:#8a7168}
       .order-ui-version{text-align:right;font-size:10px;margin-top:4px;opacity:.45}
-      .seller-order-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.order-age{font-size:11px;font-weight:800;padding:3px 7px;border-radius:999px;background:#f3eee9;color:#6f554c}.order-age.urgent{background:#ffe5e5;color:#a51d1d}.order-work-hint{font-size:11px;color:#8a7168;margin-top:2px}.order-count-alert{font-weight:900;background:#ffe8e8;color:#a51d1d;border-radius:999px;padding:4px 9px}.order-unseen{box-shadow:inset 4px 0 0 #d92d20}.order-new-badge{font-size:10px;font-weight:900;padding:3px 7px;border-radius:999px;background:#d92d20;color:#fff}.order-next-action{display:inline-block;margin-top:5px;padding:4px 8px;border-radius:8px;background:#fff4d8;color:#6f4c00;font-size:12px}.order-queue-summary{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;margin:2px 0 10px;border-radius:12px;background:#fff4f2;border:1px solid #ffd3cf}.order-queue-summary small{color:#a51d1d;font-weight:800}.queue-priority{font-size:11px;color:#755f57;white-space:nowrap}.delivery-track{margin:12px 0 8px;padding:12px;border-radius:12px;background:#f7fbff;border:1px solid #d7e9f8}.delivery-track>b{display:block;margin-bottom:9px}.delivery-track small{display:block;margin-top:8px;color:#667}.rider-contact{margin:6px 0 9px;padding:8px 10px;border-radius:10px;background:#fff}.rider-contact a{font-weight:900;text-decoration:none}.delivery-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}.delivery-steps span{font-size:10px;text-align:center;padding:6px 3px;border-radius:8px;background:#eee;color:#777}.delivery-steps span.done{background:#e6f6ea;color:#176b35;font-weight:800}.delivery-steps span.active{background:#fff0cf;color:#795600;font-weight:900}@media(max-width:480px){.delivery-steps span{font-size:9px;padding:6px 2px}}
+      .seller-order-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.order-age{font-size:11px;font-weight:800;padding:3px 7px;border-radius:999px;background:#f3eee9;color:#6f554c}.order-age.urgent{background:#ffe5e5;color:#a51d1d}.order-work-hint{font-size:11px;color:#8a7168;margin-top:2px}.order-count-alert{font-weight:900;background:#ffe8e8;color:#a51d1d;border-radius:999px;padding:4px 9px}.order-unseen{box-shadow:inset 4px 0 0 #d92d20}.order-new-badge{font-size:10px;font-weight:900;padding:3px 7px;border-radius:999px;background:#d92d20;color:#fff}.order-next-action{display:inline-block;margin-top:5px;padding:4px 8px;border-radius:8px;background:#fff4d8;color:#6f4c00;font-size:12px}.order-queue-summary{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;margin:2px 0 10px;border-radius:12px;background:#fff4f2;border:1px solid #ffd3cf}.order-queue-summary small{color:#a51d1d;font-weight:800}.queue-priority{font-size:11px;color:#755f57;white-space:nowrap}.delivery-track{margin:12px 0 8px;padding:12px;border-radius:12px;background:#f7fbff;border:1px solid #d7e9f8}.delivery-track>b{display:block;margin-bottom:9px}.delivery-track small{display:block;margin-top:8px;color:#667}.rider-contact{margin:6px 0 9px;padding:8px 10px;border-radius:10px;background:#fff}.rider-contact a{font-weight:900;text-decoration:none}.delivery-address-box{margin-top:4px;padding:12px;border:1px solid rgba(120,70,55,.15);border-radius:14px;background:#fff}.delivery-address-title{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:10px}.delivery-location-status{margin-top:10px;padding:9px 10px;border-radius:10px;background:#f7f5f2;font-size:12px}.delivery-location-status small{color:#777}.save-address-check{display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13px}.save-address-check input{width:18px;height:18px}.delivery-fare-note{font-size:12px;color:#75665f}.delivery-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}.delivery-steps span{font-size:10px;text-align:center;padding:6px 3px;border-radius:8px;background:#eee;color:#777}.delivery-steps span.done{background:#e6f6ea;color:#176b35;font-weight:800}.delivery-steps span.active{background:#fff0cf;color:#795600;font-weight:900}@media(max-width:480px){.delivery-steps span{font-size:9px;padding:6px 2px}}
       #marketOrderModal .market-order-panel.wide{max-height:92dvh;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
       @media(max-width:520px){
         .order-filter-row{grid-template-columns:1fr 92px;gap:6px}
@@ -448,6 +448,71 @@
   function changeQty(lineId,d){let c=getCart();const x=c.find(i=>i.line_id===lineId);if(!x)return;x.qty=Math.max(1,x.qty+d);saveCart(c);renderCart();}
   function removeLine(lineId){saveCart(getCart().filter(x=>x.line_id!==lineId));renderCart();}
 
+  function savedDeliveryAddressKey(){return `market_delivery_address_${session?.user?.id||'guest'}`}
+  function loadSavedDeliveryAddress(){try{return JSON.parse(localStorage.getItem(savedDeliveryAddressKey())||'null')||{}}catch(_e){return {}}}
+  function buildDeliveryAddress(){
+    const val=id=>document.getElementById(id)?.value.trim()||'';
+    const parts=[];
+    const house=val('coHouse'),moo=val('coMoo'),soi=val('coSoi'),road=val('coRoad');
+    const sub=val('coSubdistrict'),dist=val('coDistrict'),prov=val('coProvince'),zip=val('coPostal'),landmark=val('coLandmark');
+    if(house)parts.push(house);
+    if(moo)parts.push(`หมู่ ${moo}`);
+    if(soi)parts.push(`ซอย ${soi}`);
+    if(road)parts.push(`ถนน ${road}`);
+    if(sub)parts.push(`ต.${sub}`);
+    if(dist)parts.push(`อ.${dist}`);
+    if(prov)parts.push(`จ.${prov}`);
+    if(zip)parts.push(zip);
+    if(landmark)parts.push(`จุดสังเกต: ${landmark}`);
+    return parts.join(' ');
+  }
+  function fillSavedDeliveryAddress(){
+    const a=loadSavedDeliveryAddress(),set=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null)el.value=v};
+    set('coName',a.name);set('coPhone',a.phone);set('coHouse',a.house);set('coMoo',a.moo);set('coSoi',a.soi);set('coRoad',a.road);
+    set('coSubdistrict',a.subdistrict);set('coDistrict',a.district||'กระทุ่มแบน');set('coProvince',a.province||'สมุทรสาคร');set('coPostal',a.postal);
+    set('coLandmark',a.landmark);set('coLat',a.lat);set('coLng',a.lng);
+    updateDeliveryLocationStatus();
+  }
+  function saveDeliveryAddressDraft(){
+    if(!document.getElementById('saveDeliveryAddress')?.checked)return;
+    const val=id=>document.getElementById(id)?.value.trim()||'';
+    const a={name:val('coName'),phone:val('coPhone'),house:val('coHouse'),moo:val('coMoo'),soi:val('coSoi'),road:val('coRoad'),
+      subdistrict:val('coSubdistrict'),district:val('coDistrict'),province:val('coProvince'),postal:val('coPostal'),landmark:val('coLandmark'),
+      lat:val('coLat'),lng:val('coLng')};
+    localStorage.setItem(savedDeliveryAddressKey(),JSON.stringify(a));
+  }
+  function updateDeliveryLocationStatus(){
+    const lat=Number(document.getElementById('coLat')?.value),lng=Number(document.getElementById('coLng')?.value),box=document.getElementById('deliveryLocationStatus');
+    if(!box)return;
+    if(Number.isFinite(lat)&&Number.isFinite(lng)&&lat&&lng)box.innerHTML=`✅ ปักหมุดแล้ว <small>${lat.toFixed(5)}, ${lng.toFixed(5)}</small>`;
+    else box.textContent='⚠️ ยังไม่ได้ปักหมุดตำแหน่งสำหรับวิน';
+  }
+
+  function deliveryFareInfoSeenKey(){return `market_delivery_fare_info_seen_${session?.user?.id||'guest'}`}
+  function deliveryFareInfoHtml(){
+    return `<h2 class="mo-title">🛵 วิธีคิดค่าจัดส่ง</h2>
+      <div class="payment-card">
+        <div style="font-size:15px;line-height:1.65">
+          <b>ค่าจัดส่งเริ่มต้น 25 บาท</b> สำหรับระยะทางรวม 0–2 กม.<br>
+          เกิน 2 กม. <b>เพิ่ม 10 บาท ทุก ๆ 2 กม.</b><br>
+          จุดรับร้านแรก <b>รวมในราคาแล้ว</b><br>
+          จุดรับร้านที่ 2 เป็นต้นไป <b>เพิ่มจุดละ 10 บาท</b><br>
+          รองรับสูงสุด <b>5 จุดรับ</b> และระยะทางรวมต้องไม่เกิน <b>10 กม.</b>
+        </div>
+      </div>
+      <div class="ready-banner">ก่อนเรียกวิน ระบบจะแสดงราคาประมาณการจริงให้ยืนยันทุกครั้ง</div>
+      <div class="mo-muted">ตัวอย่าง: 3 ร้าน ระยะทางรวม 4 กม. → ค่าระยะทาง 35 บาท + จุดรับเพิ่ม 2 จุด = 20 บาท รวมประมาณ 55 บาท</div>
+      <div class="mo-actions"><button id="closeDeliveryFareInfoBtn" class="mo-primary">เข้าใจแล้ว</button></div>`;
+  }
+  function showDeliveryFareInfo(markSeen=true){
+    if(markSeen)try{localStorage.setItem(deliveryFareInfoSeenKey(),'1')}catch(_e){}
+    openModal(deliveryFareInfoHtml());
+  }
+  function maybeShowDeliveryFareInfo(){
+    let seen=false;try{seen=localStorage.getItem(deliveryFareInfoSeenKey())==='1'}catch(_e){}
+    if(!seen)setTimeout(()=>showDeliveryFareInfo(true),180);
+  }
+
   async function openCheckout(){
     if(!session)return requireLogin();const groups=groupedCart();if(!groups.length)return renderCart();if(groups.length>MAX_PICKUPS)return alert(`ระบบวินรองรับสูงสุด ${MAX_PICKUPS} ร้านต่อหนึ่งเที่ยว กรุณาแบ่งสั่งเป็น 2 รอบ`);
     const ids=groups.map(g=>g.shop_id);const {data:settings,error}=await db.from('market_shop_order_settings').select('*').in('shop_id',ids);
@@ -455,15 +520,63 @@
     const by=Object.fromEntries((settings||[]).map(s=>[s.shop_id,s]));const unavailable=groups.map(g=>({g,av:shopAvailability(by[g.shop_id])})).filter(x=>!x.av.ok);
     if(unavailable.length)return alert('ยังสั่งซื้อไม่ได้:\n'+unavailable.map(x=>`• ${x.g.shop_name}: ${x.av.msg}`).join('\n'));
     const total=getCart().reduce((s,x)=>s+x.price*x.qty,0);
-    openModal(`<h2 class="mo-title">ยืนยันคำสั่งซื้อ</h2><div class="checkout-summary">${groups.map(g=>`<div style="display:flex;justify-content:space-between;gap:10px;margin:5px 0"><span>${esc(g.shop_name)}</span><b>${money(g.items.reduce((s,x)=>s+x.price*x.qty,0))} บาท</b></div>`).join('')}<hr><div style="display:flex;justify-content:space-between"><b>รวมค่าสินค้า</b><b>${money(total)} บาท</b></div></div><fieldset class="payment-card" style="margin-top:14px"><legend><b>วิธีรับสินค้า</b></legend><label style="display:flex;gap:10px;align-items:flex-start;padding:10px 0"><input type="radio" name="fulfillmentMethod" value="delivery" checked style="width:22px;height:22px"><span><b>🛵 จัดส่งถึงบ้าน</b><br><span class="mo-muted">รอทุกร้านพร้อม แล้วเรียกวินรับรวมเที่ยวเดียว</span></span></label><label style="display:flex;gap:10px;align-items:flex-start;padding:10px 0"><input type="radio" name="fulfillmentMethod" value="pickup" style="width:22px;height:22px"><span><b>🏪 รับเองที่ร้าน</b><br><span class="mo-muted">ไม่มีค่าส่ง ไปรับสินค้าตามร้านในชุดคำสั่งซื้อ</span></span></label></fieldset><div id="deliveryCheckoutFields"><div class="warning-banner">หลังสร้างออเดอร์ ระบบจะแสดง QR ของแต่ละร้านให้ชำระแยกกัน ส่วนค่าจัดส่งชำระให้วินเมื่อได้รับสินค้า</div></div><div id="pickupCheckoutFields" class="hidden"><div class="ready-banner">🏪 เลือกรับเองที่ร้าน — ไม่มีค่าจัดส่ง</div><label style="display:block;margin:10px 0"><b>เวลาที่ต้องการรับ</b><select id="pickupTimeChoice" style="margin-top:6px"><option value="asap">รับเร็วที่สุดเมื่อร้านทำเสร็จ</option><option value="30">ประมาณ 30 นาทีจากนี้</option><option value="60">ประมาณ 1 ชั่วโมงจากนี้</option><option value="custom">เลือกเวลาเอง</option></select></label><label id="pickupCustomWrap" class="hidden"><b>วันและเวลาที่ต้องการรับ</b><input id="pickupCustomTime" type="datetime-local"></label><div class="mo-muted">หากสั่งหลายร้าน ลูกค้าต้องไปรับสินค้าที่แต่ละร้านด้วยตนเอง</div></div><div class="mo-form two"><label>ชื่อผู้รับ *<input id="coName" required></label><label>เบอร์โทร *<input id="coPhone" inputmode="tel" required></label><div id="deliveryAddressFields" class="full" style="display:contents"><label class="full">ที่อยู่/จุดส่ง *<textarea id="coAddress" rows="3"></textarea></label><label>ละติจูด *<input id="coLat" inputmode="decimal"></label><label>ลองจิจูด *<input id="coLng" inputmode="decimal"></label></div></div><div class="mo-actions"><button id="useDeliveryLocationBtn" class="mo-secondary">📍 ใช้ตำแหน่งปัจจุบัน</button><button id="submitCheckoutBtn" class="mo-primary">สร้างออเดอร์</button></div>`);updateFulfillmentUI();
+    openModal(`<h2 class="mo-title">ยืนยันคำสั่งซื้อ</h2><div class="checkout-summary">${groups.map(g=>`<div style="display:flex;justify-content:space-between;gap:10px;margin:5px 0"><span>${esc(g.shop_name)}</span><b>${money(g.items.reduce((s,x)=>s+x.price*x.qty,0))} บาท</b></div>`).join('')}<hr><div style="display:flex;justify-content:space-between"><b>รวมค่าสินค้า</b><b>${money(total)} บาท</b></div></div><fieldset class="payment-card" style="margin-top:14px"><legend><b>วิธีรับสินค้า</b></legend><label style="display:flex;gap:10px;align-items:flex-start;padding:10px 0"><input type="radio" name="fulfillmentMethod" value="delivery" checked style="width:22px;height:22px"><span><b>🛵 จัดส่งถึงบ้าน</b><br><span class="mo-muted">รอทุกร้านพร้อม แล้วเรียกวินรับรวมเที่ยวเดียว</span></span></label><label style="display:flex;gap:10px;align-items:flex-start;padding:10px 0"><input type="radio" name="fulfillmentMethod" value="pickup" style="width:22px;height:22px"><span><b>🏪 รับเองที่ร้าน</b><br><span class="mo-muted">ไม่มีค่าส่ง ไปรับสินค้าตามร้านในชุดคำสั่งซื้อ</span></span></label></fieldset><div id="deliveryCheckoutFields"><div class="warning-banner">หลังสร้างออเดอร์ ระบบจะแสดง QR ของแต่ละร้านให้ชำระแยกกัน ส่วนค่าจัดส่งชำระให้วินเมื่อได้รับสินค้า</div><div class="mo-actions"><button type="button" id="showDeliveryFareInfoBtn" class="mo-secondary">ⓘ ดูวิธีคิดค่าจัดส่ง</button></div></div><div id="pickupCheckoutFields" class="hidden"><div class="ready-banner">🏪 เลือกรับเองที่ร้าน — ไม่มีค่าจัดส่ง</div><label style="display:block;margin:10px 0"><b>เวลาที่ต้องการรับ</b><select id="pickupTimeChoice" style="margin-top:6px"><option value="asap">รับเร็วที่สุดเมื่อร้านทำเสร็จ</option><option value="30">ประมาณ 30 นาทีจากนี้</option><option value="60">ประมาณ 1 ชั่วโมงจากนี้</option><option value="custom">เลือกเวลาเอง</option></select></label><label id="pickupCustomWrap" class="hidden"><b>วันและเวลาที่ต้องการรับ</b><input id="pickupCustomTime" type="datetime-local"></label><div class="mo-muted">หากสั่งหลายร้าน ลูกค้าต้องไปรับสินค้าที่แต่ละร้านด้วยตนเอง</div></div><div class="mo-form two"><label>ชื่อผู้รับ *<input id="coName" autocomplete="name" required></label><label>เบอร์โทร *<input id="coPhone" inputmode="tel" autocomplete="tel" required></label><div id="deliveryAddressFields" class="full delivery-address-box"><div class="delivery-address-title"><b>📍 ที่อยู่จัดส่ง</b><span class="mo-muted">กรอกเฉพาะช่องที่เกี่ยวข้อง</span></div><div class="mo-form two"><label class="full">บ้านเลขที่ / อาคาร / หมู่บ้าน *<input id="coHouse" autocomplete="street-address" placeholder="เช่น 123/45 หมู่บ้าน..."></label><label>หมู่<input id="coMoo" inputmode="numeric" placeholder="เช่น 5"></label><label>ซอย<input id="coSoi" placeholder="เช่น สุคนธวิท 12"></label><label>ถนน<input id="coRoad" placeholder="ชื่อถนน"></label><label>ตำบล *<input id="coSubdistrict" placeholder="เช่น ตลาดกระทุ่มแบน"></label><label>อำเภอ *<input id="coDistrict" list="districtList" value="กระทุ่มแบน"><datalist id="districtList"><option value="กระทุ่มแบน"><option value="เมืองสมุทรสาคร"><option value="บ้านแพ้ว"></datalist></label><label>จังหวัด *<input id="coProvince" value="สมุทรสาคร"></label><label>รหัสไปรษณีย์<input id="coPostal" inputmode="numeric" maxlength="5" placeholder="74110"></label><label class="full">จุดสังเกต / รายละเอียดเพิ่มเติม<input id="coLandmark" placeholder="เช่น บ้านประตูสีฟ้า ตรงข้ามร้าน..."></label></div><input id="coLat" type="hidden"><input id="coLng" type="hidden"><div id="deliveryLocationStatus" class="delivery-location-status">⚠️ ยังไม่ได้ปักหมุดตำแหน่งสำหรับวิน</div><div id="checkoutRouteStatus" class="delivery-location-status">ℹ️ ระบบจะตรวจสอบระยะทางรวมก่อนสร้างออเดอร์ · สูงสุด 10 กม.</div><label class="save-address-check"><input id="saveDeliveryAddress" type="checkbox" checked> บันทึกที่อยู่นี้ไว้ใช้ครั้งต่อไป</label></div></div><div class="mo-actions"><button id="useDeliveryLocationBtn" class="mo-secondary">📍 ปักหมุดจากตำแหน่งปัจจุบัน</button><button id="submitCheckoutBtn" class="mo-primary">สร้างออเดอร์</button></div>`);updateFulfillmentUI();fillSavedDeliveryAddress();maybeShowDeliveryFareInfo();
   }
-  function updateFulfillmentUI(){const method=document.querySelector('input[name="fulfillmentMethod"]:checked')?.value||'delivery',pickup=method==='pickup';document.getElementById('pickupCheckoutFields')?.classList.toggle('hidden',!pickup);document.getElementById('deliveryCheckoutFields')?.classList.toggle('hidden',pickup);const addr=document.getElementById('deliveryAddressFields');if(addr)addr.style.display=pickup?'none':'contents';const loc=document.getElementById('useDeliveryLocationBtn');if(loc)loc.style.display=pickup?'none':'';updatePickupCustomUI();}
+  function updateFulfillmentUI(){const method=document.querySelector('input[name="fulfillmentMethod"]:checked')?.value||'delivery',pickup=method==='pickup';document.getElementById('pickupCheckoutFields')?.classList.toggle('hidden',!pickup);document.getElementById('deliveryCheckoutFields')?.classList.toggle('hidden',pickup);const addr=document.getElementById('deliveryAddressFields');if(addr)addr.style.display=pickup?'none':'block';const loc=document.getElementById('useDeliveryLocationBtn');if(loc)loc.style.display=pickup?'none':'';updatePickupCustomUI();}
   function updatePickupCustomUI(){const choice=document.getElementById('pickupTimeChoice')?.value;document.getElementById('pickupCustomWrap')?.classList.toggle('hidden',choice!=='custom');}
   function pickupRequestedAt(){const choice=document.getElementById('pickupTimeChoice')?.value||'asap';if(choice==='asap')return null;if(choice==='custom'){const v=document.getElementById('pickupCustomTime')?.value;if(!v)return 'INVALID';const d=new Date(v);return Number.isNaN(d.getTime())?'INVALID':d.toISOString();}const d=new Date(Date.now()+Number(choice)*60000);return d.toISOString();}
-  function captureDeliveryLocation(){if(!navigator.geolocation)return alert('อุปกรณ์นี้ไม่รองรับตำแหน่ง');navigator.geolocation.getCurrentPosition(p=>{document.getElementById('coLat').value=p.coords.latitude.toFixed(7);document.getElementById('coLng').value=p.coords.longitude.toFixed(7);},e=>alert('ระบุตำแหน่งไม่สำเร็จ: '+e.message),{enableHighAccuracy:true,timeout:12000});}
+  function captureDeliveryLocation(){if(!navigator.geolocation)return alert('อุปกรณ์นี้ไม่รองรับตำแหน่ง');const box=document.getElementById('deliveryLocationStatus');if(box)box.textContent='⏳ กำลังระบุตำแหน่ง...';navigator.geolocation.getCurrentPosition(p=>{document.getElementById('coLat').value=p.coords.latitude.toFixed(7);document.getElementById('coLng').value=p.coords.longitude.toFixed(7);updateDeliveryLocationStatus();},e=>{updateDeliveryLocationStatus();alert('ระบุตำแหน่งไม่สำเร็จ: '+e.message)}, {enableHighAccuracy:true,timeout:12000,maximumAge:15000});}
+  function bestPickupRoute(pickups,drop){
+    const items=[...(pickups||[])];
+    if(items.length<=1)return items;
+    let best=null,bestKm=Infinity;
+    function walk(prefix,rest){
+      if(!rest.length){
+        const km=routeKm([...prefix,drop]);
+        if(km<bestKm){bestKm=km;best=[...prefix];}
+        return;
+      }
+      for(let i=0;i<rest.length;i++)walk([...prefix,rest[i]],[...rest.slice(0,i),...rest.slice(i+1)]);
+    }
+    walk([],items);
+    return best||items;
+  }
+  async function precheckDeliveryRoute(groups,lat,lng){
+    const ids=[...new Set((groups||[]).map(g=>g.shop_id).filter(Boolean))];
+    if(!ids.length)throw new Error('ไม่พบร้านค้าในตะกร้า');
+    const {data:shops,error}=await db.from('market_shops').select('id,name,latitude,longitude').in('id',ids);
+    if(error)throw error;
+    const by=new Map((shops||[]).map(x=>[String(x.id),x]));
+    const pickups=[];
+    for(const id of ids){
+      const sh=by.get(String(id)),slat=Number(sh?.latitude),slng=Number(sh?.longitude);
+      if(!sh||!Number.isFinite(slat)||!Number.isFinite(slng)||!slat||!slng)throw new Error(`ร้าน ${sh?.name||''} ยังไม่มีพิกัด จึงยังสั่งแบบ Delivery ไม่ได้`);
+      pickups.push({type:'pickup',label:sh.name,lat:slat,lng:slng,shop_id:sh.id});
+    }
+    const drop={type:'dropoff',label:'จุดส่งลูกค้า',lat:Number(lat),lng:Number(lng)};
+    const ordered=bestPickupRoute(pickups,drop);
+    const km=routeKm([...ordered,drop]);
+    const fare=fareFor(km,ordered.length);
+    return {km,fare,pickups:ordered};
+  }
+
   async function submitCheckout(){
-    if(!session)return requireLogin();const method=document.querySelector('input[name="fulfillmentMethod"]:checked')?.value||'delivery',name=document.getElementById('coName')?.value.trim(),phone=document.getElementById('coPhone')?.value.trim(),address=document.getElementById('coAddress')?.value.trim(),lat=Number(document.getElementById('coLat')?.value),lng=Number(document.getElementById('coLng')?.value),pickupAt=method==='pickup'?pickupRequestedAt():null;if(!name||!phone)return alert('กรอกชื่อและเบอร์โทรให้ครบ');if(method==='delivery'&&(!address||!Number.isFinite(lat)||!Number.isFinite(lng)))return alert('กรอกที่อยู่และพิกัดจุดส่งให้ครบ');if(pickupAt==='INVALID')return alert('กรุณาเลือกวันและเวลาที่ต้องการรับสินค้า');
+    if(!session)return requireLogin();const method=document.querySelector('input[name="fulfillmentMethod"]:checked')?.value||'delivery',name=document.getElementById('coName')?.value.trim(),phone=document.getElementById('coPhone')?.value.trim(),address=buildDeliveryAddress(),house=document.getElementById('coHouse')?.value.trim(),subdistrict=document.getElementById('coSubdistrict')?.value.trim(),district=document.getElementById('coDistrict')?.value.trim(),province=document.getElementById('coProvince')?.value.trim(),lat=Number(document.getElementById('coLat')?.value),lng=Number(document.getElementById('coLng')?.value),pickupAt=method==='pickup'?pickupRequestedAt():null;if(!name||!phone)return alert('กรอกชื่อและเบอร์โทรให้ครบ');if(method==='delivery'&&(!house||!subdistrict||!district||!province))return alert('กรอกบ้านเลขที่/อาคาร ตำบล อำเภอ และจังหวัดให้ครบ');if(method==='delivery'&&(!Number.isFinite(lat)||!Number.isFinite(lng)||!lat||!lng))return alert('กรุณากด “ปักหมุดจากตำแหน่งปัจจุบัน” เพื่อให้วินนำทางได้ถูกต้อง');if(pickupAt==='INVALID')return alert('กรุณาเลือกวันและเวลาที่ต้องการรับสินค้า');if(method==='delivery')saveDeliveryAddressDraft();
     const groups=groupedCart();const payload=groups.map(g=>({shop_id:g.shop_id,items:g.items.map(x=>({product_id:x.product_id,qty:x.qty,option_value_ids:(x.selected_options||[]).map(o=>o.value_id),note:x.note||null}))}));
+    if(method==='delivery'){
+      const routeBox=document.getElementById('checkoutRouteStatus');if(routeBox)routeBox.textContent='⏳ กำลังตรวจสอบพื้นที่จัดส่ง...';
+      try{
+        const chk=await precheckDeliveryRoute(groups,lat,lng);
+        if(chk.km>10||!chk.fare){
+          if(routeBox)routeBox.innerHTML=`❌ เส้นทางรวมประมาณ <b>${chk.km.toFixed(1)} กม.</b> เกินพื้นที่จัดส่ง 10 กม.`;
+          return alert(`⚠️ อยู่นอกพื้นที่จัดส่ง\n\nเส้นทางรับสินค้าจากร้านและส่งถึงคุณประมาณ ${chk.km.toFixed(1)} กม.\nขณะนี้รองรับไม่เกิน 10 กม.\n\nกรุณาเลือก “รับเองที่ร้าน” แทน`);
+        }
+        if(routeBox)routeBox.innerHTML=`✅ อยู่ในพื้นที่จัดส่ง · เส้นทางประมาณ <b>${chk.km.toFixed(1)} กม.</b> · ค่าส่งเบื้องต้นประมาณ <b>${chk.fare.total} บาท</b>`;
+      }catch(err){
+        if(routeBox)routeBox.textContent='❌ ตรวจสอบพื้นที่จัดส่งไม่สำเร็จ';
+        return alert('ตรวจสอบพื้นที่จัดส่งไม่สำเร็จ: '+(err?.message||err));
+      }
+    }
     const btn=document.getElementById('submitCheckoutBtn');if(btn){btn.disabled=true;btn.textContent='กำลังสร้างออเดอร์...'}
     const {data,error}=await db.rpc('market_create_checkout_v041',{p_customer_name:name,p_customer_phone:phone,p_fulfillment_method:method,p_delivery_address:method==='delivery'?address:null,p_delivery_lat:method==='delivery'?lat:null,p_delivery_lng:method==='delivery'?lng:null,p_pickup_requested_at:pickupAt,p_orders:payload});
     if(error){if(btn){btn.disabled=false;btn.textContent='สร้างออเดอร์'}return alert('สร้างออเดอร์ไม่สำเร็จ: '+error.message)}
@@ -939,7 +1052,7 @@
         pickups.push({type:'pickup',label:sh.name,lat,lng,note:sh.landmark||sh.address||'',shop_id:sh.id,contact_name:sh.name,contact_phone:sh.phone||''});
       }
       const drop={type:'dropoff',label:g.delivery_address||'จุดส่งลูกค้า',lat:Number(g.delivery_lat),lng:Number(g.delivery_lng),note:`ผู้รับ ${g.customer_name} โทร ${g.customer_phone}`,shop_id:null,contact_name:g.customer_name,contact_phone:g.customer_phone};
-      const stops=[...pickups,drop],km=routeKm(stops),fare=fareFor(km,pickups.length);
+      const orderedPickups=bestPickupRoute(pickups,drop),stops=[...orderedPickups,drop],km=routeKm(stops),fare=fareFor(km,orderedPickups.length);
       if(!fare)throw new Error('เส้นทางรวมเกิน 10 กม. ซึ่งเกินพื้นที่ทดสอบของระบบวิน');
 
       const payer='recipient';
@@ -959,6 +1072,10 @@
       alert('เรียกวินไม่สำเร็จ: '+(err?.message||err));
     }
   }
+  document.addEventListener('click',e=>{
+    if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(false);
+    if(e.target.closest('#closeDeliveryFareInfoBtn'))return closeModal?.();
+  });
   init();
 
   document.addEventListener('change',e=>{if(e.target?.matches('input[name="fulfillmentMethod"]'))updateFulfillmentUI();if(e.target?.id==='pickupTimeChoice')updatePickupCustomUI();});
