@@ -483,10 +483,19 @@
     return !!data?.length;
   }
 
+  let riderUiRealtimeTimer=null;
+  function scheduleRiderUiRealtimeRefresh(){
+    clearTimeout(riderUiRealtimeTimer);
+    riderUiRealtimeTimer=setTimeout(()=>{
+      if(!session||document.hidden)return;
+      Promise.all([loadRiderJobs(),loadMyJobs()]).catch(err=>console.warn('Rider realtime refresh',err));
+    },200);
+  }
   async function handleRealtimeJobChange(payload){
     if(!jobAlertEnabled || !riderProfile?.online) return;
     console.log('[Rider Realtime event]', payload?.eventType, payload?.new);
     const job=payload?.new;
+    scheduleRiderUiRealtimeRefresh();
     if(!job?.id || job.status!=='open') return;
     const key=`${job.id}|${job.updated_at||''}`;
     if(knownOpenJobKeys.has(key)) return;
@@ -504,6 +513,7 @@
     jobAlertRealtimeChannel=db.channel(channelName)
       .on('postgres_changes',{event:'INSERT',schema:'public',table:'rider_jobs'},handleRealtimeJobChange)
       .on('postgres_changes',{event:'UPDATE',schema:'public',table:'rider_jobs'},handleRealtimeJobChange)
+      .on('postgres_changes',{event:'*',schema:'public',table:'rider_job_stops'},scheduleRiderUiRealtimeRefresh)
       .subscribe(async (status,err)=>{
         console.log('[Rider Realtime status]',status,err||'');
         if(status==='SUBSCRIBED'){

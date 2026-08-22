@@ -205,7 +205,45 @@
   function markNotificationAreaViewed(){
     orderNotifyState.unread=0;saveOrderNotifyState();renderOrderNotifyBadge();document.getElementById('orderNotifyBanner')?.classList.remove('show');
   }
-  function stopOrderNotifications(){if(orderNotifyTimer){clearInterval(orderNotifyTimer);orderNotifyTimer=null}orderNotifyBusy=false;orderNotifyBaseline=false;}
+  let orderRealtimeChannel=null,orderRealtimeTimer=null,orderRealtimeState='disconnected';
+  function scheduleRealtimeOrderRefresh(){
+    clearTimeout(orderRealtimeTimer);
+    orderRealtimeTimer=setTimeout(async()=>{
+      if(!session||document.hidden)return;
+      const sid=document.getElementById('sellerShopId')?.value;
+      const hub=document.getElementById('hubContent');
+      try{
+        if(sid)await openSellerShop(sid);
+        else if(hub){
+          const active=document.querySelector('[data-hub-tab].active')?.dataset?.hubTab||'customer';
+          await renderHubTab(active);
+        }
+      }catch(err){console.warn('Realtime UI refresh:',err?.message||err)}
+    },250);
+  }
+  function stopOrderRealtime(){
+    clearTimeout(orderRealtimeTimer);orderRealtimeTimer=null;
+    if(orderRealtimeChannel){const ch=orderRealtimeChannel;orderRealtimeChannel=null;try{db.removeChannel(ch)}catch(_e){try{ch.unsubscribe()}catch(__e){}}}
+    orderRealtimeState='disconnected';
+  }
+  function startOrderRealtime(){
+    if(orderRealtimeChannel||!session||!canUseOrders())return;
+    orderRealtimeState='connecting';
+    orderRealtimeChannel=db.channel(`market-order-live-${session.user.id}-${Date.now()}`)
+      .on('postgres_changes',{event:'*',schema:'public',table:'market_orders'},scheduleRealtimeOrderRefresh)
+      .on('postgres_changes',{event:'*',schema:'public',table:'market_delivery_groups'},scheduleRealtimeOrderRefresh)
+      .on('postgres_changes',{event:'*',schema:'public',table:'market_delivery_batches'},scheduleRealtimeOrderRefresh)
+      .on('postgres_changes',{event:'*',schema:'public',table:'market_delivery_batch_orders'},scheduleRealtimeOrderRefresh)
+      .subscribe((status)=>{
+        if(status==='SUBSCRIBED')orderRealtimeState='connected';
+        else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'){
+          orderRealtimeState='error';
+          const ch=orderRealtimeChannel;orderRealtimeChannel=null;try{if(ch)db.removeChannel(ch)}catch(_e){}
+          setTimeout(()=>{if(session&&canUseOrders())startOrderRealtime()},3000);
+        }
+      });
+  }
+  function stopOrderNotifications(){if(orderNotifyTimer){clearInterval(orderNotifyTimer);orderNotifyTimer=null}orderNotifyBusy=false;orderNotifyBaseline=false;stopOrderRealtime();}
   async function getMySellerShopIds(){
     if(!session?.user?.id)return[];
     const {data}=await db.from('market_shops').select('id').eq('owner_id',session.user.id);return(data||[]).map(x=>x.id);
@@ -262,6 +300,7 @@
   }
   async function startOrderNotifications(){
     if(!session||!canUseOrders())return;stopOrderNotifications();loadOrderNotifyState();await pollOrderNotifications();
+    startOrderRealtime();
     orderNotifyTimer=setInterval(pollOrderNotifications,15000);
   }
   function markSellerOrdersViewed(shopId){
@@ -272,6 +311,13 @@
     markNotificationAreaViewed();
   }
 
+  document.addEventListener('visibilitychange',()=>{
+    if(!document.hidden&&session&&canUseOrders()){
+      if(!orderRealtimeChannel)startOrderRealtime();
+      scheduleRealtimeOrderRefresh();
+      pollOrderNotifications();
+    }
+  });
   function wire(){
     document.addEventListener('pointerdown',armOrderNotificationAudio,{once:true,capture:true});
     document.addEventListener('keydown',armOrderNotificationAudio,{once:true,capture:true});
@@ -346,7 +392,7 @@
       if(e.target.closest('#sellerLoadMoreOrders')){sellerOrderPage++;const sid=document.getElementById('sellerShopId')?.value;return sid?openSellerShop(sid):null;}
     });
     document.addEventListener('input',e=>{const el=e.target.closest('[data-draft-field]');if(el)draftFieldChanged(el);const q=e.target.closest('#orderSearchInput');if(q){orderSearchTerm=q.value||'';customerOrderPage=1;sellerOrderPage=1;clearTimeout(window.__orderSearchTimer);window.__orderSearchTimer=setTimeout(()=>{const sid=document.getElementById('sellerShopId')?.value;if(sid)openSellerShop(sid);else renderHubTab('customer');},250);}});
-    document.addEventListener('change',e=>{const el=e.target.closest('[data-draft-field]');if(el)draftFieldChanged(el);if(e.target.closest('[data-option-value]'))updateCustomProductTotal();const df=e.target.closest('#orderDateFilter');if(df){orderDateFilter=df.value;customerOrderPage=1;sellerOrderPage=1;const sid=document.getElementById('sellerShopId')?.value;if(sid)openSellerShop(sid);else renderHubTab('customer');}});
+    document.addEventListener('change',e=>{if(e.target.id==='coProvince')return provinceChanged();if(e.target.id==='coDistrict')return districtChanged();if(e.target.id==='coSubdistrict')return subdistrictChanged();const el=e.target.closest('[data-draft-field]');if(el)draftFieldChanged(el);if(e.target.closest('[data-option-value]'))updateCustomProductTotal();const df=e.target.closest('#orderDateFilter');if(df){orderDateFilter=df.value;customerOrderPage=1;sellerOrderPage=1;const sid=document.getElementById('sellerShopId')?.value;if(sid)openSellerShop(sid);else renderHubTab('customer');}});
   }
   function openModal(html,wide=false){const m=document.getElementById('marketOrderModal');m.querySelector('.market-order-panel').classList.toggle('wide',wide);document.getElementById('marketOrderBody').innerHTML=html;m.classList.remove('hidden');document.body.style.overflow='hidden';}
   function closeModal(){document.getElementById('marketOrderModal')?.classList.add('hidden');document.body.style.overflow='';}
@@ -448,6 +494,36 @@
   function changeQty(lineId,d){let c=getCart();const x=c.find(i=>i.line_id===lineId);if(!x)return;x.qty=Math.max(1,x.qty+d);saveCart(c);renderCart();}
   function removeLine(lineId){saveCart(getCart().filter(x=>x.line_id!==lineId));renderCart();}
 
+  const THAI_DELIVERY_ADDRESS={"สมุทรสาคร":{"กระทุ่มแบน":{"74110":["ตลาดกระทุ่มแบน","คลองมะเดื่อ","ดอนไก่ดี","ท่าไม้","ท่าเสา","บางยาง","สวนหลวง","แคราย","อ้อมน้อย","หนองนกไข่"]},"เมืองสมุทรสาคร":{"74000":["มหาชัย","ท่าฉลอม","โกรกกราก","บ้านบ่อ","บางโทรัด","กาหลง","นาโคก","ท่าจีน","นาดี","ท่าทราย","คอกกระบือ","บางน้ำจืด","พันท้ายนรสิงห์","โคกขาม","บ้านเกาะ","บางกระเจ้า","ชัยมงคล"],"74100":["บางหญ้าแพรก"]},"บ้านแพ้ว":{"74120":["บ้านแพ้ว","หลักสาม","ยกกระบัตร","โรงเข้","หนองสองห้อง","หนองบัว","หลักสอง","เจ็ดริ้ว","คลองตัน","อำแพง","สวนส้ม","เกษตรพัฒนา"]}},"นครปฐม":{"สามพราน":{"73110":["ท่าข้าม","ทรงคนอง","หอมเกร็ด","บางกระทึก","บางเตย","สามพราน","บางช้าง","ไร่ขิง","กระทุ่มล้ม","คลองใหม่","ตลาดจินดา","คลองจินดา","ยายชา","บ้านใหม่","อ้อมใหญ่","ท่าตลาด"]},"พุทธมณฑล":{"73170":["ศาลายา","คลองโยง","มหาสวัสดิ์"]}},"กรุงเทพมหานคร":{"หนองแขม":{"10160":["หนองแขม","หนองค้างพลู"]},"บางบอน":{"10150":["บางบอนเหนือ","บางบอนใต้","คลองบางพราน","คลองบางบอน"]},"บางแค":{"10160":["บางแค","บางแคเหนือ","บางไผ่","หลักสอง"]}}};
+  function fillAddressSelect(select,items,selected,placeholder){
+    if(!select)return;
+    select.innerHTML=`<option value="">${placeholder}</option>`+(items||[]).map(v=>`<option value="${esc(v)}" ${v===selected?'selected':''}>${esc(v)}</option>`).join('');
+  }
+  function provinceChanged(selectedDistrict='',selectedSubdistrict='',selectedPostal=''){
+    const prov=document.getElementById('coProvince')?.value||'';
+    const districts=Object.keys(THAI_DELIVERY_ADDRESS[prov]||{});
+    fillAddressSelect(document.getElementById('coDistrict'),districts,selectedDistrict,'เลือกอำเภอ / เขต');
+    districtChanged(selectedSubdistrict,selectedPostal);
+  }
+  function districtChanged(selectedSubdistrict='',selectedPostal=''){
+    const prov=document.getElementById('coProvince')?.value||'',dist=document.getElementById('coDistrict')?.value||'';
+    const zips=THAI_DELIVERY_ADDRESS[prov]?.[dist]||{},subs=[];
+    Object.entries(zips).forEach(([zip,names])=>(names||[]).forEach(name=>subs.push({name,zip})));
+    const sel=document.getElementById('coSubdistrict');
+    if(sel)sel.innerHTML='<option value="">เลือกตำบล / แขวง</option>'+subs.map(x=>`<option value="${esc(x.name)}" data-postal="${esc(x.zip)}" ${x.name===selectedSubdistrict?'selected':''}>${esc(x.name)}</option>`).join('');
+    const chosen=subs.find(x=>x.name===selectedSubdistrict);
+    const postal=document.getElementById('coPostal');if(postal)postal.value=chosen?.zip||selectedPostal||'';
+  }
+  function subdistrictChanged(){
+    const sel=document.getElementById('coSubdistrict'),postal=document.getElementById('coPostal');
+    if(postal)postal.value=sel?.selectedOptions?.[0]?.dataset?.postal||'';
+  }
+  function initThaiAddressSelectors(saved={}){
+    const provinces=Object.keys(THAI_DELIVERY_ADDRESS);
+    fillAddressSelect(document.getElementById('coProvince'),provinces,saved.province||'สมุทรสาคร','เลือกจังหวัด');
+    provinceChanged(saved.district||'กระทุ่มแบน',saved.subdistrict||'',saved.postal||'');
+  }
+
   function savedDeliveryAddressKey(){return `market_delivery_address_${session?.user?.id||'guest'}`}
   function loadSavedDeliveryAddress(){try{return JSON.parse(localStorage.getItem(savedDeliveryAddressKey())||'null')||{}}catch(_e){return {}}}
   function buildDeliveryAddress(){
@@ -459,9 +535,10 @@
     if(moo)parts.push(`หมู่ ${moo}`);
     if(soi)parts.push(`ซอย ${soi}`);
     if(road)parts.push(`ถนน ${road}`);
-    if(sub)parts.push(`ต.${sub}`);
-    if(dist)parts.push(`อ.${dist}`);
-    if(prov)parts.push(`จ.${prov}`);
+    const isBkk=prov==='กรุงเทพมหานคร';
+    if(sub)parts.push(`${isBkk?'แขวง':'ต.'}${sub}`);
+    if(dist)parts.push(`${isBkk?'เขต':'อ.'}${dist}`);
+    if(prov)parts.push(isBkk?prov:`จ.${prov}`);
     if(zip)parts.push(zip);
     if(landmark)parts.push(`จุดสังเกต: ${landmark}`);
     return parts.join(' ');
@@ -469,7 +546,7 @@
   function fillSavedDeliveryAddress(){
     const a=loadSavedDeliveryAddress(),set=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null)el.value=v};
     set('coName',a.name);set('coPhone',a.phone);set('coHouse',a.house);set('coMoo',a.moo);set('coSoi',a.soi);set('coRoad',a.road);
-    set('coSubdistrict',a.subdistrict);set('coDistrict',a.district||'กระทุ่มแบน');set('coProvince',a.province||'สมุทรสาคร');set('coPostal',a.postal);
+    initThaiAddressSelectors(a);
     set('coLandmark',a.landmark);set('coLat',a.lat);set('coLng',a.lng);
     updateDeliveryLocationStatus();
   }
@@ -520,7 +597,7 @@
     const by=Object.fromEntries((settings||[]).map(s=>[s.shop_id,s]));const unavailable=groups.map(g=>({g,av:shopAvailability(by[g.shop_id])})).filter(x=>!x.av.ok);
     if(unavailable.length)return alert('ยังสั่งซื้อไม่ได้:\n'+unavailable.map(x=>`• ${x.g.shop_name}: ${x.av.msg}`).join('\n'));
     const total=getCart().reduce((s,x)=>s+x.price*x.qty,0);
-    openModal(`<h2 class="mo-title">ยืนยันคำสั่งซื้อ</h2><div class="checkout-summary">${groups.map(g=>`<div style="display:flex;justify-content:space-between;gap:10px;margin:5px 0"><span>${esc(g.shop_name)}</span><b>${money(g.items.reduce((s,x)=>s+x.price*x.qty,0))} บาท</b></div>`).join('')}<hr><div style="display:flex;justify-content:space-between"><b>รวมค่าสินค้า</b><b>${money(total)} บาท</b></div></div><fieldset class="payment-card" style="margin-top:14px"><legend><b>วิธีรับสินค้า</b></legend><label style="display:flex;gap:10px;align-items:flex-start;padding:10px 0"><input type="radio" name="fulfillmentMethod" value="delivery" checked style="width:22px;height:22px"><span><b>🛵 จัดส่งถึงบ้าน</b><br><span class="mo-muted">รอทุกร้านพร้อม แล้วเรียกวินรับรวมเที่ยวเดียว</span></span></label><label style="display:flex;gap:10px;align-items:flex-start;padding:10px 0"><input type="radio" name="fulfillmentMethod" value="pickup" style="width:22px;height:22px"><span><b>🏪 รับเองที่ร้าน</b><br><span class="mo-muted">ไม่มีค่าส่ง ไปรับสินค้าตามร้านในชุดคำสั่งซื้อ</span></span></label></fieldset><div id="deliveryCheckoutFields"><div class="warning-banner">หลังสร้างออเดอร์ ระบบจะแสดง QR ของแต่ละร้านให้ชำระแยกกัน ส่วนค่าจัดส่งชำระให้วินเมื่อได้รับสินค้า</div><div class="mo-actions"><button type="button" id="showDeliveryFareInfoBtn" class="mo-secondary">ⓘ ดูวิธีคิดค่าจัดส่ง</button></div></div><div id="pickupCheckoutFields" class="hidden"><div class="ready-banner">🏪 เลือกรับเองที่ร้าน — ไม่มีค่าจัดส่ง</div><label style="display:block;margin:10px 0"><b>เวลาที่ต้องการรับ</b><select id="pickupTimeChoice" style="margin-top:6px"><option value="asap">รับเร็วที่สุดเมื่อร้านทำเสร็จ</option><option value="30">ประมาณ 30 นาทีจากนี้</option><option value="60">ประมาณ 1 ชั่วโมงจากนี้</option><option value="custom">เลือกเวลาเอง</option></select></label><label id="pickupCustomWrap" class="hidden"><b>วันและเวลาที่ต้องการรับ</b><input id="pickupCustomTime" type="datetime-local"></label><div class="mo-muted">หากสั่งหลายร้าน ลูกค้าต้องไปรับสินค้าที่แต่ละร้านด้วยตนเอง</div></div><div class="mo-form two"><label>ชื่อผู้รับ *<input id="coName" autocomplete="name" required></label><label>เบอร์โทร *<input id="coPhone" inputmode="tel" autocomplete="tel" required></label><div id="deliveryAddressFields" class="full delivery-address-box"><div class="delivery-address-title"><b>📍 ที่อยู่จัดส่ง</b><span class="mo-muted">กรอกเฉพาะช่องที่เกี่ยวข้อง</span></div><div class="mo-form two"><label class="full">บ้านเลขที่ / อาคาร / หมู่บ้าน *<input id="coHouse" autocomplete="street-address" placeholder="เช่น 123/45 หมู่บ้าน..."></label><label>หมู่<input id="coMoo" inputmode="numeric" placeholder="เช่น 5"></label><label>ซอย<input id="coSoi" placeholder="เช่น สุคนธวิท 12"></label><label>ถนน<input id="coRoad" placeholder="ชื่อถนน"></label><label>ตำบล *<input id="coSubdistrict" placeholder="เช่น ตลาดกระทุ่มแบน"></label><label>อำเภอ *<input id="coDistrict" list="districtList" value="กระทุ่มแบน"><datalist id="districtList"><option value="กระทุ่มแบน"><option value="เมืองสมุทรสาคร"><option value="บ้านแพ้ว"></datalist></label><label>จังหวัด *<input id="coProvince" value="สมุทรสาคร"></label><label>รหัสไปรษณีย์<input id="coPostal" inputmode="numeric" maxlength="5" placeholder="74110"></label><label class="full">จุดสังเกต / รายละเอียดเพิ่มเติม<input id="coLandmark" placeholder="เช่น บ้านประตูสีฟ้า ตรงข้ามร้าน..."></label></div><input id="coLat" type="hidden"><input id="coLng" type="hidden"><div id="deliveryLocationStatus" class="delivery-location-status">⚠️ ยังไม่ได้ปักหมุดตำแหน่งสำหรับวิน</div><div id="checkoutRouteStatus" class="delivery-location-status">ℹ️ ระบบจะตรวจสอบระยะทางรวมก่อนสร้างออเดอร์ · สูงสุด 10 กม.</div><label class="save-address-check"><input id="saveDeliveryAddress" type="checkbox" checked> บันทึกที่อยู่นี้ไว้ใช้ครั้งต่อไป</label></div></div><div class="mo-actions"><button id="useDeliveryLocationBtn" class="mo-secondary">📍 ปักหมุดจากตำแหน่งปัจจุบัน</button><button id="submitCheckoutBtn" class="mo-primary">สร้างออเดอร์</button></div>`);updateFulfillmentUI();fillSavedDeliveryAddress();maybeShowDeliveryFareInfo();
+    openModal(`<h2 class="mo-title">ยืนยันคำสั่งซื้อ</h2><div class="checkout-summary">${groups.map(g=>`<div style="display:flex;justify-content:space-between;gap:10px;margin:5px 0"><span>${esc(g.shop_name)}</span><b>${money(g.items.reduce((s,x)=>s+x.price*x.qty,0))} บาท</b></div>`).join('')}<hr><div style="display:flex;justify-content:space-between"><b>รวมค่าสินค้า</b><b>${money(total)} บาท</b></div></div><fieldset class="payment-card" style="margin-top:14px"><legend><b>วิธีรับสินค้า</b></legend><label style="display:flex;gap:10px;align-items:flex-start;padding:10px 0"><input type="radio" name="fulfillmentMethod" value="delivery" checked style="width:22px;height:22px"><span><b>🛵 จัดส่งถึงบ้าน</b><br><span class="mo-muted">รอทุกร้านพร้อม แล้วเรียกวินรับรวมเที่ยวเดียว</span></span></label><label style="display:flex;gap:10px;align-items:flex-start;padding:10px 0"><input type="radio" name="fulfillmentMethod" value="pickup" style="width:22px;height:22px"><span><b>🏪 รับเองที่ร้าน</b><br><span class="mo-muted">ไม่มีค่าส่ง ไปรับสินค้าตามร้านในชุดคำสั่งซื้อ</span></span></label></fieldset><div id="deliveryCheckoutFields"><div class="warning-banner">หลังสร้างออเดอร์ ระบบจะแสดง QR ของแต่ละร้านให้ชำระแยกกัน ส่วนค่าจัดส่งชำระให้วินเมื่อได้รับสินค้า</div><div class="mo-actions"><button type="button" id="showDeliveryFareInfoBtn" class="mo-secondary">ⓘ ดูวิธีคิดค่าจัดส่ง</button></div></div><div id="pickupCheckoutFields" class="hidden"><div class="ready-banner">🏪 เลือกรับเองที่ร้าน — ไม่มีค่าจัดส่ง</div><label style="display:block;margin:10px 0"><b>เวลาที่ต้องการรับ</b><select id="pickupTimeChoice" style="margin-top:6px"><option value="asap">รับเร็วที่สุดเมื่อร้านทำเสร็จ</option><option value="30">ประมาณ 30 นาทีจากนี้</option><option value="60">ประมาณ 1 ชั่วโมงจากนี้</option><option value="custom">เลือกเวลาเอง</option></select></label><label id="pickupCustomWrap" class="hidden"><b>วันและเวลาที่ต้องการรับ</b><input id="pickupCustomTime" type="datetime-local"></label><div class="mo-muted">หากสั่งหลายร้าน ลูกค้าต้องไปรับสินค้าที่แต่ละร้านด้วยตนเอง</div></div><div class="mo-form two"><label>ชื่อผู้รับ *<input id="coName" autocomplete="name" required></label><label>เบอร์โทร *<input id="coPhone" inputmode="tel" autocomplete="tel" required></label><div id="deliveryAddressFields" class="full delivery-address-box"><div class="delivery-address-title"><b>📍 ที่อยู่จัดส่ง</b><span class="mo-muted">กรอกเฉพาะช่องที่เกี่ยวข้อง</span></div><div class="mo-form two"><label class="full">บ้านเลขที่ / อาคาร / หมู่บ้าน *<input id="coHouse" autocomplete="street-address" placeholder="เช่น 123/45 หมู่บ้าน..."></label><label>หมู่<input id="coMoo" inputmode="numeric" placeholder="เช่น 5"></label><label>ซอย<input id="coSoi" placeholder="เช่น สุคนธวิท 12"></label><label>ถนน<input id="coRoad" placeholder="ชื่อถนน"></label><label>จังหวัด *<select id="coProvince"><option value="">เลือกจังหวัด</option></select></label><label>อำเภอ / เขต *<select id="coDistrict"><option value="">เลือกอำเภอ / เขต</option></select></label><label>ตำบล / แขวง *<select id="coSubdistrict"><option value="">เลือกตำบล / แขวง</option></select></label><label>รหัสไปรษณีย์<input id="coPostal" inputmode="numeric" maxlength="5" placeholder="ระบบเติมให้อัตโนมัติ" readonly></label><label class="full">จุดสังเกต / รายละเอียดเพิ่มเติม<input id="coLandmark" placeholder="เช่น บ้านประตูสีฟ้า ตรงข้ามร้าน..."></label></div><input id="coLat" type="hidden"><input id="coLng" type="hidden"><div id="deliveryLocationStatus" class="delivery-location-status">⚠️ ยังไม่ได้ปักหมุดตำแหน่งสำหรับวิน</div><div id="checkoutRouteStatus" class="delivery-location-status">ℹ️ ระบบจะตรวจสอบระยะทางรวมก่อนสร้างออเดอร์ · สูงสุด 10 กม.</div><label class="save-address-check"><input id="saveDeliveryAddress" type="checkbox" checked> บันทึกที่อยู่นี้ไว้ใช้ครั้งต่อไป</label></div></div><div class="mo-actions"><button id="useDeliveryLocationBtn" class="mo-secondary">📍 ปักหมุดจากตำแหน่งปัจจุบัน</button><button id="submitCheckoutBtn" class="mo-primary">สร้างออเดอร์</button></div>`);updateFulfillmentUI();fillSavedDeliveryAddress();maybeShowDeliveryFareInfo();
   }
   function updateFulfillmentUI(){const method=document.querySelector('input[name="fulfillmentMethod"]:checked')?.value||'delivery',pickup=method==='pickup';document.getElementById('pickupCheckoutFields')?.classList.toggle('hidden',!pickup);document.getElementById('deliveryCheckoutFields')?.classList.toggle('hidden',pickup);const addr=document.getElementById('deliveryAddressFields');if(addr)addr.style.display=pickup?'none':'block';const loc=document.getElementById('useDeliveryLocationBtn');if(loc)loc.style.display=pickup?'none':'';updatePickupCustomUI();}
   function updatePickupCustomUI(){const choice=document.getElementById('pickupTimeChoice')?.value;document.getElementById('pickupCustomWrap')?.classList.toggle('hidden',choice!=='custom');}
