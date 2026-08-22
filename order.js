@@ -13,7 +13,7 @@
   const ORDER_NOTIFY_KEY='talad_order_notify_v042';
   let orderNotifyTimer=null,orderNotifyBusy=false,orderNotifyBaseline=false,orderNotifyAudioArmed=false;
   let customerOrderTab='waiting',sellerOrderTab='action',customerOrderPage=1,sellerOrderPage=1,orderSearchTerm='',orderDateFilter='today';
-  const ORDER_UI_VERSION='0.5.7';
+  const ORDER_UI_VERSION='0.5.8';
   let orderNotifyState={statuses:{},viewed:{},reminded:{},unread:0};
   const esc=(v='')=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const money=n=>Number(n||0).toLocaleString('th-TH',{minimumFractionDigits:0,maximumFractionDigits:2});
@@ -112,7 +112,7 @@
       .order-tabs-sticky .order-tab-strip button.active .order-tab-count{background:rgba(255,255,255,.22)}
       .order-active-pane{min-height:160px}.order-active-head{display:flex;justify-content:space-between;align-items:center;margin:8px 2px 12px;font-size:16px}.order-active-head span{font-size:13px;color:#8a7168}
       .order-ui-version{text-align:right;font-size:10px;margin-top:4px;opacity:.45}
-      .seller-order-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.order-age{font-size:11px;font-weight:800;padding:3px 7px;border-radius:999px;background:#f3eee9;color:#6f554c}.order-age.urgent{background:#ffe5e5;color:#a51d1d}.order-work-hint{font-size:11px;color:#8a7168;margin-top:2px}.order-count-alert{font-weight:900;background:#ffe8e8;color:#a51d1d;border-radius:999px;padding:4px 9px}.order-unseen{box-shadow:inset 4px 0 0 #d92d20}.order-new-badge{font-size:10px;font-weight:900;padding:3px 7px;border-radius:999px;background:#d92d20;color:#fff}.order-next-action{display:inline-block;margin-top:5px;padding:4px 8px;border-radius:8px;background:#fff4d8;color:#6f4c00;font-size:12px}.order-queue-summary{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;margin:2px 0 10px;border-radius:12px;background:#fff4f2;border:1px solid #ffd3cf}.order-queue-summary small{color:#a51d1d;font-weight:800}.queue-priority{font-size:11px;color:#755f57;white-space:nowrap}
+      .seller-order-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.order-age{font-size:11px;font-weight:800;padding:3px 7px;border-radius:999px;background:#f3eee9;color:#6f554c}.order-age.urgent{background:#ffe5e5;color:#a51d1d}.order-work-hint{font-size:11px;color:#8a7168;margin-top:2px}.order-count-alert{font-weight:900;background:#ffe8e8;color:#a51d1d;border-radius:999px;padding:4px 9px}.order-unseen{box-shadow:inset 4px 0 0 #d92d20}.order-new-badge{font-size:10px;font-weight:900;padding:3px 7px;border-radius:999px;background:#d92d20;color:#fff}.order-next-action{display:inline-block;margin-top:5px;padding:4px 8px;border-radius:8px;background:#fff4d8;color:#6f4c00;font-size:12px}.order-queue-summary{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;margin:2px 0 10px;border-radius:12px;background:#fff4f2;border:1px solid #ffd3cf}.order-queue-summary small{color:#a51d1d;font-weight:800}.queue-priority{font-size:11px;color:#755f57;white-space:nowrap}.delivery-track{margin:12px 0 8px;padding:12px;border-radius:12px;background:#f7fbff;border:1px solid #d7e9f8}.delivery-track>b{display:block;margin-bottom:9px}.delivery-track small{display:block;margin-top:8px;color:#667}.delivery-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}.delivery-steps span{font-size:10px;text-align:center;padding:6px 3px;border-radius:8px;background:#eee;color:#777}.delivery-steps span.done{background:#e6f6ea;color:#176b35;font-weight:800}.delivery-steps span.active{background:#fff0cf;color:#795600;font-weight:900}@media(max-width:480px){.delivery-steps span{font-size:9px;padding:6px 2px}}
       #marketOrderModal .market-order-panel.wide{max-height:92dvh;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
       @media(max-width:520px){
         .order-filter-row{grid-template-columns:1fr 92px;gap:6px}
@@ -593,6 +593,14 @@
     if(active.some(o=>['pending_shop','awaiting_customer_confirmation','awaiting_payment','payment_review'].includes(o.status)))return 'waiting';
     return 'processing';
   }
+  function deliveryProgress(g,activeOrders){
+    if(g.fulfillment_method==='pickup')return '';
+    const ready=(activeOrders||[]).filter(o=>o.status==='ready').length,total=(activeOrders||[]).length;
+    if(g.status==='completed')return `<div class="delivery-track"><b>✅ จัดส่งเสร็จแล้ว</b><div class="delivery-steps"><span class="done">รับออเดอร์</span><span class="done">สินค้าพร้อม</span><span class="done">เรียกวิน</span><span class="done">ส่งสำเร็จ</span></div></div>`;
+    if(g.rider_job_id)return `<div class="delivery-track"><b>🛵 เรียกวินแล้ว</b><div class="delivery-steps"><span class="done">รับออเดอร์</span><span class="done">สินค้าพร้อม</span><span class="active">กำลังจัดส่ง</span><span>ส่งสำเร็จ</span></div><small>งานวิน #${esc(String(g.rider_job_id).slice(0,8).toUpperCase())}${g.delivery_fee?` · ค่าส่งประมาณ ${money(g.delivery_fee)} บาท`:''}</small></div>`;
+    if(total&&ready===total)return `<div class="delivery-track"><b>📦 สินค้าพร้อมครบแล้ว</b><div class="delivery-steps"><span class="done">รับออเดอร์</span><span class="done">สินค้าพร้อม</span><span class="active">รอเรียกวิน</span><span>ส่งสำเร็จ</span></div></div>`;
+    return `<div class="delivery-track"><b>⏳ รอร้านเตรียมสินค้า ${ready}/${total}</b><div class="delivery-steps"><span class="done">รับออเดอร์</span><span class="active">เตรียมสินค้า</span><span>เรียกวิน</span><span>ส่งสำเร็จ</span></div></div>`;
+  }
   function customerGroupCard(g){
     const os=g.orders||[],activeOrders=os.filter(o=>o.status!=='cancelled'),readyCount=activeOrders.filter(o=>o.status==='ready').length,waitingCount=Math.max(0,activeOrders.length-readyCount),allReady=activeOrders.length>0&&waitingCount===0,groupOpen=!['cancelled','completed'].includes(g.status),canDelivery=allReady&&groupOpen&&!g.rider_job_id;
     const pickup=g.fulfillment_method==='pickup';
@@ -605,7 +613,7 @@
       const revision=o.status==='awaiting_customer_confirmation'?`<div class="warning-banner"><b>ร้านขอแก้ไขรายการ</b><br>${esc(o.revision_note||'')}<br>ยอดใหม่ <b>${money(o.revision_subtotal||o.subtotal)} บาท</b></div><div class="mo-actions"><button class="mo-primary" data-confirm-revision="${o.id}">✅ ยืนยันรายการและยอดใหม่</button><button class="mo-danger" data-cancel-shop-order="${o.id}">ยกเลิกร้านนี้</button></div>`:'';
       const pay=o.status==='awaiting_payment'?`<div class="ready-banner">✅ ร้านรับออเดอร์แล้ว กรุณาตรวจยอดก่อนชำระ</div><div class="mo-actions"><button class="mo-primary" data-pay-order="${o.id}">ชำระ/แจ้งชำระเงิน</button><button class="mo-danger" data-cancel-shop-order="${o.id}">ยกเลิกร้านนี้</button></div>`:'';
       return `<div class="payment-card"><div class="order-card-head"><b>🏪 ${esc(o.shop?.name||'ร้าน')}</b><span class="status-pill status-${esc(o.status)}">${esc(statusText(o.status))}</span></div><div class="order-items">${(o.items||[]).map(i=>renderOrderItem(i,true)).join('')}</div><b>${money(o.subtotal)} บาท</b>${o.revision_confirmed_at&&o.revision_note?`<div class="mo-muted">รายการที่ตกลงแก้ไข: ${esc(o.revision_note)}</div>`:''}${o.rejection_reason?`<div class="warning-banner">ยกเลิก: ${esc(o.rejection_reason)}</div>`:''}${pending}${revision}${refund}${pay}</div>`;
-    }).join('')}${deliveryState}</article>`;
+    }).join('')}${deliveryProgress(g,activeOrders)}${deliveryState}</article>`;
   }
   function orderDateMatches(dateValue){
     if(orderDateFilter==='all')return true;
