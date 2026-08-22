@@ -13,7 +13,7 @@
   const ORDER_NOTIFY_KEY='talad_order_notify_v042';
   let orderNotifyTimer=null,orderNotifyBusy=false,orderNotifyBaseline=false,orderNotifyAudioArmed=false;
   let customerOrderTab='waiting',sellerOrderTab='action',customerOrderPage=1,sellerOrderPage=1,orderSearchTerm='',orderDateFilter='today';
-  const ORDER_UI_VERSION='0.5.3';
+  const ORDER_UI_VERSION='0.5.6';
   let orderNotifyState={statuses:{},viewed:{},reminded:{},unread:0};
   const esc=(v='')=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const money=n=>Number(n||0).toLocaleString('th-TH',{minimumFractionDigits:0,maximumFractionDigits:2});
@@ -112,6 +112,7 @@
       .order-tabs-sticky .order-tab-strip button.active .order-tab-count{background:rgba(255,255,255,.22)}
       .order-active-pane{min-height:160px}.order-active-head{display:flex;justify-content:space-between;align-items:center;margin:8px 2px 12px;font-size:16px}.order-active-head span{font-size:13px;color:#8a7168}
       .order-ui-version{text-align:right;font-size:10px;margin-top:4px;opacity:.45}
+      .seller-order-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.order-age{font-size:11px;font-weight:800;padding:3px 7px;border-radius:999px;background:#f3eee9;color:#6f554c}.order-age.urgent{background:#ffe5e5;color:#a51d1d}.order-work-hint{font-size:11px;color:#8a7168;margin-top:2px}.order-count-alert{font-weight:900;background:#ffe8e8;color:#a51d1d;border-radius:999px;padding:4px 9px}
       #marketOrderModal .market-order-panel.wide{max-height:92dvh;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
       @media(max-width:520px){
         .order-filter-row{grid-template-columns:1fr 92px;gap:6px}
@@ -645,7 +646,7 @@
     const title={waiting:'⏳ รอดำเนินการ',processing:'🍳 กำลังทำ',shipping:'🛵 พร้อมรับ / จัดส่ง',done:'✅ ประวัติ'}[customerOrderTab];
 
     box.innerHTML=orderTabsToolbar('customer',buckets)+
-      `<section class="order-active-pane"><div class="order-active-head"><b>${title}</b><span>${active.length} รายการ</span></div>
+      `<section class="order-active-pane"><div class="order-active-head"><div><b>${title}</b>${sellerOrderTab==='action'&&active.length?'<div class="order-work-hint">เรียงงานเร่งด่วนและออเดอร์เก่าก่อน</div>':''}</div><span class="${sellerOrderTab==='action'&&active.length?'order-count-alert':''}">${active.length} รายการ</span></div>
       ${shown.length?shown.map(customerGroupCard).join(''):'<div class="order-group-empty">ไม่มีรายการในหมวดนี้</div>'}
       ${active.length>shown.length?`<div class="order-load-more"><div class="mo-muted">แสดง ${shown.length} จาก ${active.length} รายการ</div><button id="customerLoadMoreOrders" class="mo-secondary">โหลดเพิ่ม</button></div>`:''}
       </section>`;
@@ -674,9 +675,28 @@
     const text=[o.id,o.group?.customer_name,o.group?.customer_phone,o.rejection_reason].filter(Boolean).join(' ').toLowerCase();
     return text.includes(q);
   }
+  function sellerOrderPriority(o){
+    if(o.refund_required&&o.refund_status!=='completed')return 0;
+    if(o.status==='payment_review')return 1;
+    if(o.status==='pending_shop')return 2;
+    if(o.status==='awaiting_customer_confirmation')return 3;
+    if(o.status==='awaiting_payment')return 4;
+    if(o.status==='preparing')return 5;
+    if(o.status==='ready')return 6;
+    return 9;
+  }
+  function sellerOrderAge(o){
+    const t=new Date(o.created_at).getTime();if(!Number.isFinite(t))return '';
+    const min=Math.max(0,Math.floor((Date.now()-t)/60000));
+    if(min<1)return 'เมื่อสักครู่';
+    if(min<60)return `${min} นาที`;
+    const h=Math.floor(min/60);if(h<24)return `${h} ชม. ${min%60} นาที`;
+    return new Date(o.created_at).toLocaleString('th-TH');
+  }
   function renderSellerOrderSections(orders){
     const b={action:[],preparing:[],ready:[],done:[]};
     for(const o of (orders||[]).filter(x=>orderDateMatches(x.created_at)&&sellerOrderSearchMatches(x)))b[sellerOrderBucket(o)].push(o);
+    for(const key of Object.keys(b))b[key].sort((a,c)=>sellerOrderPriority(a)-sellerOrderPriority(c)||new Date(a.created_at)-new Date(c.created_at));
 
     if(!b[sellerOrderTab])sellerOrderTab='action';
     const active=b[sellerOrderTab],limit=10*sellerOrderPage,shown=active.slice(0,limit);
@@ -695,7 +715,7 @@
     const closed=o.status==='cancelled'||o.group?.status==='completed';const phone=closed?maskPhone(o.group?.customer_phone):o.group?.customer_phone||'';const overdue=o.status==='pending_shop'&&o.shop_response_due_at&&new Date(o.shop_response_due_at)<new Date();
     const pendingActions=o.status==='pending_shop'?`<div class="warning-banner">${overdue?'⚠️ รอรับออเดอร์เกิน 15 นาทีแล้ว':'ลูกค้ายังไม่ได้ชำระเงิน ร้านสามารถโทรคุยและตรวจรายการก่อนรับได้'}</div><div class="mo-actions"><button class="mo-primary" data-accept-order="${o.id}">✅ รับออเดอร์</button><button class="mo-secondary" data-revise-order="${o.id}">✏️ เสนอเปลี่ยนรายการ/ยอด</button></div>`:'';
     const revisionWait=o.status==='awaiting_customer_confirmation'?`<div class="warning-banner">⏳ รอลูกค้ายืนยันรายการใหม่<br>${esc(o.revision_note||'')}<br>ยอดที่เสนอ <b>${money(o.revision_subtotal||o.subtotal)} บาท</b></div>`:'';
-    return `<article class="order-card"><div class="order-card-head"><div><b>Order #${esc(String(o.id).slice(0,8).toUpperCase())}</b><div class="mo-muted">${esc(o.group?.customer_name||'ลูกค้า')} · ${esc(phone)} ${!closed&&phone?`<a href="tel:${esc(phone)}">📞 โทร</a>`:''}<br>${o.group?.fulfillment_method==='pickup'?`🏪 รับเองที่ร้าน${o.group?.pickup_requested_at?` · ขอรับ ${new Date(o.group.pickup_requested_at).toLocaleString('th-TH')}`:' · รับเร็วที่สุด'}`:`🛵 จัดส่ง · ${esc(o.group?.delivery_address||'')}`}</div></div><span class="status-pill status-${esc(o.status)}">${esc(statusText(o.status))}</span></div><div class="order-items">${(o.items||[]).map(i=>renderOrderItem(i,false)).join('')}</div><b>ยอด ${money(o.subtotal)} บาท</b>${o.revision_confirmed_at&&o.revision_note?`<div class="ready-banner">✅ ลูกค้ายืนยันรายการแก้ไขแล้ว: ${esc(o.revision_note)}</div>`:''}${pendingActions}${revisionWait}${o.payment_ref?`<div>อ้างอิง: ${esc(o.payment_ref)}</div>`:''}${o.rejection_reason?`<div class="mo-muted">เหตุผลยกเลิก: ${esc(o.rejection_reason)}</div>`:''}${refund}<div class="mo-actions">${o.payment_slip_path?`<button class="mo-secondary" onclick="window.marketOrderOpenSlip('${esc(o.payment_slip_path)}')">ดูสลิปชำระ</button>`:''}${o.status==='payment_review'?`<button class="mo-primary" data-order-id="${o.id}" data-order-status="preparing">✅ เงินเข้าแล้ว / เริ่มเตรียม</button><button class="mo-danger" data-order-id="${o.id}" data-order-status="awaiting_payment">ยังไม่พบยอด</button>`:''}${o.status==='preparing'?`<button class="mo-primary" data-order-id="${o.id}" data-order-status="ready">📦 สินค้าพร้อมรับ</button>`:''}${rejectable?`<button class="mo-danger" data-reject-order="${o.id}">ปฏิเสธออเดอร์</button>`:''}</div></article>`;
+    return `<article class="order-card"><div class="order-card-head"><div><div class="seller-order-title"><b>Order #${esc(String(o.id).slice(0,8).toUpperCase())}</b><span class="order-age ${overdue?'urgent':''}">⏱ ${esc(sellerOrderAge(o))}</span></div><div class="mo-muted">${esc(o.group?.customer_name||'ลูกค้า')} · ${esc(phone)} ${!closed&&phone?`<a href="tel:${esc(phone)}">📞 โทร</a>`:''}<br>${o.group?.fulfillment_method==='pickup'?`🏪 รับเองที่ร้าน${o.group?.pickup_requested_at?` · ขอรับ ${new Date(o.group.pickup_requested_at).toLocaleString('th-TH')}`:' · รับเร็วที่สุด'}`:`🛵 จัดส่ง · ${esc(o.group?.delivery_address||'')}`}</div></div><span class="status-pill status-${esc(o.status)}">${esc(statusText(o.status))}</span></div><div class="order-items">${(o.items||[]).map(i=>renderOrderItem(i,false)).join('')}</div><b>ยอด ${money(o.subtotal)} บาท</b>${o.revision_confirmed_at&&o.revision_note?`<div class="ready-banner">✅ ลูกค้ายืนยันรายการแก้ไขแล้ว: ${esc(o.revision_note)}</div>`:''}${pendingActions}${revisionWait}${o.payment_ref?`<div>อ้างอิง: ${esc(o.payment_ref)}</div>`:''}${o.rejection_reason?`<div class="mo-muted">เหตุผลยกเลิก: ${esc(o.rejection_reason)}</div>`:''}${refund}<div class="mo-actions">${o.payment_slip_path?`<button class="mo-secondary" onclick="window.marketOrderOpenSlip('${esc(o.payment_slip_path)}')">ดูสลิปชำระ</button>`:''}${o.status==='payment_review'?`<button class="mo-primary" data-order-id="${o.id}" data-order-status="preparing">✅ เงินเข้าแล้ว / เริ่มเตรียม</button><button class="mo-danger" data-order-id="${o.id}" data-order-status="awaiting_payment">ยังไม่พบยอด</button>`:''}${o.status==='preparing'?`<button class="mo-primary" data-order-id="${o.id}" data-order-status="ready">📦 สินค้าพร้อมรับ</button>`:''}${rejectable?`<button class="mo-danger" data-reject-order="${o.id}">ปฏิเสธออเดอร์</button>`:''}</div></article>`;
   }
   function maskPhone(v){const x=String(v||'');if(x.length<7)return x?x.slice(0,2)+'X-XXX-'+x.slice(-3):'';return x.slice(0,2)+'X-XXX-'+x.slice(-3);}
 
