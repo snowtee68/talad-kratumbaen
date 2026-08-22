@@ -13,7 +13,7 @@
   const ORDER_NOTIFY_KEY='talad_order_notify_v042';
   let orderNotifyTimer=null,orderNotifyBusy=false,orderNotifyBaseline=false,orderNotifyAudioArmed=false;
   let customerOrderTab='waiting',sellerOrderTab='action',customerOrderPage=1,sellerOrderPage=1,orderSearchTerm='',orderDateFilter='today';
-  const ORDER_UI_VERSION='0.5.10';
+  const ORDER_UI_VERSION='0.5.10.1';
   let orderNotifyState={statuses:{},viewed:{},reminded:{},unread:0};
   const esc=(v='')=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const money=n=>Number(n||0).toLocaleString('th-TH',{minimumFractionDigits:0,maximumFractionDigits:2});
@@ -942,7 +942,13 @@
       const stops=[...pickups,drop],km=routeKm(stops),fare=fareFor(km,pickups.length);
       if(!fare)throw new Error('เส้นทางรวมเกิน 10 กม. ซึ่งเกินพื้นที่ทดสอบของระบบวิน');
 
-      const {data:jobId,error:jobErr}=await db.rpc('rider_create_multistop_job',{p_stops:stops,p_job_note:`MARKET_BATCH:${batchId} | ชุดคำสั่งซื้อ ${String(groupId).slice(0,8).toUpperCase()}`,p_payer:'receiver',p_distance_km:+km.toFixed(3),p_fare_estimate:fare.total,p_extra_stop_fee:fare.extra});
+      const payer='recipient';
+      const payerLabel='ลูกค้าปลายทาง';
+      if(!confirm(`ยืนยันเรียกวิน\n\nผู้ชำระค่าจัดส่ง: ${payerLabel}\n\nหมายเหตุ: ลูกค้าไม่สามารถเลือกให้ร้านต้นทางจ่ายแทนได้ เว้นแต่ร้านจะมีระบบยืนยันรับผิดชอบค่าส่งในอนาคต`)){
+        await db.rpc('market_cancel_delivery_batch_creation',{p_batch_id:batchId});
+        return;
+      }
+      const {data:jobId,error:jobErr}=await db.rpc('rider_create_multistop_job',{p_stops:stops,p_job_note:`MARKET_BATCH:${batchId} | ชุดคำสั่งซื้อ ${String(groupId).slice(0,8).toUpperCase()}`,p_payer:payer,p_distance_km:+km.toFixed(3),p_fare_estimate:fare.total,p_extra_stop_fee:fare.extra});
       if(jobErr)throw jobErr;
       const {error:attachErr}=await db.rpc('market_attach_delivery_batch',{p_batch_id:batchId,p_rider_job_id:jobId,p_delivery_fee:fare.total,p_distance_km:+km.toFixed(3)});
       if(attachErr)throw attachErr;
