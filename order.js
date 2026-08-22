@@ -331,6 +331,7 @@
       if(e.target.closest('#submitRefundBtn'))return submitRefund();
       if(e.target.closest('#enableOrderPushBtn'))return enableOrderPush();
       if(e.target.closest('#disableOrderPushBtn'))return disableOrderPush();
+      if(e.target.closest('#testOrderPushBtn'))return testOrderPush();
       const rd=e.target.closest('[data-refund-destination]');if(rd)return openRefundDestination(rd.dataset.refundDestination);
       if(e.target.closest('#saveRefundDestinationBtn'))return saveRefundDestination();
       const rtype=e.target.closest('#refundDestinationType');if(rtype)return renderRefundDestinationFields();
@@ -509,33 +510,66 @@
     return reg?await reg.pushManager.getSubscription():null;
   }
   async function refreshOrderPushUI(){
-    const st=document.getElementById('orderPushStatus'),on=document.getElementById('enableOrderPushBtn'),off=document.getElementById('disableOrderPushBtn');
+    const st=document.getElementById('orderPushStatus'),on=document.getElementById('enableOrderPushBtn'),off=document.getElementById('disableOrderPushBtn'),test=document.getElementById('testOrderPushBtn');
     if(!st)return;
-    if(!('serviceWorker' in navigator)||!('PushManager' in window)){st.textContent='อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Web Push';if(on)on.style.display='none';return;}
-    const perm=Notification.permission,sub=perm==='granted'?await getOrderPushSubscription():null;
-    if(sub){st.textContent='✅ เปิดแจ้งเตือนบนอุปกรณ์นี้แล้ว แม้ไม่ได้เปิดหน้าเว็บ';if(on)on.style.display='none';if(off)off.style.display='';}
-    else{st.textContent=perm==='denied'?'❌ ปิดสิทธิ์แจ้งเตือนใน Browser กรุณาเปิดจากการตั้งค่าของเว็บไซต์':'ยังไม่ได้เปิด Push Notification บนอุปกรณ์นี้';if(on)on.style.display='';if(off)off.style.display='none';}
+    if(!('serviceWorker' in navigator)||!('PushManager' in window)){st.textContent='อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Web Push';if(on)on.style.display='none';if(test)test.style.display='none';return;}
+    try{
+      const perm=Notification.permission,sub=perm==='granted'?await getOrderPushSubscription():null;
+      if(sub){
+        st.innerHTML='✅ <b>อุปกรณ์นี้พร้อมรับ Push Notification</b><br><small>สามารถปิดเว็บหรือพักหน้าจอได้ ระบบจะใช้การแจ้งเตือนของอุปกรณ์</small>';
+        if(on)on.style.display='none';if(off)off.style.display='';if(test)test.style.display='';
+      }else{
+        st.textContent=perm==='denied'?'❌ Browser ปิดสิทธิ์แจ้งเตือน กรุณาเปิดจากการตั้งค่าของเว็บไซต์':'ยังไม่ได้เปิด Push Notification บนอุปกรณ์นี้';
+        if(on)on.style.display='';if(off)off.style.display='none';if(test)test.style.display='none';
+      }
+    }catch(err){st.textContent='ตรวจสถานะแจ้งเตือนไม่สำเร็จ: '+(err?.message||err);}
   }
   async function enableOrderPush(){
     if(!session)return requireLogin();
+    const btn=document.getElementById('enableOrderPushBtn'),st=document.getElementById('orderPushStatus'),old=btn?.textContent||'เปิดการแจ้งเตือนบนมือถือ';
+    if(btn){btn.disabled=true;btn.textContent='⏳ กำลังเปิดการแจ้งเตือน...';}
+    if(st)st.textContent='กำลังติดต่อระบบแจ้งเตือนของอุปกรณ์ กรุณารอสักครู่...';
+    let timeout;
     try{
-      const permission=await Notification.requestPermission();
-      if(permission!=='granted')throw new Error('ยังไม่ได้อนุญาตการแจ้งเตือน');
-      const {data:cfg,error:cfgErr}=await db.from('market_push_config').select('vapid_public_key').eq('id',1).maybeSingle();
-      if(cfgErr||!cfg?.vapid_public_key)throw new Error('ยังไม่ได้ตั้งค่า Push Public Key');
-      const reg=await getOrderPushRegistration();
-      let sub=await reg.pushManager.getSubscription();
-      if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:vapidKeyToBytes(cfg.vapid_public_key)});
-      const j=sub.toJSON(),payload={user_id:session.user.id,endpoint:j.endpoint,p256dh:j.keys?.p256dh,auth:j.keys?.auth,user_agent:navigator.userAgent,updated_at:new Date().toISOString()};
-      const {error}=await db.from('market_push_subscriptions').upsert(payload,{onConflict:'user_id,endpoint'});if(error)throw error;
-      alert('เปิดการแจ้งเตือนบนมือถือแล้ว');await refreshOrderPushUI();
-    }catch(err){alert('เปิด Push Notification ไม่สำเร็จ: '+(err?.message||err))}
+      const job=(async()=>{
+        const permission=await Notification.requestPermission();
+        if(permission!=='granted')throw new Error('ยังไม่ได้อนุญาตการแจ้งเตือน');
+        const {data:cfg,error:cfgErr}=await db.from('market_push_config').select('vapid_public_key').eq('id',1).maybeSingle();
+        if(cfgErr||!cfg?.vapid_public_key)throw new Error('ยังไม่ได้ตั้งค่า Push Public Key');
+        const reg=await getOrderPushRegistration();
+        let sub=await reg.pushManager.getSubscription();
+        if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:vapidKeyToBytes(cfg.vapid_public_key)});
+        const j=sub.toJSON(),payload={user_id:session.user.id,endpoint:j.endpoint,p256dh:j.keys?.p256dh,auth:j.keys?.auth,user_agent:navigator.userAgent,updated_at:new Date().toISOString()};
+        const {error}=await db.from('market_push_subscriptions').upsert(payload,{onConflict:'user_id,endpoint'});if(error)throw error;
+      })();
+      const timer=new Promise((_,reject)=>{timeout=setTimeout(()=>reject(new Error('การเปิดแจ้งเตือนใช้เวลานานเกินไป กรุณาลองอีกครั้ง')),20000)});
+      await Promise.race([job,timer]);clearTimeout(timeout);
+      await refreshOrderPushUI();
+    }catch(err){
+      clearTimeout(timeout);if(st)st.textContent='❌ เปิดการแจ้งเตือนไม่สำเร็จ';
+      alert('เปิด Push Notification ไม่สำเร็จ: '+(err?.message||err));
+    }finally{if(btn){btn.disabled=false;btn.textContent=old;}}
   }
   async function disableOrderPush(){
+    const btn=document.getElementById('disableOrderPushBtn'),old=btn?.textContent||'ปิดการแจ้งเตือนเครื่องนี้';
+    if(btn){btn.disabled=true;btn.textContent='⏳ กำลังปิด...';}
     try{
       const sub=await getOrderPushSubscription();if(sub){await db.from('market_push_subscriptions').delete().eq('user_id',session.user.id).eq('endpoint',sub.endpoint);await sub.unsubscribe();}
-      alert('ปิดการแจ้งเตือนบนอุปกรณ์นี้แล้ว');await refreshOrderPushUI();
+      await refreshOrderPushUI();
     }catch(err){alert('ปิด Push Notification ไม่สำเร็จ: '+(err?.message||err))}
+    finally{if(btn){btn.disabled=false;btn.textContent=old;}}
+  }
+  async function testOrderPush(){
+    if(!session)return requireLogin();
+    const btn=document.getElementById('testOrderPushBtn'),old=btn?.textContent||'🔔 ส่งแจ้งเตือนทดสอบ';
+    if(btn){btn.disabled=true;btn.textContent='⏳ กำลังส่งทดสอบ...';}
+    try{
+      const {data,error}=await db.functions.invoke('send-order-push',{body:{event:'test_push'}});
+      if(error)throw error;
+      if(!data?.sent)throw new Error('ยังไม่พบอุปกรณ์ที่รับ Push ได้');
+      alert(`ส่ง Push ทดสอบแล้ว ${data.sent} อุปกรณ์`);
+    }catch(err){alert('ส่ง Push ทดสอบไม่สำเร็จ: '+(err?.message||err))}
+    finally{if(btn){btn.disabled=false;btn.textContent=old;}}
   }
   async function sendOrderPush(eventName,{order_id=null,group_id=null}={}){
     if(!session)return;
@@ -545,7 +579,7 @@
   async function openAccountHub(tab='customer'){
     if(!canUseOrders())return;
     if(!session)return requireLogin();
-    openModal(`<h2 class="mo-title">🛍️ ออเดอร์และร้านของฉัน</h2><div id="orderPushSettings" class="payment-card"><b>🔔 การแจ้งเตือนบนมือถือ</b><div class="mo-muted" id="orderPushStatus">กำลังตรวจสอบ...</div><div class="mo-actions"><button id="enableOrderPushBtn" class="mo-primary">เปิดการแจ้งเตือนบนมือถือ</button><button id="disableOrderPushBtn" class="mo-secondary" style="display:none">ปิดการแจ้งเตือนเครื่องนี้</button></div></div><div class="seller-tabs"><button data-hub-tab="customer" class="${tab==='customer'?'active':''}">ออเดอร์ที่ฉันสั่ง</button><button data-hub-tab="seller" class="${tab==='seller'?'active':''}">ร้าน / ออเดอร์ที่ได้รับ</button></div><div id="hubContent">กำลังโหลด...</div>`,true);await refreshOrderPushUI();await renderHubTab(tab);
+    openModal(`<h2 class="mo-title">🛍️ ออเดอร์และร้านของฉัน</h2><div id="orderPushSettings" class="payment-card"><b>🔔 การแจ้งเตือนบนมือถือ</b><div class="mo-muted" id="orderPushStatus">กำลังตรวจสอบ...</div><div class="mo-actions"><button id="enableOrderPushBtn" class="mo-primary">เปิดการแจ้งเตือนบนมือถือ</button><button id="disableOrderPushBtn" class="mo-secondary" style="display:none">ปิดการแจ้งเตือนเครื่องนี้</button><button id="testOrderPushBtn" class="mo-secondary" style="display:none">🔔 ส่งแจ้งเตือนทดสอบ</button></div></div><div class="seller-tabs"><button data-hub-tab="customer" class="${tab==='customer'?'active':''}">ออเดอร์ที่ฉันสั่ง</button><button data-hub-tab="seller" class="${tab==='seller'?'active':''}">ร้าน / ออเดอร์ที่ได้รับ</button></div><div id="hubContent">กำลังโหลด...</div>`,true);await refreshOrderPushUI();await renderHubTab(tab);
   }
   async function renderHubTab(tab){document.querySelectorAll('[data-hub-tab]').forEach(b=>b.classList.toggle('active',b.dataset.hubTab===tab));const box=document.getElementById('hubContent');if(!box)return;if(tab==='seller')return renderSellerHub(box);return renderCustomerHub(box);}
   function customerGroupBucket(g){
