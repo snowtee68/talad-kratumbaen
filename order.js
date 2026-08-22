@@ -205,7 +205,8 @@
   function markNotificationAreaViewed(){
     orderNotifyState.unread=0;saveOrderNotifyState();renderOrderNotifyBadge();document.getElementById('orderNotifyBanner')?.classList.remove('show');
   }
-  let orderRealtimeChannel=null,orderRealtimeTimer=null,orderRealtimeState='disconnected';
+  let orderRealtimeChannel=null,orderRealtimeTimer=null,orderRealtimeState='disconnected',orderRealtimeRetryTimer=null;
+  const ORDER_FALLBACK_POLL_MS=60000;
   function scheduleRealtimeOrderRefresh(){
     clearTimeout(orderRealtimeTimer);
     orderRealtimeTimer=setTimeout(async()=>{
@@ -221,13 +222,23 @@
       }catch(err){console.warn('Realtime UI refresh:',err?.message||err)}
     },250);
   }
+  function stopFallbackOrderPolling(){
+    if(orderNotifyTimer){clearInterval(orderNotifyTimer);orderNotifyTimer=null}
+  }
+  function startFallbackOrderPolling(){
+    if(orderNotifyTimer||!session||!canUseOrders()||document.hidden||orderRealtimeState==='connected')return;
+    orderNotifyTimer=setInterval(()=>{
+      if(!document.hidden&&orderRealtimeState!=='connected')pollOrderNotifications();
+    },ORDER_FALLBACK_POLL_MS);
+  }
   function stopOrderRealtime(){
     clearTimeout(orderRealtimeTimer);orderRealtimeTimer=null;
+    clearTimeout(orderRealtimeRetryTimer);orderRealtimeRetryTimer=null;
     if(orderRealtimeChannel){const ch=orderRealtimeChannel;orderRealtimeChannel=null;try{db.removeChannel(ch)}catch(_e){try{ch.unsubscribe()}catch(__e){}}}
     orderRealtimeState='disconnected';
   }
   function startOrderRealtime(){
-    if(orderRealtimeChannel||!session||!canUseOrders())return;
+    if(orderRealtimeChannel||!session||!canUseOrders()||document.hidden)return;
     orderRealtimeState='connecting';
     orderRealtimeChannel=db.channel(`market-order-live-${session.user.id}-${Date.now()}`)
       .on('postgres_changes',{event:'*',schema:'public',table:'market_orders'},scheduleRealtimeOrderRefresh)
@@ -235,15 +246,23 @@
       .on('postgres_changes',{event:'*',schema:'public',table:'market_delivery_batches'},scheduleRealtimeOrderRefresh)
       .on('postgres_changes',{event:'*',schema:'public',table:'market_delivery_batch_orders'},scheduleRealtimeOrderRefresh)
       .subscribe((status)=>{
-        if(status==='SUBSCRIBED')orderRealtimeState='connected';
-        else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'){
+        if(status==='SUBSCRIBED'){
+          orderRealtimeState='connected';
+          stopFallbackOrderPolling();
+        }else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){
           orderRealtimeState='error';
           const ch=orderRealtimeChannel;orderRealtimeChannel=null;try{if(ch)db.removeChannel(ch)}catch(_e){}
-          setTimeout(()=>{if(session&&canUseOrders())startOrderRealtime()},3000);
+          startFallbackOrderPolling();
+          clearTimeout(orderRealtimeRetryTimer);
+          orderRealtimeRetryTimer=setTimeout(()=>{if(session&&canUseOrders()&&!document.hidden)startOrderRealtime()},5000);
         }
       });
   }
-  function stopOrderNotifications(){if(orderNotifyTimer){clearInterval(orderNotifyTimer);orderNotifyTimer=null}orderNotifyBusy=false;orderNotifyBaseline=false;stopOrderRealtime();}
+  function stopOrderNotifications(){
+    stopFallbackOrderPolling();
+    orderNotifyBusy=false;orderNotifyBaseline=false;
+    stopOrderRealtime();
+  }
   async function getMySellerShopIds(){
     if(!session?.user?.id)return[];
     const {data}=await db.from('market_shops').select('id').eq('owner_id',session.user.id);return(data||[]).map(x=>x.id);
@@ -299,9 +318,10 @@
     finally{orderNotifyBusy=false}
   }
   async function startOrderNotifications(){
-    if(!session||!canUseOrders())return;stopOrderNotifications();loadOrderNotifyState();await pollOrderNotifications();
-    startOrderRealtime();
-    orderNotifyTimer=setInterval(pollOrderNotifications,15000);
+    if(!session||!canUseOrders())return;
+    stopOrderNotifications();loadOrderNotifyState();
+    if(!document.hidden)await pollOrderNotifications(); // one reconciliation query on entry
+    startOrderRealtime(); // Realtime is primary; polling starts only if it fails
   }
   function markSellerOrdersViewed(shopId){
     if(!shopId)return;
@@ -312,10 +332,15 @@
   }
 
   document.addEventListener('visibilitychange',()=>{
-    if(!document.hidden&&session&&canUseOrders()){
-      if(!orderRealtimeChannel)startOrderRealtime();
-      scheduleRealtimeOrderRefresh();
-      pollOrderNotifications();
+    if(document.hidden){
+      stopFallbackOrderPolling();
+      stopOrderRealtime();
+      return;
+    }
+    if(session&&canUseOrders()){
+      pollOrderNotifications();       // reconcile exactly once after returning
+      scheduleRealtimeOrderRefresh(); // refresh visible Order UI once
+      startOrderRealtime();           // then stay on Realtime only
     }
   });
   function wire(){
