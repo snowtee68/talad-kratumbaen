@@ -1,5 +1,5 @@
 {
-  "version": "0.5.18.1",
+  "version": "0.5.19.2",
   "base": "talad-kratumbaen-main (7).zip",
   "features_required": [
     "address_dropdown",
@@ -20,5 +20,6 @@
     "product_limit_100"
   ],
   "rider_payer": "recipient",
-  "fix": "post-checkout always focuses newly created group id"
+  "fix": "post-checkout always focuses newly created group id",
+  "service_worker": "single sw.js handles PWA + push + deep link"
 }

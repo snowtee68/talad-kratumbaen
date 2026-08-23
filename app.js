@@ -1649,7 +1649,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=5.7.9.14', {scope:'./'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=5.7.9.16', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
