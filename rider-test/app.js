@@ -483,19 +483,10 @@
     return !!data?.length;
   }
 
-  let riderUiRealtimeTimer=null;
-  function scheduleRiderUiRealtimeRefresh(){
-    clearTimeout(riderUiRealtimeTimer);
-    riderUiRealtimeTimer=setTimeout(()=>{
-      if(!session||document.hidden)return;
-      Promise.all([loadRiderJobs(),loadMyJobs()]).catch(err=>console.warn('Rider realtime refresh',err));
-    },200);
-  }
   async function handleRealtimeJobChange(payload){
     if(!jobAlertEnabled || !riderProfile?.online) return;
     console.log('[Rider Realtime event]', payload?.eventType, payload?.new);
     const job=payload?.new;
-    scheduleRiderUiRealtimeRefresh();
     if(!job?.id || job.status!=='open') return;
     const key=`${job.id}|${job.updated_at||''}`;
     if(knownOpenJobKeys.has(key)) return;
@@ -513,7 +504,6 @@
     jobAlertRealtimeChannel=db.channel(channelName)
       .on('postgres_changes',{event:'INSERT',schema:'public',table:'rider_jobs'},handleRealtimeJobChange)
       .on('postgres_changes',{event:'UPDATE',schema:'public',table:'rider_jobs'},handleRealtimeJobChange)
-      .on('postgres_changes',{event:'*',schema:'public',table:'rider_job_stops'},scheduleRiderUiRealtimeRefresh)
       .subscribe(async (status,err)=>{
         console.log('[Rider Realtime status]',status,err||'');
         if(status==='SUBSCRIBED'){
@@ -720,42 +710,10 @@
     return `<article class="job-card" data-job-id="${j.id}"><div class="job-top"><div><b>${title}</b><div class="job-meta"><span>${pickupCount} จุดรับ</span><span>${fmt(j.distance_km)} กม.</span><span>ประมาณ ${j.fare_estimate} บาท</span>${extra}<span>${payer}จ่าย</span>${reassigned?`<span>♻️ เปิดหาวินใหม่ ${j.reassign_count} ครั้ง</span>`:''}</div></div><span class="status ${j.status}">${statusText[j.status]||j.status}</span></div>${reassignNotice}${stops.length?routeMarkup(stops,mode):`<div class="route-summary">รายละเอียดพิกัดจะแสดงหลังรับงาน</div>`}<div class="job-meta"><span>สร้าง ${fmtTime(j.created_at)}</span>${j.assigned_rider_name?`<span>วิน: ${esc(j.assigned_rider_name)}</span>`:''}</div><div class="job-actions">${actions}</div></article>`;
   }
 
-  async function syncMarketDelivery(jobId,status){
-    if(!session||!jobId)return;
-    try{
-      const riderName=riderProfile?.display_name||profile?.display_name||'';
-      const riderPhone=riderProfile?.phone||profile?.phone||'';
-      const {error}=await db.rpc('market_rider_update_delivery_batch',{
-        p_rider_job_id:jobId,
-        p_status:status,
-        p_rider_name:riderName||null,
-        p_rider_phone:riderPhone||null
-      });
-      // Normal rider jobs that did not originate from Market Delivery have no batch.
-      // Those should continue working normally.
-      if(error&&!String(error.message||'').includes('ไม่พบงานจัดส่ง')){
-        console.warn('Market delivery sync failed:',error);
-      }
-    }catch(err){console.warn('Market delivery sync failed:',err)}
-  }
-
-  async function syncPickupProgress(jobId){
-    try{
-      const {data:stops,error}=await db.from('rider_job_stops')
-        .select('stop_type,completed_at')
-        .eq('job_id',jobId);
-      if(error)throw error;
-      const pickups=(stops||[]).filter(x=>x.stop_type==='pickup');
-      const done=pickups.filter(x=>x.completed_at).length;
-      if(pickups.length&&done>=pickups.length)await syncMarketDelivery(jobId,'picked_up');
-      else if(done>0)await syncMarketDelivery(jobId,'pickup_started');
-    }catch(err){console.warn('Pickup sync failed:',err)}
-  }
-
   async function handleAction(e){
     const b=e.target.closest('[data-action]');if(!b)return;
     const id=b.dataset.id,action=b.dataset.action;
-    if(action==='claim'){const {error}=await db.rpc('rider_claim_job',{p_job_id:id});if(error)return alert(error.message);await syncMarketDelivery(id,'accepted');await Promise.all([loadRiderJobs(),loadMyJobs()]);}
+    if(action==='claim'){const {error}=await db.rpc('rider_claim_job',{p_job_id:id});if(error)return alert(error.message);await Promise.all([loadRiderJobs(),loadMyJobs()]);}
     if(action==='withdraw'){
       const reason=prompt('เหตุผลที่ถอนตัวจากงาน\nเช่น รถเสีย / เหตุฉุกเฉิน / ติดต่อจุดรับไม่ได้ / เส้นทางมีปัญหา');
       if(reason===null)return;
@@ -763,16 +721,15 @@
       if(!confirm('ยืนยันถอนตัวจากงาน?\nงานจะกลับไปเปิดให้วินคนอื่นรับทันที'))return;
       const {error}=await db.rpc('rider_withdraw_job',{p_job_id:id,p_reason:reason.trim()});
       if(error)return alert('ถอนตัวไม่ได้: '+error.message);
-      await syncMarketDelivery(id,'waiting_rider');
       triggerPushForOpenJob(id,'reopened');
       stopJobAlertLoop();
       alert('ถอนตัวเรียบร้อย ระบบเปิดงานให้วินคนอื่นรับต่อแล้ว');
       await Promise.all([loadRiderJobs(),loadMyJobs()]);
     }
     if(action==='cancel'){if(!confirm(`ยกเลิกงานนี้?\n\nยกเลิกได้เฉพาะก่อนมีวินรับงานเท่านั้น`))return;const {error}=await db.rpc('rider_cancel_job',{p_job_id:id});if(error)return alert('ยกเลิกไม่ได้: '+error.message);await loadMyJobs();}
-    if(action==='complete-pickup'){const {error}=await db.rpc('rider_complete_pickup_stop',{p_job_id:id,p_stop_id:b.dataset.stopId});if(error)return alert(error.message);await syncPickupProgress(id);await Promise.all([loadRiderJobs(),loadMyJobs()]);}
-    if(action==='start-delivery'){const {error}=await db.rpc('rider_start_delivery',{p_job_id:id});if(error)return alert(error.message);await syncMarketDelivery(id,'delivering');await Promise.all([loadRiderJobs(),loadMyJobs()]);}
-    if(action==='complete-delivery'){if(!confirm('ยืนยันว่าส่งของถึงปลายทางแล้ว?'))return;const {error}=await db.rpc('rider_complete_delivery',{p_job_id:id});if(error)return alert(error.message);await syncMarketDelivery(id,'completed');await Promise.all([loadRiderJobs(),loadMyJobs()]);}
+    if(action==='complete-pickup'){const {error}=await db.rpc('rider_complete_pickup_stop',{p_job_id:id,p_stop_id:b.dataset.stopId});if(error)return alert(error.message);await Promise.all([loadRiderJobs(),loadMyJobs()]);}
+    if(action==='start-delivery'){const {error}=await db.rpc('rider_start_delivery',{p_job_id:id});if(error)return alert(error.message);await Promise.all([loadRiderJobs(),loadMyJobs()]);}
+    if(action==='complete-delivery'){if(!confirm('ยืนยันว่าส่งของถึงปลายทางแล้ว?'))return;const {error}=await db.rpc('rider_complete_delivery',{p_job_id:id});if(error)return alert(error.message);await Promise.all([loadRiderJobs(),loadMyJobs()]);}
     if(action==='route') await showRoute(id);
     if(action==='navigate-stop') window.open(gmaps(b.dataset.lat,b.dataset.lng),'_blank');
     if(action==='approve-rider'){const next=b.dataset.status;const label=next==='approved'?'อนุมัติวินคนนี้?':next==='suspended'?'ระงับวินคนนี้?':next==='pending'?'เปิดให้รออนุมัติอีกครั้ง?':'ไม่อนุมัติวินคนนี้?';if(!confirm(label))return;const {error}=await db.rpc('rider_admin_set_approval',{p_user_id:id,p_status:next});if(error)return alert(error.message);await Promise.all([loadPendingRiders(),loadApprovedRiders()]);}
