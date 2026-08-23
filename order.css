@@ -173,3 +173,12 @@
     font-size:15px!important;
   }
 }
+
+/* V0.5.20.17: Marketplace CTA sits directly below external delivery buttons */
+.market-order-cta-row{
+  margin-top:8px!important;
+  margin-bottom:8px!important;
+}
+.market-order-cta-row + .community-actions{
+  margin-top:10px!important;
+}
