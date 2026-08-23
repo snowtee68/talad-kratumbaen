@@ -13,7 +13,7 @@
   const ORDER_NOTIFY_KEY='talad_order_notify_v042';
   let orderNotifyTimer=null,orderNotifyRealtime=null,orderNotifyRealtimeDebounce=null,orderNotifyBusy=false,orderNotifyBaseline=false,orderNotifyAudioArmed=false;
   let customerOrderTab='waiting',sellerOrderTab='action',customerOrderPage=1,sellerOrderPage=1,orderSearchTerm='',orderDateFilter='today',customerFocusGroupId=null,customerFocusOrderId=null;
-  const ORDER_UI_VERSION='0.5.20.7';
+  const ORDER_UI_VERSION='0.5.20.8';
   let orderNotifyState={statuses:{},viewed:{},reminded:{},unread:0};
   const esc=(v='')=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const money=n=>Number(n||0).toLocaleString('th-TH',{minimumFractionDigits:0,maximumFractionDigits:2});
@@ -487,11 +487,11 @@
     document.querySelectorAll('.card[data-id]').forEach(card=>{
       const id=String(card.dataset.id||''); if(!productShopIds.has(id)||card.querySelector('[data-market-order-shop]'))return;
       const actions=card.querySelector('.community-actions')||card.querySelector('.card-body');if(!actions)return;
-      const b=document.createElement('button');b.className='market-order-btn';b.dataset.marketOrderShop=id;b.textContent='🛒 สั่งผ่านตลาด';actions.appendChild(b);
+      const b=document.createElement('button');b.className='market-order-btn';b.dataset.marketOrderShop=id;b.textContent='🛒 สั่งซื้อผ่านตลาด';actions.appendChild(b);
     });
     const detail=document.getElementById('detailSummary');
     if(detail&&!detail.querySelector('[data-market-order-shop]')){
-      const id=document.getElementById('reviewShopId')?.value;if(id&&productShopIds.has(String(id))){const b=document.createElement('button');b.className='market-order-btn';b.dataset.marketOrderShop=id;b.textContent='🛒 ดูสินค้า / สั่งผ่านตลาด';detail.prepend(b);}
+      const id=document.getElementById('reviewShopId')?.value;if(id&&productShopIds.has(String(id))){const b=document.createElement('button');b.className='market-order-btn';b.dataset.marketOrderShop=id;b.textContent='🛒 ดูสินค้าและสั่งซื้อ';detail.prepend(b);}
     }
   }
 
@@ -778,7 +778,7 @@
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=5.7.9.22',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=5.7.9.23',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
