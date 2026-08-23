@@ -13,7 +13,7 @@
   const ORDER_NOTIFY_KEY='talad_order_notify_v042';
   let orderNotifyTimer=null,orderNotifyRealtime=null,orderNotifyRealtimeDebounce=null,orderNotifyBusy=false,orderNotifyBaseline=false,orderNotifyAudioArmed=false;
   let customerOrderTab='waiting',sellerOrderTab='action',customerOrderPage=1,sellerOrderPage=1,orderSearchTerm='',orderDateFilter='today',customerFocusGroupId=null;
-  const ORDER_UI_VERSION='0.5.18.1';
+  const ORDER_UI_VERSION='0.5.19';
   let orderNotifyState={statuses:{},viewed:{},reminded:{},unread:0};
   const esc=(v='')=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const money=n=>Number(n||0).toLocaleString('th-TH',{minimumFractionDigits:0,maximumFractionDigits:2});
@@ -267,7 +267,30 @@
   }
   function scheduleRealtimeOrderRefresh(){
     if(orderNotifyRealtimeDebounce)clearTimeout(orderNotifyRealtimeDebounce);
-    orderNotifyRealtimeDebounce=setTimeout(()=>{orderNotifyRealtimeDebounce=null;pollOrderNotifications()},700);
+    orderNotifyRealtimeDebounce=setTimeout(async()=>{
+      orderNotifyRealtimeDebounce=null;
+      await pollOrderNotifications();
+      // Re-render the screen that is currently open so status changes are visible
+      // without requiring a manual refresh.
+      try{
+        const panel=document.querySelector('#marketOrderModal .market-order-panel');
+        const oldScroll=panel?.scrollTop||0;
+        const sid=document.getElementById('sellerShopId')?.value;
+        if(sid){
+          await openSellerShop(sid);
+          const np=document.querySelector('#marketOrderModal .market-order-panel');
+          if(np)np.scrollTop=oldScroll;
+          return;
+        }
+        const hub=document.getElementById('hubContent');
+        if(hub){
+          const active=document.querySelector('[data-hub-tab].active')?.dataset?.hubTab||'customer';
+          await renderHubTab(active);
+          const np=document.querySelector('#marketOrderModal .market-order-panel');
+          if(np)np.scrollTop=oldScroll;
+        }
+      }catch(err){console.warn('Realtime UI refresh:',err?.message||err)}
+    },700);
   }
   async function startOrderNotifications(){
     if(!session||!canUseOrders())return;
@@ -776,18 +799,9 @@
     finally{if(btn){btn.disabled=false;btn.textContent=old;}}
   }
   async function sendOrderPush(eventName,{order_id=null,group_id=null,shop_id=null}={}){
-    if(!session)return;
-    const toSeller=new Set(['new_order','payment_submitted','revision_confirmed','refund_destination']);
-    const qs=new URLSearchParams({order_tab:toSeller.has(eventName)?'seller':'customer'});
-    if(order_id)qs.set('order_id',String(order_id));
-    if(group_id)qs.set('group_id',String(group_id));
-    if(shop_id)qs.set('shop_id',String(shop_id));
-    const deepUrl=`./?${qs.toString()}`;
-    try{
-      await db.functions.invoke('send-order-push',{
-        body:{event:eventName,order_id,group_id,shop_id,url:deepUrl}
-      });
-    }catch(err){console.warn('Push notify:',err?.message||err)}
+    // Business notifications are sent by Database Trigger -> order-push-webhook.
+    // Keep this function as a compatibility no-op to avoid duplicate notifications.
+    return;
   }
 
   function orderDeepLink(){
