@@ -576,7 +576,7 @@
 
   async function ensurePushRegistration(){
     if(!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) throw new Error('เบราว์เซอร์นี้ยังไม่รองรับ Web Push');
-    pushRegistration=pushRegistration||await navigator.serviceWorker.register('sw.js?v=0.4.4',{scope:'./',updateViaCache:'none'});
+    pushRegistration=pushRegistration||await navigator.serviceWorker.register('sw.js?v=0.4.5',{scope:'./',updateViaCache:'none'});
     await navigator.serviceWorker.ready;
     return pushRegistration;
   }
@@ -668,10 +668,31 @@
 
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden && jobAlertEnabled && riderProfile?.online){ primeKnownOpenJobs().then(startJobAlertRealtime); } });
 
+  async function loadRiderDeliveryProofStates(jobIds){
+    const ids=[...(jobIds||[])].filter(Boolean);
+    if(!ids.length)return {};
+    try{
+      const {data,error}=await db.from('market_delivery_batches')
+        .select('rider_job_id,delivery_arrived_at,proof_uploaded_at,customer_confirmed_at,delivery_issue_status,completed_at')
+        .in('rider_job_id',ids);
+      if(error)throw error;
+      const map={};
+      for(const b of data||[])map[String(b.rider_job_id)]=b;
+      return map;
+    }catch(err){
+      console.warn('โหลดสถานะหลักฐานส่งมอบไม่สำเร็จ',err?.message||err);
+      return {};
+    }
+  }
   const jobSelect='*, rider_job_stops(*)';
   function sortStops(j){ return [...(j.rider_job_stops||[])].sort((a,b)=>a.stop_order-b.stop_order); }
   async function loadMyJobs(){
-    if(!session)return;const {data,error}=await db.from('rider_jobs').select(jobSelect).eq('creator_id',session.user.id).order('created_at',{ascending:false}).limit(30);if(error)return $('#myJobs').innerHTML=`<div class="notice">${esc(error.message)}</div>`;$('#myJobs').innerHTML=(data||[]).map(j=>jobCard(j,'customer')).join('')||'<div class="notice">ยังไม่มีงาน</div>';
+    if(!session)return;
+    const {data,error}=await db.from('rider_jobs').select(jobSelect).eq('creator_id',session.user.id).order('created_at',{ascending:false}).limit(30);
+    if(error)return $('#myJobs').innerHTML=`<div class="notice">${esc(error.message)}</div>`;
+    const proof=await loadRiderDeliveryProofStates((data||[]).map(j=>j.id));
+    const rows=(data||[]).map(j=>Object.assign(j,{delivery_proof_state:proof[String(j.id)]||null}));
+    $('#myJobs').innerHTML=rows.map(j=>jobCard(j,'customer')).join('')||'<div class="notice">ยังไม่มีงาน</div>';
   }
   async function loadRiderJobs(){
     if(!riderProfile||riderProfile.approval_status!=='approved')return;
@@ -680,7 +701,12 @@
       db.from('rider_jobs').select(jobSelect).eq('assigned_rider_id',session.user.id).neq('status','completed').neq('status','cancelled').order('created_at',{ascending:false})
     ]);
     $('#openJobs').innerHTML=openErr?`<div class="notice">${esc(openErr.message)}</div>`:(open||[]).map(j=>jobCard(j,'open')).join('')||'<div class="notice">ยังไม่มีงานใหม่</div>';
-    $('#riderJobs').innerHTML=mineErr?`<div class="notice">${esc(mineErr.message)}</div>`:(mine||[]).map(j=>jobCard(j,'rider')).join('')||'<div class="notice">ยังไม่มีงานที่กำลังทำ</div>';
+    let mineRows=mine||[];
+    if(!mineErr&&mineRows.length){
+      const proof=await loadRiderDeliveryProofStates(mineRows.map(j=>j.id));
+      mineRows=mineRows.map(j=>Object.assign(j,{delivery_proof_state:proof[String(j.id)]||null}));
+    }
+    $('#riderJobs').innerHTML=mineErr?`<div class="notice">${esc(mineErr.message)}</div>`:mineRows.map(j=>jobCard(j,'rider')).join('')||'<div class="notice">ยังไม่มีงานที่กำลังทำ</div>';
   }
 
   function routeMarkup(stops,mode){
@@ -707,8 +733,18 @@
         actions+=`<button class="danger" data-action="withdraw" data-id="${j.id}">ถอนตัวจากงาน</button>`;
       }
       if(j.status==='picked_up') actions+=`<button class="primary" data-action="start-delivery" data-id="${j.id}">เริ่มจัดส่ง</button>`;
-      else if(j.status==='delivering'&&!j.delivery_arrived_at) actions+=`<button class="primary" data-action="complete-delivery" data-id="${j.id}">📸 ถึงปลายทาง / ส่งมอบสินค้า</button>`;
-      else if(j.status==='delivering'&&j.delivery_arrived_at) actions+=`<span class="notice compact">⏳ ส่งมอบแล้ว · รอลูกค้ายืนยันรับสินค้า</span>`;
+      else if(j.status==='delivering'){
+        const pod=j.delivery_proof_state||null;
+        if(!pod?.delivery_arrived_at){
+          actions+=`<button class="primary" data-action="complete-delivery" data-id="${j.id}">📸 ถึงปลายทาง / ส่งมอบสินค้า</button>`;
+        }else if(pod.customer_confirmed_at||pod.completed_at){
+          actions+=`<div class="notice compact">✅ ลูกค้ายืนยันรับสินค้าแล้ว${pod.customer_confirmed_at?` · ${fmtTime(pod.customer_confirmed_at)}`:''}</div>`;
+        }else if(pod.delivery_issue_status==='open'){
+          actions+=`<div class="notice compact">⚠️ ส่งหลักฐานแล้ว แต่ลูกค้าแจ้งปัญหา · รูปถูกเก็บไว้ตรวจสอบ</div>`;
+        }else{
+          actions+=`<div class="notice compact">✅ ส่งหลักฐานแล้ว${pod.proof_uploaded_at?` · ${fmtTime(pod.proof_uploaded_at)}`:''}<br>⏳ รอลูกค้ายืนยันรับสินค้า</div>`;
+        }
+      }
       actions += `<button class="ghost" data-action="route" data-id="${j.id}">ดูเส้นทางทั้งหมด</button>`;
     }
     const title=pickupCount>1?`รับ ${pickupCount} จุด → ${esc(j.dropoff_label)}`:`${esc(j.pickup_label)} → ${esc(j.dropoff_label)}`;
@@ -757,14 +793,24 @@
     if(action==='complete-pickup'){const {error}=await db.rpc('rider_complete_pickup_stop',{p_job_id:id,p_stop_id:b.dataset.stopId});if(error)return alert(error.message);await Promise.all([loadRiderJobs(),loadMyJobs()]);}
     if(action==='start-delivery'){const {error}=await db.rpc('rider_start_delivery',{p_job_id:id});if(error)return alert(error.message);await Promise.all([loadRiderJobs(),loadMyJobs()]);}
     if(action==='complete-delivery'){
+      if(b.disabled)return;
       if(!confirm('ยืนยันว่าถึงปลายทางและกำลังส่งมอบสินค้า? ระบบจะให้ถ่ายรูปหลักฐาน และรอลูกค้ายืนยันก่อนปิดงาน'))return;
       let proofPath=null;
+      const oldText=b.textContent;
+      b.disabled=true;b.textContent='⏳ กำลังถ่าย/ส่งหลักฐาน...';
       try{
-        proofPath=await riderCaptureDeliveryProof(id);if(!proofPath)return;
+        proofPath=await riderCaptureDeliveryProof(id);
+        if(!proofPath){b.disabled=false;b.textContent=oldText;return;}
+        b.textContent='⏳ กำลังบันทึกหลักฐาน...';
         const {error}=await db.rpc('rider_mark_delivery_arrived',{p_job_id:id,p_proof_path:proofPath});
         if(error)throw error;
-        alert('ส่งหลักฐานแล้ว ✅ ตอนนี้รอลูกค้ายืนยันว่าได้รับสินค้า');
-      }catch(err){if(proofPath)try{await db.storage.from('rider-delivery-proof').remove([proofPath])}catch(_e){}return alert('บันทึกการส่งมอบไม่สำเร็จ: '+(err?.message||err));}
+        b.textContent='✅ ส่งหลักฐานแล้ว · รอลูกค้ายืนยัน';
+        alert('✅ ส่งหลักฐานเรียบร้อยแล้ว\nระบบบันทึกเวลาแล้ว และจะไม่ให้กดส่งซ้ำ');
+      }catch(err){
+        if(proofPath)try{await db.storage.from('rider-delivery-proof').remove([proofPath])}catch(_e){}
+        b.disabled=false;b.textContent=oldText;
+        return alert('บันทึกการส่งมอบไม่สำเร็จ: '+(err?.message||err));
+      }
       await Promise.all([loadRiderJobs(),loadMyJobs()]);
     }
     if(action==='route') await showRoute(id);
