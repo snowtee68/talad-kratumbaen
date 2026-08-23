@@ -13,7 +13,7 @@
   const ORDER_NOTIFY_KEY='talad_order_notify_v042';
   let orderNotifyTimer=null,orderNotifyRealtime=null,orderNotifyRealtimeDebounce=null,orderNotifyBusy=false,orderNotifyBaseline=false,orderNotifyAudioArmed=false;
   let customerOrderTab='waiting',sellerOrderTab='action',customerOrderPage=1,sellerOrderPage=1,orderSearchTerm='',orderDateFilter='today',customerFocusGroupId=null;
-  const ORDER_UI_VERSION='0.5.18';
+  const ORDER_UI_VERSION='0.5.18.1';
   let orderNotifyState={statuses:{},viewed:{},reminded:{},unread:0};
   const esc=(v='')=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const money=n=>Number(n||0).toLocaleString('th-TH',{minimumFractionDigits:0,maximumFractionDigits:2});
@@ -662,8 +662,13 @@
     const btn=document.getElementById('submitCheckoutBtn');if(btn){btn.disabled=true;btn.textContent='กำลังสร้างออเดอร์...'}
     const {data,error}=await db.rpc('market_create_checkout_v041',{p_customer_name:name,p_customer_phone:phone,p_fulfillment_method:method,p_delivery_address:method==='delivery'?address:null,p_delivery_lat:method==='delivery'?lat:null,p_delivery_lng:method==='delivery'?lng:null,p_pickup_requested_at:pickupAt,p_orders:payload});
     if(error){if(btn){btn.disabled=false;btn.textContent='สร้างออเดอร์'}return alert('สร้างออเดอร์ไม่สำเร็จ: '+error.message)}
-    sendOrderPush('new_order',{group_id:data?.group_id});
-    saveCart([]);await showCheckoutResult(data?.group_id||data);
+    const createdGroupId=(data&&typeof data==='object')?(data.group_id||data.id||null):data;
+    if(!createdGroupId){
+      if(btn){btn.disabled=false;btn.textContent='สร้างออเดอร์'}
+      return alert('สร้างออเดอร์สำเร็จแต่ระบบไม่พบรหัสชุดคำสั่งซื้อ กรุณาเปิดออเดอร์ของฉันเพื่อตรวจสอบ');
+    }
+    sendOrderPush('new_order',{group_id:createdGroupId});
+    saveCart([]);await showCheckoutResult(createdGroupId);
   }
   async function showCheckoutResult(groupId){
     customerFocusGroupId=String(groupId||'');
@@ -924,7 +929,10 @@
     for(const g of filtered)buckets[customerGroupBucket(g)].push(g);
 
     const focused=customerFocusGroupId?(groups||[]).find(g=>String(g.id)===String(customerFocusGroupId)):null;
-    if(focused)customerOrderTab=customerGroupBucket(focused);
+    if(customerFocusGroupId){
+      if(focused)customerOrderTab=customerGroupBucket(focused);
+      else customerOrderTab='waiting';
+    }
     if(!buckets[customerOrderTab])customerOrderTab='waiting';
     const active=buckets[customerOrderTab];
     if(customerFocusGroupId)active.sort((a,b)=>String(a.id)===String(customerFocusGroupId)?-1:String(b.id)===String(customerFocusGroupId)?1:0);

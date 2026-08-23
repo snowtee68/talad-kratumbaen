@@ -1,5 +1,5 @@
 {
-  "version": "0.5.18",
+  "version": "0.5.18.1",
   "base": "talad-kratumbaen-main (7).zip",
   "features_required": [
     "address_dropdown",
@@ -19,5 +19,6 @@
     "refund_flow",
     "product_limit_100"
   ],
-  "rider_payer": "recipient"
+  "rider_payer": "recipient",
+  "fix": "post-checkout always focuses newly created group id"
 }
