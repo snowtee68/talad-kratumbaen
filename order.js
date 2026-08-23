@@ -13,7 +13,7 @@
   const ORDER_NOTIFY_KEY='talad_order_notify_v042';
   let orderNotifyTimer=null,orderNotifyRealtime=null,orderNotifyRealtimeDebounce=null,orderNotifyBusy=false,orderNotifyBaseline=false,orderNotifyAudioArmed=false;
   let customerOrderTab='waiting',sellerOrderTab='action',customerOrderPage=1,sellerOrderPage=1,orderSearchTerm='',orderDateFilter='today',customerFocusGroupId=null,customerFocusOrderId=null;
-  const ORDER_UI_VERSION='0.5.20.5';
+  const ORDER_UI_VERSION='0.5.20.6';
   let orderNotifyState={statuses:{},viewed:{},reminded:{},unread:0};
   const esc=(v='')=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const money=n=>Number(n||0).toLocaleString('th-TH',{minimumFractionDigits:0,maximumFractionDigits:2});
@@ -276,7 +276,16 @@
     }catch(err){console.warn('Order notification poll:',err?.message||err)}
     finally{orderNotifyBusy=false}
   }
-  function scheduleRealtimeOrderRefresh(){
+  function scheduleRealtimeOrderRefresh(payload){
+    // Capture the exact order that changed. This is essential for multi-shop groups:
+    // the customer UI should follow the changed order, not whichever tab was open before.
+    const changedOrderId=payload?.new?.id||payload?.old?.id||null;
+    const changedStatus=payload?.new?.status||null;
+    const changedCustomerId=payload?.new?.customer_id||payload?.old?.customer_id||null;
+    if(changedOrderId && changedCustomerId===session?.user?.id){
+      customerFocusOrderId=String(changedOrderId);
+      if(changedStatus)customerOrderTab=customerOrderStatusBucket(changedStatus);
+    }
     if(orderNotifyRealtimeDebounce)clearTimeout(orderNotifyRealtimeDebounce);
     orderNotifyRealtimeDebounce=setTimeout(async()=>{
       orderNotifyRealtimeDebounce=null;
@@ -305,8 +314,18 @@
             }catch(_e){}
           }
           await renderHubTab(active);
-          const np=document.querySelector('#marketOrderModal .market-order-panel');
-          if(np)np.scrollTop=oldScroll;
+          // For a customer status transition, move the changed order into view.
+          if(active==='customer'&&customerFocusOrderId){
+            setTimeout(()=>{
+              const card=document.querySelector(`[data-order-card-id="${CSS.escape(customerFocusOrderId)}"]`);
+              const ship=document.querySelector('[data-create-delivery]');
+              const target=card||ship||document.querySelector('.order-active-pane');
+              if(target)target.scrollIntoView({behavior:'smooth',block:'center'});
+            },80);
+          }else{
+            const np=document.querySelector('#marketOrderModal .market-order-panel');
+            if(np)np.scrollTop=oldScroll;
+          }
         }
       }catch(err){console.warn('Realtime UI refresh:',err?.message||err)}
     },700);
@@ -748,7 +767,7 @@
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=5.7.9.20',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=5.7.9.21',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
