@@ -13,7 +13,7 @@
   const ORDER_NOTIFY_KEY='talad_order_notify_v042';
   let orderNotifyTimer=null,orderNotifyRealtime=null,orderNotifyRealtimeDebounce=null,orderNotifyBusy=false,orderNotifyBaseline=false,orderNotifyAudioArmed=false;
   let customerOrderTab='waiting',sellerOrderTab='action',customerOrderPage=1,sellerOrderPage=1,orderSearchTerm='',orderDateFilter='today',customerFocusGroupId=null;
-  const ORDER_UI_VERSION='0.5.20.2';
+  const ORDER_UI_VERSION='0.5.20.3';
   let orderNotifyState={statuses:{},viewed:{},reminded:{},unread:0};
   const esc=(v='')=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const money=n=>Number(n||0).toLocaleString('th-TH',{minimumFractionDigits:0,maximumFractionDigits:2});
@@ -730,7 +730,7 @@
         if(upErr)throw upErr;
       }catch(err){btn.disabled=false;btn.textContent='ส่งหลักฐานให้ร้านตรวจสอบ';return alert('อัปโหลดสลิปไม่สำเร็จ: '+err.message)}
     }
-    const {error}=await db.rpc('market_submit_payment',{p_order_id:orderId,p_payment_ref:ref||null,p_slip_path:path});btn.disabled=false;btn.textContent='ส่งหลักฐานให้ร้านตรวจสอบ';if(error){if(path)await safeRemove('order-slips',path);return alert(error.message)}if(path&&oldSlipPath&&oldSlipPath!==path)await safeRemove('order-slips',oldSlipPath);sendOrderPush('payment_submitted',{order_id:orderId});alert('แจ้งชำระเงินแล้ว ร้านค้าจะตรวจสอบยอด');openAccountHub('customer');
+    const {error}=await db.rpc('market_submit_payment',{p_order_id:orderId,p_payment_ref:ref||null,p_slip_path:path});btn.disabled=false;btn.textContent='ส่งหลักฐานให้ร้านตรวจสอบ';if(error){if(path)await safeRemove('order-slips',path);return alert(error.message)}if(path&&oldSlipPath&&oldSlipPath!==path)await safeRemove('order-slips',oldSlipPath);sendOrderPush('payment_submitted',{order_id:orderId});alert('แจ้งชำระเงินแล้ว ร้านค้าจะตรวจสอบยอด');guideCustomerFromOrder(orderId,'ชำระเงินแล้ว · รอร้านตรวจสอบยอด เมื่อร้านยืนยัน ระบบจะย้ายไปกำลังเตรียมสินค้า');
   }
 
 
@@ -740,7 +740,7 @@
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=5.7.9.17',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=5.7.9.18',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
@@ -877,6 +877,15 @@
     openModal(`<h2 class="mo-title">🛍️ ออเดอร์และร้านของฉัน</h2><div id="orderPushSettings" class="payment-card"><b>🔔 การแจ้งเตือนบนมือถือ</b><div class="mo-muted" id="orderPushStatus">กำลังตรวจสอบ...</div><div class="mo-actions"><button id="enableOrderPushBtn" class="mo-primary">เปิดการแจ้งเตือนบนมือถือ</button><button id="disableOrderPushBtn" class="mo-secondary" style="display:none">ปิดการแจ้งเตือนเครื่องนี้</button><button id="testOrderPushBtn" class="mo-secondary" style="display:none">🔔 ส่งแจ้งเตือนทดสอบ</button></div></div><div class="seller-tabs"><button data-hub-tab="customer" class="${tab==='customer'?'active':''}">ออเดอร์ที่ฉันสั่ง</button><button data-hub-tab="seller" class="${tab==='seller'?'active':''}">ร้าน / ออเดอร์ที่ได้รับ</button></div><div id="hubContent">กำลังโหลด...</div>`,true);await refreshOrderPushUI();await renderHubTab(tab);
   }
   async function renderHubTab(tab){document.querySelectorAll('[data-hub-tab]').forEach(b=>b.classList.toggle('active',b.dataset.hubTab===tab));const box=document.getElementById('hubContent');if(!box)return;if(tab==='seller')return renderSellerHub(box);return renderCustomerHub(box);}
+  async function guideCustomerToGroup(groupId,message=''){
+    customerFocusGroupId=String(groupId||'');customerOrderPage=1;orderDateFilter='all';
+    await openAccountHub('customer');
+    if(message)setTimeout(()=>{const pane=document.querySelector('.order-active-pane');if(pane){const n=document.createElement('div');n.className='post-checkout-banner';n.innerHTML=`<b>➡️ ขั้นตอนถัดไป</b><span>${esc(message)}</span>`;pane.prepend(n);n.scrollIntoView({behavior:'smooth',block:'start'})}},120);
+  }
+  async function guideCustomerFromOrder(orderId,message=''){
+    try{const {data:o}=await db.from('market_orders').select('group_id').eq('id',orderId).maybeSingle();if(o?.group_id)return guideCustomerToGroup(o.group_id,message)}catch(_e){}
+    return openAccountHub('customer');
+  }
   function customerGroupBucket(g){
     const os=g.orders||[],active=os.filter(o=>o.status!=='cancelled');
     const statuses=new Set(os.map(o=>o.status));
@@ -1182,7 +1191,7 @@
     const {data,error}=await db.rpc('market_shop_propose_order_revision',{p_order_id:orderId,p_revision_note:note.trim(),p_revision_subtotal:subtotal});if(error)return alert(error.message);sendOrderPush('revision_requested',{order_id:orderId});alert('ส่งรายการแก้ไขให้ลูกค้ายืนยันแล้ว');openSellerShop(data?.shop_id||document.getElementById('sellerShopId')?.value);
   }
   async function customerConfirmRevision(orderId){
-    if(!confirm('ยืนยันรายการและยอดใหม่ที่ร้านเสนอ? หลังยืนยันจึงจะสามารถชำระเงินได้'))return;const {data,error}=await db.rpc('market_customer_confirm_order_revision',{p_order_id:orderId});if(error)return alert(error.message);sendOrderPush('revision_confirmed',{order_id:orderId});alert('ยืนยันรายการใหม่แล้ว สามารถชำระเงินได้');openAccountHub('customer');
+    if(!confirm('ยืนยันรายการและยอดใหม่ที่ร้านเสนอ? หลังยืนยันจึงจะสามารถชำระเงินได้'))return;const {data,error}=await db.rpc('market_customer_confirm_order_revision',{p_order_id:orderId});if(error)return alert(error.message);sendOrderPush('revision_confirmed',{order_id:orderId});alert('ยืนยันรายการใหม่แล้ว สามารถชำระเงินได้');guideCustomerFromOrder(orderId,'ร้านปรับรายการเรียบร้อยแล้ว · ขั้นต่อไปชำระเงินร้านนี้');
   }
   async function customerCancelShopOrder(orderId){
     const reason=prompt('เหตุผลที่ต้องการยกเลิกร้านนี้ (ไม่บังคับ)','');if(reason===null)return;if(!confirm('ยืนยันยกเลิกเฉพาะออเดอร์ของร้านนี้? ร้านอื่นในชุดยังดำเนินการต่อ'))return;const {data,error}=await db.rpc('market_customer_cancel_order',{p_order_id:orderId,p_reason:reason||null});if(error)return alert(error.message);sendOrderPush('order_cancelled',{order_id:orderId});alert('ยกเลิกร้านนี้แล้ว');openAccountHub('customer');
@@ -1194,7 +1203,7 @@
     alert(data?.group_completed?'✅ ลูกค้ารับสินค้าครบทุกร้านแล้ว ชุดคำสั่งซื้อเสร็จสมบูรณ์':'✅ ปิดการรับสินค้าของร้านนี้แล้ว');
     openSellerShop(data?.shop_id||document.getElementById('sellerShopId')?.value);
   }
-  async function sellerSetStatus(orderId,status){if(status==='awaiting_payment'&&!confirm('ยืนยันว่าร้านยังไม่พบยอดชำระ?'))return;const {data,error}=await db.rpc('market_shop_set_order_status',{p_order_id:orderId,p_status:status});if(error)return alert(error.message);if(status==='ready')sendOrderPush('order_ready',{order_id:orderId});else if(status==='preparing')sendOrderPush('payment_confirmed',{order_id:orderId});alert(status==='ready'?'แจ้งลูกค้าว่าสินค้าพร้อมแล้ว':'อัปเดตสถานะแล้ว');openSellerShop(data?.shop_id||data||document.getElementById('sellerShopId')?.value);}
+  async function sellerSetStatus(orderId,status){if(status==='awaiting_payment'&&!confirm('ยืนยันว่าร้านยังไม่พบยอดชำระ?'))return;const {data,error}=await db.rpc('market_shop_set_order_status',{p_order_id:orderId,p_status:status});if(error)return alert(error.message);if(status==='ready')sendOrderPush('order_ready',{order_id:orderId});else if(status==='preparing')sendOrderPush('payment_confirmed',{order_id:orderId});if(status==='preparing')sellerOrderTab='preparing';else if(status==='ready')sellerOrderTab='ready';else sellerOrderTab='action';sellerOrderPage=1;alert(status==='ready'?'แจ้งลูกค้าว่าสินค้าพร้อมแล้ว':'อัปเดตสถานะแล้ว');openSellerShop(data?.shop_id||data||document.getElementById('sellerShopId')?.value);}
   async function sellerRejectOrder(orderId){
     const reason=prompt('เหตุผลที่ปฏิเสธออเดอร์\nเช่น สินค้าหมด / ร้านใกล้ปิด / ทำไม่ทัน / อื่น ๆ');if(reason===null)return;if(!reason.trim())return alert('กรุณาระบุเหตุผล');
     if(!confirm('ยืนยันปฏิเสธออเดอร์นี้?\nหากลูกค้ายังไม่ชำระจะจบรายการทันที หากชำระแล้วระบบจะเข้าสู่ขั้นตอนคืนเงิน'))return;
@@ -1252,9 +1261,9 @@
   }
   async function customerConfirmDelivery(batchId){
     if(!confirm('ยืนยันว่าคุณได้รับสินค้าครบและถูกต้องแล้ว? หลังยืนยันงานจัดส่งจะเสร็จสมบูรณ์'))return;
-    const {error}=await db.rpc('market_customer_confirm_delivery',{p_batch_id:batchId});
+    const {data,error}=await db.rpc('market_customer_confirm_delivery',{p_batch_id:batchId});
     if(error)return alert(error.message);
-    alert('✅ ยืนยันได้รับสินค้าแล้ว ขอบคุณครับ');openAccountHub('customer');
+    alert('✅ ยืนยันได้รับสินค้าแล้ว ขอบคุณครับ');guideCustomerToGroup(data?.group_id||'','จัดส่งเสร็จสมบูรณ์ · รายการถูกเก็บไว้ในประวัติ');
   }
   async function customerReportDeliveryIssue(batchId){
     const note=prompt('กรุณาระบุปัญหา\nเช่น ยังไม่ได้รับสินค้า / ส่งผิดบ้าน / สินค้าไม่ครบ');
@@ -1320,7 +1329,7 @@
       const {error:attachErr}=await db.rpc('market_attach_delivery_batch',{p_batch_id:batchId,p_rider_job_id:jobId,p_delivery_fee:fare.total,p_distance_km:+km.toFixed(3)});
       if(attachErr)throw attachErr;
       alert(`เรียกวินแล้วสำหรับ ${ready.length} ร้าน\nค่าส่งประมาณ ${fare.total} บาท${partial?`\nยังเหลือ ${notReady.length} ร้านรอพร้อม`:''}`);
-      openAccountHub('customer');
+      guideCustomerToGroup(groupId,partial?`เรียกวินสำหรับ ${ready.length} ร้านแล้ว · ติดตามวินได้ที่นี่ และยังเหลือ ${notReady.length} ร้านรอพร้อม`:'เรียกวินแล้ว · ติดตามสถานะวินและการจัดส่งได้ที่นี่');
     }catch(err){
       try{await db.rpc('market_cancel_delivery_batch_creation',{p_batch_id:batchId})}catch(_e){}
       alert('เรียกวินไม่สำเร็จ: '+(err?.message||err));
