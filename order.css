@@ -134,3 +134,42 @@
     white-space:nowrap!important;
   }
 }
+
+/* V0.5.20.16 FIX: CTA is physically outside the compact action row */
+.market-order-cta-row{
+  display:flex!important;
+  justify-content:center!important;
+  align-items:center!important;
+  width:100%!important;
+  max-width:100%!important;
+  min-width:0!important;
+  box-sizing:border-box!important;
+  margin:8px 0 0!important;
+  padding:0!important;
+  clear:both!important;
+}
+.market-order-cta-row .market-order-btn{
+  display:block!important;
+  width:92%!important;
+  max-width:92%!important;
+  min-width:0!important;
+  min-height:50px!important;
+  margin:0 auto!important;
+  box-sizing:border-box!important;
+  border:0!important;
+  border-radius:12px!important;
+  background:#8f0d12!important;
+  color:#fff!important;
+  padding:13px 10px!important;
+  text-align:center!important;
+  white-space:nowrap!important;
+  overflow:visible!important;
+  font:800 16px/1.25 Prompt,sans-serif!important;
+}
+@media(max-width:640px){
+  .market-order-cta-row .market-order-btn{
+    width:96%!important;
+    max-width:96%!important;
+    font-size:15px!important;
+  }
+}
