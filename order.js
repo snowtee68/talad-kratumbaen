@@ -6,14 +6,14 @@
   const CART_KEY='talad_multishop_cart_v1';
   // TEST MODE: keep ordering hidden from the public until the flow is fully tested.
   // Change ORDER_PUBLIC_ENABLED to true when ready to launch publicly.
-  const ORDER_PUBLIC_ENABLED=false;
+  const ORDER_PUBLIC_ENABLED=true;
   const ORDER_TEST_EMAILS=['snowtee68@gmail.com'];
   const MAX_PICKUPS=5, EXTRA_PICKUP_FEE=10;
   let session=null, productShopIds=new Set(), productOptionDraft=[];
   const ORDER_NOTIFY_KEY='talad_order_notify_v042';
   let orderNotifyTimer=null,orderNotifyRealtime=null,orderNotifyRealtimeDebounce=null,orderNotifyBusy=false,orderNotifyBaseline=false,orderNotifyAudioArmed=false;
   let customerOrderTab='waiting',sellerOrderTab='action',customerOrderPage=1,sellerOrderPage=1,orderSearchTerm='',orderDateFilter='today',customerFocusGroupId=null,customerFocusOrderId=null;
-  const ORDER_UI_VERSION='0.5.20.6';
+  const ORDER_UI_VERSION='0.5.20.7';
   let orderNotifyState={statuses:{},viewed:{},reminded:{},unread:0};
   const esc=(v='')=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const money=n=>Number(n||0).toLocaleString('th-TH',{minimumFractionDigits:0,maximumFractionDigits:2});
@@ -471,9 +471,16 @@
   async function safeRemove(bucket,path){if(!path)return true;const {error}=await db.storage.from(bucket).remove([path]);if(error){console.warn('ลบไฟล์เก่าไม่สำเร็จ',path,error.message);return false}return true;}
 
   async function refreshProductShops(){
-    const {data,error}=await db.from('market_products').select('shop_id').eq('sale_status','available').limit(5000);
-    if(error){console.debug('Order SQL not installed yet:',error.message);productShopIds=new Set();return;}
-    productShopIds=new Set((data||[]).map(x=>String(x.shop_id)));
+    const [{data:access,error:aErr},{data:settings,error:sErr},{data:products,error:pErr}]=await Promise.all([
+      db.from('market_order_shop_access').select('shop_id').eq('enabled',true).limit(5000),
+      db.from('market_shop_order_settings').select('shop_id,enabled').eq('enabled',true).limit(5000),
+      db.from('market_products').select('shop_id').eq('sale_status','available').limit(5000)
+    ]);
+    const error=aErr||sErr||pErr;
+    if(error){console.debug('Order access not ready:',error.message);productShopIds=new Set();return;}
+    const allowed=new Set((access||[]).map(x=>String(x.shop_id)));
+    const opened=new Set((settings||[]).map(x=>String(x.shop_id)));
+    productShopIds=new Set((products||[]).map(x=>String(x.shop_id)).filter(id=>allowed.has(id)&&opened.has(id)));
   }
   function decorateShopCards(){
     if(!canUseOrders())return;
@@ -490,18 +497,22 @@
 
   async function openShopMenu(shopId){
     if(!canUseOrders())return;
-    const [{data:shop},{data:setting},{data:products,error}]=await Promise.all([
+    const [{data:shop},{data:setting},{data:access},{data:products,error}]=await Promise.all([
       db.from('market_shops').select('id,name,cover_url').eq('id',shopId).maybeSingle(),
       db.from('market_shop_order_settings').select('*').eq('shop_id',shopId).maybeSingle(),
+      db.from('market_order_shop_access').select('enabled').eq('shop_id',shopId).maybeSingle(),
       db.from('market_products').select('*').eq('shop_id',shopId).neq('sale_status','discontinued').order('sort_order').order('created_at')
     ]);
     if(error)return alert('โหลดสินค้าไม่สำเร็จ: '+error.message);
-    const av=shopAvailability(setting),notice=av.ok?`<div class="mo-muted">${esc(av.msg)} · เลือกสินค้าใส่ตะกร้าได้ และสั่งจากหลายร้านพร้อมกัน</div>`:`<div class="warning-banner">⏸️ ${esc(av.msg)}</div>`;
+    const av=access?.enabled?shopAvailability(setting):{ok:false,msg:'ร้านนี้ยังไม่ได้เปิดสิทธิ์สั่งซื้อผ่านระบบจริง'};
+    const notice=av.ok?`<div class="mo-muted">${esc(av.msg)} · เลือกสินค้าใส่ตะกร้าได้ และสั่งจากหลายร้านพร้อมกัน</div>`:`<div class="warning-banner">⏸️ ${esc(av.msg)}</div>`;
     openModal(`<h2 class="mo-title">${esc(shop?.name||'ร้านค้า')}</h2>${notice}<div class="product-grid">${(products||[]).map(p=>{const sold=p.sale_status==='sold_out',can=av.ok&&p.sale_status==='available';return `<article class="product-card">${p.image_url?`<img src="${esc(p.image_url)}" alt="${esc(p.name)}">`:'<div style="aspect-ratio:4/3;background:#f3f3f3;display:grid;place-items:center;font-size:42px">🛍️</div>'}<div class="body"><h4>${esc(p.name)}</h4><p>${esc(p.description||'')}</p><div class="price">${money(p.price)} บาท</div>${sold?'<div class="status-pill">หมดชั่วคราว</div>':''}<button ${can?`data-add-product="${esc(p.id)}"`:'disabled'}>${sold?'สินค้าหมด':av.ok?'+ ใส่ตะกร้า':'ยังไม่เปิดรับออเดอร์'}</button></div></article>`}).join('')||'<p>ร้านนี้ยังไม่มีสินค้าที่เปิดขาย</p>'}</div>`,true);
   }
   async function addProduct(productId){
     const {data:p,error}=await db.from('market_products').select('id,shop_id,name,price,image_url,sale_status,shop:market_shops(name)').eq('id',productId).eq('sale_status','available').maybeSingle();
     if(error||!p)return alert(error?.message||'สินค้านี้ไม่พร้อมขาย');
+    const {data:access}=await db.from('market_order_shop_access').select('enabled').eq('shop_id',p.shop_id).maybeSingle();
+    if(!access?.enabled)return alert('ร้านนี้ยังไม่ได้เปิดสิทธิ์รับออเดอร์ผ่านระบบจริง');
     const [{data:groups,error:gErr},{data:values,error:vErr}]=await Promise.all([
       db.from('market_product_option_groups').select('*').eq('product_id',productId).eq('active',true).order('sort_order').order('created_at'),
       db.from('market_product_option_values').select('*,group:market_product_option_groups!inner(product_id)').eq('active',true).eq('group.product_id',productId).order('sort_order').order('created_at')
@@ -767,7 +778,7 @@
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=5.7.9.21',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=5.7.9.22',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
@@ -1072,8 +1083,9 @@
       loadShopInsights(shopId)
     ]);if(error)return alert(error.message);
     try{const unseenIds=(orders||[]).filter(o=>!o.shop_viewed_at&&!['cancelled','completed'].includes(o.status)).map(o=>o.id);if(unseenIds.length)await db.rpc('market_shop_mark_orders_viewed',{p_order_ids:unseenIds});}catch(_e){}
+    const {data:shopAccess}=await db.from('market_order_shop_access').select('enabled').eq('shop_id',shopId).maybeSingle();
     const accepting=setting?.accepting_status||'open';
-    openModal(`<input id="sellerShopId" type="hidden" value="${esc(shopId)}"><h2 class="mo-title">🏪 ${esc(shop?.name||'ร้าน')}</h2>${shopInsightHtml(insights)}<section class="seller-section"><h3>รับออเดอร์และการชำระเงิน</h3><div class="mo-form two"><label class="full"><input id="orderEnabled" type="checkbox" ${setting?.enabled?'checked':''}> เปิดระบบรับออเดอร์ผ่านตลาด</label><label>สถานะรับออเดอร์ตอนนี้<select id="acceptingStatus"><option value="open" ${accepting==='open'?'selected':''}>🟢 เปิดรับออเดอร์</option><option value="paused" ${accepting==='paused'?'selected':''}>⏸️ พักรับออเดอร์ชั่วคราว</option></select></label><label>เหตุผลที่พักรับ<input id="pauseReason" value="${esc(setting?.pause_reason||'')}" placeholder="เช่น ของหมด / คนไม่พอ"></label><label>เริ่มรับออเดอร์<input id="orderStartTime" type="time" value="${esc(hhmm(setting?.order_start_time))}"></label><label>หยุดรับออเดอร์<input id="orderEndTime" type="time" value="${esc(hhmm(setting?.order_end_time))}"></label><label>โหมดรับออเดอร์<select id="autoAcceptMode"><option value="manual" ${(setting?.auto_accept_mode||'manual')==='manual'?'selected':''}>✋ ร้านกดรับเอง</option><option value="always" ${setting?.auto_accept_mode==='always'?'selected':''}>⚡ รับอัตโนมัติตลอด</option><option value="schedule" ${setting?.auto_accept_mode==='schedule'?'selected':''}>🕐 รับอัตโนมัติตามเวลา</option></select></label><label>Auto เริ่ม<input id="autoAcceptStartTime" type="time" value="${esc(hhmm(setting?.auto_accept_start_time))}"></label><label>Auto หยุด<input id="autoAcceptEndTime" type="time" value="${esc(hhmm(setting?.auto_accept_end_time))}"></label><label class="full"><small>โหมดตามเวลา: นอกช่วงเวลาที่กำหนด ออเดอร์จะกลับไปรอร้านกดรับเอง ร้านเปลี่ยนโหมดนี้ได้ทุกเมื่อ</small></label><label>ชื่อบัญชี/ชื่อรับเงิน<input id="paymentName" value="${esc(setting?.payment_name||'')}"></label><label>หมายเหตุการชำระเงิน<input id="paymentNote" value="${esc(setting?.payment_note||'')}"></label><label class="full">อัปโหลดรูป QR PromptPay<input id="paymentQrFile" type="file" accept="image/*"></label>${setting?.payment_qr_url?`<div class="full"><img src="${esc(setting.payment_qr_url)}" style="max-width:180px;border:1px solid #ddd;border-radius:12px"></div>`:''}</div><div class="warning-banner">ถ้าไม่กำหนดเวลาเริ่ม/หยุด ระบบจะรับออเดอร์ตลอดวันที่ร้านเปิดระบบไว้</div><div class="mo-actions"><button id="saveOrderSettingsBtn" class="mo-primary">บันทึกการตั้งค่า</button></div></section><section class="seller-section"><div class="order-card-head"><div><h3 style="margin:0">สินค้า</h3><div class="mo-muted">${(products||[]).length}/100 รายการต่อร้าน</div></div><button id="addProductBtn" class="mo-primary" ${(products||[]).length>=100?'disabled style="opacity:.5" title="ครบ 100 รายการแล้ว"':''}>+ เพิ่มสินค้า</button></div>${(products||[]).map(p=>`<div class="seller-product-row"><div><b>${esc(p.name)}</b> · ${money(p.price)} บาท <span class="status-pill">${esc(productStatusText(p.sale_status|| (p.active?'available':'sold_out')))}</span></div><div><button class="mo-secondary" data-product-options="${p.id}">⚙️ ตัวเลือก</button> <button class="mo-secondary" data-edit-product="${p.id}">แก้ไข</button> <button class="mo-danger" data-delete-product="${p.id}">ลบถาวร</button></div></div>`).join('')||'<p>ยังไม่มีสินค้า</p>'}</section><section class="seller-section"><h3>ออเดอร์ที่ได้รับ</h3>${renderSellerOrderSections(orders||[])}</section>`,true);
+    openModal(`<input id="sellerShopId" type="hidden" value="${esc(shopId)}"><h2 class="mo-title">🏪 ${esc(shop?.name||'ร้าน')}</h2>${shopInsightHtml(insights)}<section class="seller-section"><h3>รับออเดอร์และการชำระเงิน</h3>${shopAccess?.enabled?'<div class="ready-banner">✅ ร้านนี้ได้รับสิทธิ์ใช้งานระบบสั่งซื้อจริงแล้ว</div>':'<div class="warning-banner">🔒 ร้านนี้ยังไม่ได้รับสิทธิ์เปิดขายผ่านระบบจริง กรุณาติดต่อผู้ดูแลระบบ</div>'}<div class="mo-form two"><label class="full"><input id="orderEnabled" type="checkbox" ${setting?.enabled?'checked':''}> เปิดระบบรับออเดอร์ผ่านตลาด</label><label>สถานะรับออเดอร์ตอนนี้<select id="acceptingStatus"><option value="open" ${accepting==='open'?'selected':''}>🟢 เปิดรับออเดอร์</option><option value="paused" ${accepting==='paused'?'selected':''}>⏸️ พักรับออเดอร์ชั่วคราว</option></select></label><label>เหตุผลที่พักรับ<input id="pauseReason" value="${esc(setting?.pause_reason||'')}" placeholder="เช่น ของหมด / คนไม่พอ"></label><label>เริ่มรับออเดอร์<input id="orderStartTime" type="time" value="${esc(hhmm(setting?.order_start_time))}"></label><label>หยุดรับออเดอร์<input id="orderEndTime" type="time" value="${esc(hhmm(setting?.order_end_time))}"></label><label>โหมดรับออเดอร์<select id="autoAcceptMode"><option value="manual" ${(setting?.auto_accept_mode||'manual')==='manual'?'selected':''}>✋ ร้านกดรับเอง</option><option value="always" ${setting?.auto_accept_mode==='always'?'selected':''}>⚡ รับอัตโนมัติตลอด</option><option value="schedule" ${setting?.auto_accept_mode==='schedule'?'selected':''}>🕐 รับอัตโนมัติตามเวลา</option></select></label><label>Auto เริ่ม<input id="autoAcceptStartTime" type="time" value="${esc(hhmm(setting?.auto_accept_start_time))}"></label><label>Auto หยุด<input id="autoAcceptEndTime" type="time" value="${esc(hhmm(setting?.auto_accept_end_time))}"></label><label class="full"><small>โหมดตามเวลา: นอกช่วงเวลาที่กำหนด ออเดอร์จะกลับไปรอร้านกดรับเอง ร้านเปลี่ยนโหมดนี้ได้ทุกเมื่อ</small></label><label>ชื่อบัญชี/ชื่อรับเงิน<input id="paymentName" value="${esc(setting?.payment_name||'')}"></label><label>หมายเหตุการชำระเงิน<input id="paymentNote" value="${esc(setting?.payment_note||'')}"></label><label class="full">อัปโหลดรูป QR PromptPay<input id="paymentQrFile" type="file" accept="image/*"></label>${setting?.payment_qr_url?`<div class="full"><img src="${esc(setting.payment_qr_url)}" style="max-width:180px;border:1px solid #ddd;border-radius:12px"></div>`:''}</div><div class="warning-banner">ถ้าไม่กำหนดเวลาเริ่ม/หยุด ระบบจะรับออเดอร์ตลอดวันที่ร้านเปิดระบบไว้</div><div class="mo-actions"><button id="saveOrderSettingsBtn" class="mo-primary">บันทึกการตั้งค่า</button></div></section><section class="seller-section"><div class="order-card-head"><div><h3 style="margin:0">สินค้า</h3><div class="mo-muted">${(products||[]).length}/100 รายการต่อร้าน</div></div><button id="addProductBtn" class="mo-primary" ${(products||[]).length>=100?'disabled style="opacity:.5" title="ครบ 100 รายการแล้ว"':''}>+ เพิ่มสินค้า</button></div>${(products||[]).map(p=>`<div class="seller-product-row"><div><b>${esc(p.name)}</b> · ${money(p.price)} บาท <span class="status-pill">${esc(productStatusText(p.sale_status|| (p.active?'available':'sold_out')))}</span></div><div><button class="mo-secondary" data-product-options="${p.id}">⚙️ ตัวเลือก</button> <button class="mo-secondary" data-edit-product="${p.id}">แก้ไข</button> <button class="mo-danger" data-delete-product="${p.id}">ลบถาวร</button></div></div>`).join('')||'<p>ยังไม่มีสินค้า</p>'}</section><section class="seller-section"><h3>ออเดอร์ที่ได้รับ</h3>${renderSellerOrderSections(orders||[])}</section>`,true);
   }
   document.addEventListener('click',e=>{const oc=e.target.closest?.('.order-card[data-order-card-id]');if(oc)markOrderSeen(oc.dataset.orderCardId)},true);
   function sellerOrderBucket(o){
