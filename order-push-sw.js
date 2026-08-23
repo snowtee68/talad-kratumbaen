@@ -13,15 +13,21 @@ self.addEventListener('push',event=>{
 });
 self.addEventListener('notificationclick',event=>{
   event.notification.close();
-  const raw=event.notification.data?.url||'./';
-  const target=new URL(raw,self.registration.scope).href;
   event.waitUntil((async()=>{
-    const list=await clients.matchAll({type:'window',includeUncontrolled:true});
-    for(const c of list){
-      if('navigate' in c)await c.navigate(target);
-      if('focus' in c)await c.focus();
-      return;
+    const raw=event.notification.data?.url||'./';
+    let target;
+    try{ target=new URL(raw,self.registration.scope).href; }
+    catch(_e){ target=self.registration.scope; }
+
+    const windows=await clients.matchAll({type:'window',includeUncontrolled:true});
+    // Prefer an existing window from this PWA scope, but always navigate it to the target.
+    for(const client of windows){
+      try{
+        if('navigate' in client) await client.navigate(target);
+        if('focus' in client) await client.focus();
+        return;
+      }catch(_e){}
     }
-    if(clients.openWindow)await clients.openWindow(target);
+    if(clients.openWindow) await clients.openWindow(target);
   })());
 });
