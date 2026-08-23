@@ -15,8 +15,13 @@ self.addEventListener('notificationclick',event=>{
   event.notification.close();
   const raw=event.notification.data?.url||'./';
   const target=new URL(raw,self.registration.scope).href;
-  event.waitUntil(clients.matchAll({type:'window',includeUncontrolled:true}).then(async list=>{
-    for(const c of list){if('focus' in c){if('navigate' in c)await c.navigate(target);await c.focus();return}}
-    if(clients.openWindow)return clients.openWindow(target);
-  }));
+  event.waitUntil((async()=>{
+    const list=await clients.matchAll({type:'window',includeUncontrolled:true});
+    for(const c of list){
+      if('navigate' in c)await c.navigate(target);
+      if('focus' in c)await c.focus();
+      return;
+    }
+    if(clients.openWindow)await clients.openWindow(target);
+  })());
 });

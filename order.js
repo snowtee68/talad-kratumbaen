@@ -770,11 +770,78 @@
     }catch(err){alert('ส่ง Push ทดสอบไม่สำเร็จ: '+(err?.message||err))}
     finally{if(btn){btn.disabled=false;btn.textContent=old;}}
   }
-  async function sendOrderPush(eventName,{order_id=null,group_id=null}={}){
+  async function sendOrderPush(eventName,{order_id=null,group_id=null,shop_id=null}={}){
     if(!session)return;
-    try{await db.functions.invoke('send-order-push',{body:{event:eventName,order_id,group_id}})}catch(err){console.warn('Push notify:',err?.message||err)}
+    const toSeller=new Set(['new_order','payment_submitted','revision_confirmed','refund_destination']);
+    const qs=new URLSearchParams({order_tab:toSeller.has(eventName)?'seller':'customer'});
+    if(order_id)qs.set('order_id',String(order_id));
+    if(group_id)qs.set('group_id',String(group_id));
+    if(shop_id)qs.set('shop_id',String(shop_id));
+    const deepUrl=`./?${qs.toString()}`;
+    try{
+      await db.functions.invoke('send-order-push',{
+        body:{event:eventName,order_id,group_id,shop_id,url:deepUrl}
+      });
+    }catch(err){console.warn('Push notify:',err?.message||err)}
   }
 
+  function orderDeepLink(){
+    try{
+      const u=new URL(location.href);
+      const tab=u.searchParams.get('order_tab');
+      const groupId=u.searchParams.get('group_id');
+      const orderId=u.searchParams.get('order_id');
+      const shopId=u.searchParams.get('shop_id');
+      if(!tab&&!groupId&&!orderId&&!shopId)return null;
+      return {tab:tab==='seller'?'seller':'customer',groupId,orderId,shopId};
+    }catch(_e){return null}
+  }
+  function clearOrderDeepLink(){
+    try{
+      const u=new URL(location.href);
+      ['order_tab','group_id','order_id','shop_id'].forEach(k=>u.searchParams.delete(k));
+      history.replaceState(null,'',u.pathname+(u.searchParams.toString()?'?'+u.searchParams.toString():'')+u.hash);
+    }catch(_e){}
+  }
+  async function resolveSellerShopFromDeepLink(d){
+    if(d.shopId)return d.shopId;
+    try{
+      if(d.orderId){
+        const {data:o}=await db.from('market_orders').select('shop_id').eq('id',d.orderId).maybeSingle();
+        if(o?.shop_id)return o.shop_id;
+      }
+      if(d.groupId){
+        const {data:orders}=await db.from('market_orders').select('shop_id').eq('group_id',d.groupId).limit(20);
+        const ids=[...new Set((orders||[]).map(x=>x.shop_id).filter(Boolean))];
+        if(ids.length){
+          const {data:mine}=await db.from('market_shops').select('id').eq('owner_id',session.user.id).in('id',ids).limit(1);
+          if(mine?.[0]?.id)return mine[0].id;
+        }
+      }
+    }catch(_e){}
+    return null;
+  }
+  async function openOrderDeepLink(){
+    const d=orderDeepLink();
+    if(!d||!session)return false;
+    orderDateFilter='all';
+    if(d.tab==='seller'){
+      await openAccountHub('seller');
+      const sid=await resolveSellerShopFromDeepLink(d);
+      if(sid)await openSellerShop(sid);
+    }else{
+      if(d.groupId)customerFocusGroupId=String(d.groupId);
+      else if(d.orderId){
+        try{
+          const {data:o}=await db.from('market_orders').select('group_id').eq('id',d.orderId).maybeSingle();
+          if(o?.group_id)customerFocusGroupId=String(o.group_id);
+        }catch(_e){}
+      }
+      await openAccountHub('customer');
+    }
+    clearOrderDeepLink();
+    return true;
+  }
   async function openAccountHub(tab='customer'){
     if(!canUseOrders())return;
     if(!session)return requireLogin();
