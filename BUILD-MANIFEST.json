@@ -1,0 +1,23 @@
+{
+  "version": "0.5.18",
+  "base": "talad-kratumbaen-main (7).zip",
+  "features_required": [
+    "address_dropdown",
+    "saved_delivery_address",
+    "delivery_fare_preview",
+    "delivery_10km_limit",
+    "max_5_pickups",
+    "realtime_orders",
+    "poll_fallback_5_minutes",
+    "push_notifications",
+    "notification_deep_link",
+    "multi_shop_delivery",
+    "partial_shop_cancel",
+    "rider_tracking",
+    "pickup_completion",
+    "shop_sales_report",
+    "refund_flow",
+    "product_limit_100"
+  ],
+  "rider_payer": "recipient"
+}
