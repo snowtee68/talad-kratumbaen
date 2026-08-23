@@ -12,8 +12,8 @@
   let session=null, productShopIds=new Set(), productOptionDraft=[];
   const ORDER_NOTIFY_KEY='talad_order_notify_v042';
   let orderNotifyTimer=null,orderNotifyRealtime=null,orderNotifyRealtimeDebounce=null,orderNotifyBusy=false,orderNotifyBaseline=false,orderNotifyAudioArmed=false;
-  let customerOrderTab='waiting',sellerOrderTab='action',customerOrderPage=1,sellerOrderPage=1,orderSearchTerm='',orderDateFilter='today',customerFocusGroupId=null;
-  const ORDER_UI_VERSION='0.5.20.4';
+  let customerOrderTab='waiting',sellerOrderTab='action',customerOrderPage=1,sellerOrderPage=1,orderSearchTerm='',orderDateFilter='today',customerFocusGroupId=null,customerFocusOrderId=null;
+  const ORDER_UI_VERSION='0.5.20.5';
   let orderNotifyState={statuses:{},viewed:{},reminded:{},unread:0};
   const esc=(v='')=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const money=n=>Number(n||0).toLocaleString('th-TH',{minimumFractionDigits:0,maximumFractionDigits:2});
@@ -296,6 +296,14 @@
         const hub=document.getElementById('hubContent');
         if(hub){
           const active=document.querySelector('[data-hub-tab].active')?.dataset?.hubTab||'customer';
+          // Customer screen should follow the status of the order/group being viewed
+          // instead of remaining on the old tab after a realtime transition.
+          if(active==='customer'&&customerFocusOrderId){
+            try{
+              const {data:o}=await db.from('market_orders').select('status').eq('id',customerFocusOrderId).maybeSingle();
+              if(o?.status)customerOrderTab=customerOrderStatusBucket(o.status);
+            }catch(_e){}
+          }
           await renderHubTab(active);
           const np=document.querySelector('#marketOrderModal .market-order-panel');
           if(np)np.scrollTop=oldScroll;
@@ -740,7 +748,7 @@
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=5.7.9.19',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=5.7.9.20',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
@@ -859,11 +867,13 @@
       const sid=await resolveSellerShopFromDeepLink(d);
       if(sid)await openSellerShop(sid);
     }else{
+      if(d.orderId)customerFocusOrderId=String(d.orderId);
       if(d.groupId)customerFocusGroupId=String(d.groupId);
-      else if(d.orderId){
+      if(d.orderId){
         try{
-          const {data:o}=await db.from('market_orders').select('group_id').eq('id',d.orderId).maybeSingle();
+          const {data:o}=await db.from('market_orders').select('group_id,status').eq('id',d.orderId).maybeSingle();
           if(o?.group_id)customerFocusGroupId=String(o.group_id);
+          if(o?.status)customerOrderTab=customerOrderStatusBucket(o.status);
         }catch(_e){}
       }
       await openAccountHub('customer');
@@ -883,8 +893,20 @@
     if(message)setTimeout(()=>{const pane=document.querySelector('.order-active-pane');if(pane){const n=document.createElement('div');n.className='post-checkout-banner';n.innerHTML=`<b>➡️ ขั้นตอนถัดไป</b><span>${esc(message)}</span>`;pane.prepend(n);n.scrollIntoView({behavior:'smooth',block:'start'})}},120);
   }
   async function guideCustomerFromOrder(orderId,message=''){
-    try{const {data:o}=await db.from('market_orders').select('group_id').eq('id',orderId).maybeSingle();if(o?.group_id)return guideCustomerToGroup(o.group_id,message)}catch(_e){}
+    customerFocusOrderId=String(orderId||'');
+    try{
+      const {data:o}=await db.from('market_orders').select('group_id,status').eq('id',orderId).maybeSingle();
+      if(o?.status)customerOrderTab=customerOrderStatusBucket(o.status);
+      if(o?.group_id)return guideCustomerToGroup(o.group_id,message);
+    }catch(_e){}
     return openAccountHub('customer');
+  }
+  function customerOrderStatusBucket(status){
+    if(['cancelled','completed'].includes(status))return 'done';
+    if(status==='ready')return 'shipping';
+    if(['payment_review','preparing'].includes(status))return 'processing';
+    if(['pending_shop','awaiting_customer_confirmation','awaiting_payment'].includes(status))return 'waiting';
+    return 'processing';
   }
   function customerGroupBucket(g){
     const os=g.orders||[],active=os.filter(o=>o.status!=='cancelled');
@@ -970,7 +992,11 @@
     for(const g of filtered)buckets[customerGroupBucket(g)].push(g);
 
     const focused=customerFocusGroupId?(groups||[]).find(g=>String(g.id)===String(customerFocusGroupId)):null;
-    if(customerFocusGroupId){
+    const focusedOrder=customerFocusOrderId?(groups||[]).flatMap(g=>(g.orders||[]).map(o=>({g,o}))).find(x=>String(x.o.id)===String(customerFocusOrderId)):null;
+    if(customerFocusOrderId&&focusedOrder){
+      customerFocusGroupId=String(focusedOrder.g.id);
+      customerOrderTab=customerOrderStatusBucket(focusedOrder.o.status);
+    }else if(customerFocusGroupId){
       if(focused)customerOrderTab=customerGroupBucket(focused);
       else customerOrderTab='waiting';
     }
@@ -986,7 +1012,7 @@
       ${shown.length?shown.map(customerGroupCard).join(''):'<div class="order-group-empty">ไม่มีรายการในหมวดนี้</div>'}
       ${active.length>shown.length?`<div class="order-load-more"><div class="mo-muted">แสดง ${shown.length} จาก ${active.length} รายการ</div><button id="customerLoadMoreOrders" class="mo-secondary">โหลดเพิ่ม</button></div>`:''}
       </section>`;
-    if(focused)setTimeout(()=>{customerFocusGroupId=null},1500);
+    if(focused||focusedOrder)setTimeout(()=>{customerFocusGroupId=null;customerFocusOrderId=null},2500);
   }
   async function renderSellerHub(box){
     box.innerHTML='กำลังโหลด...';const {data:shops,error}=await db.from('market_shops').select('id,name,status').eq('owner_id',session.user.id).order('created_at',{ascending:false});if(error){box.innerHTML=esc(error.message);return}box.innerHTML=`<div class="mo-muted">เลือกแท็บร้านเพื่อจัดสินค้า QR รับเงิน และดูออเดอร์ที่ลูกค้าสั่งเข้ามา</div>${(shops||[]).map(s=>`<button class="seller-shop-card" style="display:block;width:100%;text-align:left;background:#fff;cursor:pointer" data-seller-shop="${s.id}"><b>🏪 ${esc(s.name)}</b><div class="mo-muted">สถานะร้าน: ${esc(s.status)}</div></button>`).join('')||'<p>บัญชีนี้ยังไม่มีร้าน</p>'}`;
