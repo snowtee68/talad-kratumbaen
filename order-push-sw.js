@@ -13,9 +13,10 @@ self.addEventListener('push',event=>{
 });
 self.addEventListener('notificationclick',event=>{
   event.notification.close();
-  const target=new URL(event.notification.data?.url||'./',self.location.href).href;
-  event.waitUntil(clients.matchAll({type:'window',includeUncontrolled:true}).then(list=>{
-    for(const c of list){if('focus' in c){c.focus();if('navigate' in c)c.navigate(target);return}}
+  const raw=event.notification.data?.url||'./';
+  const target=new URL(raw,self.registration.scope).href;
+  event.waitUntil(clients.matchAll({type:'window',includeUncontrolled:true}).then(async list=>{
+    for(const c of list){if('focus' in c){if('navigate' in c)await c.navigate(target);await c.focus();return}}
     if(clients.openWindow)return clients.openWindow(target);
   }));
 });

@@ -47,8 +47,8 @@
   async function init(){
     const {data}=await db.auth.getSession();session=data.session;
     injectUI();wire();renderNavState();updateCartBadge();applyOrderAccess();
-    db.auth.onAuthStateChange(async(_e,s)=>{session=s;renderNavState();applyOrderAccess();stopOrderNotifications();if(canUseOrders()){await refreshProductShops();decorateShopCards();startOrderNotifications();}});
-    if(canUseOrders()){await refreshProductShops();decorateShopCards();startOrderNotifications();}
+    db.auth.onAuthStateChange(async(_e,s)=>{session=s;renderNavState();applyOrderAccess();stopOrderNotifications();if(canUseOrders()){await refreshProductShops();decorateShopCards();startOrderNotifications();await openOrderDeepLink();}});
+    if(canUseOrders()){await refreshProductShops();decorateShopCards();startOrderNotifications();await openOrderDeepLink();}
     new MutationObserver(()=>{if(canUseOrders())decorateShopCards();attachCartToBottomNav();}).observe(document.body,{childList:true,subtree:true});
   }
 
