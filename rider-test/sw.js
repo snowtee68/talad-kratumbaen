@@ -1,4 +1,4 @@
-const CACHE='rider-push-v0.4.1-system-sound';
+const CACHE='rider-push-v0.4.3-pod';
 self.addEventListener('install',()=>self.skipWaiting());
 self.addEventListener('activate',event=>event.waitUntil((async()=>{
   const keys=await caches.keys(); await Promise.all(keys.filter(k=>k.startsWith('rider-push-')&&k!==CACHE).map(k=>caches.delete(k)));

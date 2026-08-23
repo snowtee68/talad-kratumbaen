@@ -274,7 +274,6 @@
       p_extra_stop_fee:fare.extra
     });
     if(error)return alert('สร้างงานไม่สำเร็จ: '+error.message);
-    triggerPushForOpenJob(job,'new_job');
     alert('สร้างงานเรียบร้อย หมายเลข '+job);
     e.currentTarget.reset(); renderPickupStops(1); updateFare(); await loadMyJobs();
   }
@@ -571,7 +570,7 @@
 
   async function ensurePushRegistration(){
     if(!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) throw new Error('เบราว์เซอร์นี้ยังไม่รองรับ Web Push');
-    pushRegistration=pushRegistration||await navigator.serviceWorker.register('sw.js',{scope:'./'});
+    pushRegistration=pushRegistration||await navigator.serviceWorker.register('sw.js?v=0.4.3',{scope:'./',updateViaCache:'none'});
     await navigator.serviceWorker.ready;
     return pushRegistration;
   }
@@ -700,7 +699,8 @@
         actions+=`<button class="danger" data-action="withdraw" data-id="${j.id}">ถอนตัวจากงาน</button>`;
       }
       if(j.status==='picked_up') actions+=`<button class="primary" data-action="start-delivery" data-id="${j.id}">เริ่มจัดส่ง</button>`;
-      else if(j.status==='delivering') actions+=`<button class="primary" data-action="complete-delivery" data-id="${j.id}">ส่งสำเร็จ</button>`;
+      else if(j.status==='delivering'&&!j.delivery_arrived_at) actions+=`<button class="primary" data-action="complete-delivery" data-id="${j.id}">📸 ถึงปลายทาง / ส่งมอบสินค้า</button>`;
+      else if(j.status==='delivering'&&j.delivery_arrived_at) actions+=`<span class="notice compact">⏳ ส่งมอบแล้ว · รอลูกค้ายืนยันรับสินค้า</span>`;
       actions += `<button class="ghost" data-action="route" data-id="${j.id}">ดูเส้นทางทั้งหมด</button>`;
     }
     const title=pickupCount>1?`รับ ${pickupCount} จุด → ${esc(j.dropoff_label)}`:`${esc(j.pickup_label)} → ${esc(j.dropoff_label)}`;
@@ -710,6 +710,26 @@
     return `<article class="job-card" data-job-id="${j.id}"><div class="job-top"><div><b>${title}</b><div class="job-meta"><span>${pickupCount} จุดรับ</span><span>${fmt(j.distance_km)} กม.</span><span>ประมาณ ${j.fare_estimate} บาท</span>${extra}<span>${payer}จ่าย</span>${reassigned?`<span>♻️ เปิดหาวินใหม่ ${j.reassign_count} ครั้ง</span>`:''}</div></div><span class="status ${j.status}">${statusText[j.status]||j.status}</span></div>${reassignNotice}${stops.length?routeMarkup(stops,mode):`<div class="route-summary">รายละเอียดพิกัดจะแสดงหลังรับงาน</div>`}<div class="job-meta"><span>สร้าง ${fmtTime(j.created_at)}</span>${j.assigned_rider_name?`<span>วิน: ${esc(j.assigned_rider_name)}</span>`:''}</div><div class="job-actions">${actions}</div></article>`;
   }
 
+  async function riderCompressProof(file){
+    if(!file||!String(file.type||'').startsWith('image/'))throw new Error('กรุณาเลือกรูปภาพ');
+    if(file.size>15*1024*1024)throw new Error('รูปต้นฉบับต้องไม่เกิน 15 MB');
+    const bmp=await createImageBitmap(file),scale=Math.min(1,1400/Math.max(bmp.width,bmp.height));
+    const c=document.createElement('canvas');c.width=Math.max(1,Math.round(bmp.width*scale));c.height=Math.max(1,Math.round(bmp.height*scale));
+    const ctx=c.getContext('2d',{alpha:false});ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);ctx.drawImage(bmp,0,0,c.width,c.height);try{bmp.close()}catch(_e){}
+    let q=.82,blob;
+    for(let i=0;i<5;i++){blob=await new Promise((res,rej)=>c.toBlob(x=>x?res(x):rej(new Error('แปลงรูปไม่สำเร็จ')),'image/webp',q));if(blob.size<=450*1024)break;q-=.1;}
+    return new File([blob],'delivery-proof.webp',{type:'image/webp',lastModified:Date.now()});
+  }
+  async function riderCaptureDeliveryProof(jobId){
+    const input=document.createElement('input');input.type='file';input.accept='image/*';input.setAttribute('capture','environment');
+    const file=await new Promise(resolve=>{input.onchange=()=>resolve(input.files?.[0]||null);input.click()});
+    if(!file)return null;
+    const packed=await riderCompressProof(file);
+    const path=`${jobId}/${session.user.id}/${Date.now()}.webp`;
+    const {error}=await db.storage.from('rider-delivery-proof').upload(path,packed,{contentType:'image/webp',upsert:false});
+    if(error)throw error;
+    return path;
+  }
   async function handleAction(e){
     const b=e.target.closest('[data-action]');if(!b)return;
     const id=b.dataset.id,action=b.dataset.action;
@@ -721,7 +741,6 @@
       if(!confirm('ยืนยันถอนตัวจากงาน?\nงานจะกลับไปเปิดให้วินคนอื่นรับทันที'))return;
       const {error}=await db.rpc('rider_withdraw_job',{p_job_id:id,p_reason:reason.trim()});
       if(error)return alert('ถอนตัวไม่ได้: '+error.message);
-      triggerPushForOpenJob(id,'reopened');
       stopJobAlertLoop();
       alert('ถอนตัวเรียบร้อย ระบบเปิดงานให้วินคนอื่นรับต่อแล้ว');
       await Promise.all([loadRiderJobs(),loadMyJobs()]);
@@ -729,7 +748,17 @@
     if(action==='cancel'){if(!confirm(`ยกเลิกงานนี้?\n\nยกเลิกได้เฉพาะก่อนมีวินรับงานเท่านั้น`))return;const {error}=await db.rpc('rider_cancel_job',{p_job_id:id});if(error)return alert('ยกเลิกไม่ได้: '+error.message);await loadMyJobs();}
     if(action==='complete-pickup'){const {error}=await db.rpc('rider_complete_pickup_stop',{p_job_id:id,p_stop_id:b.dataset.stopId});if(error)return alert(error.message);await Promise.all([loadRiderJobs(),loadMyJobs()]);}
     if(action==='start-delivery'){const {error}=await db.rpc('rider_start_delivery',{p_job_id:id});if(error)return alert(error.message);await Promise.all([loadRiderJobs(),loadMyJobs()]);}
-    if(action==='complete-delivery'){if(!confirm('ยืนยันว่าส่งของถึงปลายทางแล้ว?'))return;const {error}=await db.rpc('rider_complete_delivery',{p_job_id:id});if(error)return alert(error.message);await Promise.all([loadRiderJobs(),loadMyJobs()]);}
+    if(action==='complete-delivery'){
+      if(!confirm('ยืนยันว่าถึงปลายทางและกำลังส่งมอบสินค้า? ระบบจะให้ถ่ายรูปหลักฐาน และรอลูกค้ายืนยันก่อนปิดงาน'))return;
+      let proofPath=null;
+      try{
+        proofPath=await riderCaptureDeliveryProof(id);if(!proofPath)return;
+        const {error}=await db.rpc('rider_mark_delivery_arrived',{p_job_id:id,p_proof_path:proofPath});
+        if(error)throw error;
+        alert('ส่งหลักฐานแล้ว ✅ ตอนนี้รอลูกค้ายืนยันว่าได้รับสินค้า');
+      }catch(err){if(proofPath)try{await db.storage.from('rider-delivery-proof').remove([proofPath])}catch(_e){}return alert('บันทึกการส่งมอบไม่สำเร็จ: '+(err?.message||err));}
+      await Promise.all([loadRiderJobs(),loadMyJobs()]);
+    }
     if(action==='route') await showRoute(id);
     if(action==='navigate-stop') window.open(gmaps(b.dataset.lat,b.dataset.lng),'_blank');
     if(action==='approve-rider'){const next=b.dataset.status;const label=next==='approved'?'อนุมัติวินคนนี้?':next==='suspended'?'ระงับวินคนนี้?':next==='pending'?'เปิดให้รออนุมัติอีกครั้ง?':'ไม่อนุมัติวินคนนี้?';if(!confirm(label))return;const {error}=await db.rpc('rider_admin_set_approval',{p_user_id:id,p_status:next});if(error)return alert(error.message);await Promise.all([loadPendingRiders(),loadApprovedRiders()]);}
