@@ -13,7 +13,7 @@
   const ORDER_NOTIFY_KEY='talad_order_notify_v042';
   let orderNotifyTimer=null,orderNotifyRealtime=null,orderNotifyRealtimeDebounce=null,orderNotifyBusy=false,orderNotifyBaseline=false,orderNotifyAudioArmed=false;
   let customerOrderTab='waiting',sellerOrderTab='action',customerOrderPage=1,sellerOrderPage=1,orderSearchTerm='',orderDateFilter='today',customerFocusGroupId=null;
-  const ORDER_UI_VERSION='0.5.20.3';
+  const ORDER_UI_VERSION='0.5.20.4';
   let orderNotifyState={statuses:{},viewed:{},reminded:{},unread:0};
   const esc=(v='')=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const money=n=>Number(n||0).toLocaleString('th-TH',{minimumFractionDigits:0,maximumFractionDigits:2});
@@ -730,7 +730,7 @@
         if(upErr)throw upErr;
       }catch(err){btn.disabled=false;btn.textContent='ส่งหลักฐานให้ร้านตรวจสอบ';return alert('อัปโหลดสลิปไม่สำเร็จ: '+err.message)}
     }
-    const {error}=await db.rpc('market_submit_payment',{p_order_id:orderId,p_payment_ref:ref||null,p_slip_path:path});btn.disabled=false;btn.textContent='ส่งหลักฐานให้ร้านตรวจสอบ';if(error){if(path)await safeRemove('order-slips',path);return alert(error.message)}if(path&&oldSlipPath&&oldSlipPath!==path)await safeRemove('order-slips',oldSlipPath);sendOrderPush('payment_submitted',{order_id:orderId});alert('แจ้งชำระเงินแล้ว ร้านค้าจะตรวจสอบยอด');guideCustomerFromOrder(orderId,'ชำระเงินแล้ว · รอร้านตรวจสอบยอด เมื่อร้านยืนยัน ระบบจะย้ายไปกำลังเตรียมสินค้า');
+    const {error}=await db.rpc('market_submit_payment',{p_order_id:orderId,p_payment_ref:ref||null,p_slip_path:path});btn.disabled=false;btn.textContent='ส่งหลักฐานให้ร้านตรวจสอบ';if(error){if(path)await safeRemove('order-slips',path);return alert(error.message)}if(path&&oldSlipPath&&oldSlipPath!==path)await safeRemove('order-slips',oldSlipPath);sendOrderPush('payment_submitted',{order_id:orderId});alert('แจ้งชำระเงินแล้ว ร้านค้าจะตรวจสอบยอด');guideCustomerFromOrder(orderId,'แจ้งชำระเงินแล้ว · ตอนนี้อยู่ขั้นรอร้านตรวจสอบยอด / จัดเตรียมสินค้า');
   }
 
 
@@ -740,7 +740,7 @@
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=5.7.9.18',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=5.7.9.19',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
@@ -892,8 +892,11 @@
     if(!os.length||os.every(o=>o.status==='cancelled')||['cancelled','completed'].includes(g.status))return 'done';
     if(g.rider_job_id||['delivery_requested','delivering'].includes(g.status))return 'shipping';
     if(active.some(o=>o.status==='ready'))return 'shipping';
-    if(active.some(o=>o.status==='preparing'))return 'processing';
-    if(active.some(o=>['pending_shop','awaiting_customer_confirmation','awaiting_payment','payment_review'].includes(o.status)))return 'waiting';
+    // Once the customer has submitted payment, move the order forward visually.
+    // payment_review means "paid / waiting for shop verification", so it belongs
+    // in the preparation flow rather than the old waiting/payment lane.
+    if(active.some(o=>['payment_review','preparing'].includes(o.status)))return 'processing';
+    if(active.some(o=>['pending_shop','awaiting_customer_confirmation','awaiting_payment'].includes(o.status)))return 'waiting';
     return 'processing';
   }
   function deliveryBatchStatusText(s){return({creating:'กำลังสร้างงานวิน',waiting_rider:'รอวินรับงาน',accepted:'วินรับงานแล้ว',pickup_started:'วินกำลังไปรับสินค้า',picked_up:'รับสินค้าครบแล้ว',delivering:'กำลังไปส่งลูกค้า',completed:'ส่งสำเร็จ',cancelled:'ยกเลิก'}[s]||s||'รออัปเดต')}
@@ -949,7 +952,7 @@
     const isSeller=type==='seller',tabs=isSeller?[
       ['action','🔴 ต้องทำตอนนี้'],['preparing','🟠 กำลังเตรียม'],['ready','🟢 พร้อมรับ'],['done','⚪ จบแล้ว']
     ]:[
-      ['waiting','⏳ รอดำเนินการ'],['processing','🍳 กำลังทำ'],['shipping','🛵 พร้อมรับ/จัดส่ง'],['done','✅ ประวัติ']
+      ['waiting','⏳ รอดำเนินการ'],['processing','🍳 รอเตรียมสินค้า'],['shipping','🛵 พร้อมรับ/จัดส่ง'],['done','✅ ประวัติ']
     ];
     const active=isSeller?sellerOrderTab:customerOrderTab,attr=isSeller?'data-seller-order-tab':'data-customer-order-tab';
     return `<div class="order-tabs-sticky" data-order-ui-version="${ORDER_UI_VERSION}">
@@ -975,7 +978,7 @@
     const active=buckets[customerOrderTab];
     if(customerFocusGroupId)active.sort((a,b)=>String(a.id)===String(customerFocusGroupId)?-1:String(b.id)===String(customerFocusGroupId)?1:0);
     const limit=10*customerOrderPage,shown=active.slice(0,limit);
-    const title={waiting:'⏳ รอดำเนินการ',processing:'🍳 กำลังทำ',shipping:'🛵 พร้อมรับ / จัดส่ง',done:'✅ ประวัติ'}[customerOrderTab];
+    const title={waiting:'⏳ รอดำเนินการ',processing:'🍳 รอ / กำลังเตรียมสินค้า',shipping:'🛵 พร้อมรับ / จัดส่ง',done:'✅ ประวัติ'}[customerOrderTab];
 
     box.innerHTML=orderTabsToolbar('customer',buckets)+
       `${focused?`<div class="post-checkout-banner"><b>✅ สั่งซื้อสำเร็จ</b><span>ติดตามแต่ละร้านได้จากหน้านี้ ร้านที่รับอัตโนมัติสามารถชำระเงินได้ทันที ส่วนร้านที่รับเองจะขึ้นรอร้านยืนยัน</span></div>`:''}`+
