@@ -332,3 +332,9 @@ fieldset{border:1px solid var(--line);border-radius:14px;padding:14px}legend{fon
 .install-app-instructions li{margin:.45rem 0}
 .install-note{background:#fff4f4;border:1px solid #f2c9cb;border-radius:12px;padding:10px 12px;margin-top:14px}
 @media(max-width:640px){.install-app-wrap{align-items:stretch}.install-app-button{width:100%;min-height:44px}.install-app-wrap small{width:100%;text-align:center;font-size:.82rem}}
+
+/* V0.5.20.18 direct shop links */
+.shop-share-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid #eee2dc}
+.shop-share-actions button{border:1px solid #dbcac1;background:#fff;color:#5b4038;border-radius:999px;padding:9px 13px;font-weight:700;cursor:pointer}
+.shop-share-actions button:last-child{background:#f7f2ed}
+@media(max-width:640px){.shop-share-actions button{flex:1 1 100%}}

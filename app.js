@@ -751,12 +751,50 @@
       ${promo?`<div class="detail-promo"><b>🔥 ${esc(promo.title)}</b><span>${esc(promo.description||'')}</span><small>⏰ ${esc(promotionTimingText(promo))}</small></div>`:''}
       ${deliveryButtons?`<div class="detail-order-grid">${deliveryButtons}</div>`:''}
       <div class="detail-action-grid">${contactButtons}</div>
+      <div class="shop-share-actions">
+        <button type="button" data-share-shop="${esc(shop.id)}">↗️ แชร์ร้านนี้</button>
+        <button type="button" data-copy-shop-link="${esc(shop.id)}">🔗 คัดลอกลิงก์ร้าน</button>
+        <button type="button" data-browse-other-shops>🏪 ดูร้านอื่นในตลาด</button>
+      </div>
     `;
     $('reviewShopId').value=shopId;
     $('reviewShopName').textContent=shop.name;
     closeModal('promotionDetailModal');
     openModal('shopDetailModal');
     await loadShopReviews(shopId);
+  }
+
+  function shopDirectUrl(shopId){
+    const u=new URL(window.location.href);
+    u.searchParams.set('shop',String(shopId));
+    ['order','group','job','rider_job'].forEach(k=>u.searchParams.delete(k));
+    u.hash='';
+    return u.toString();
+  }
+  async function copyShopDirectLink(shopId){
+    const url=shopDirectUrl(shopId);
+    try{await navigator.clipboard.writeText(url);showNotice('คัดลอกลิงก์ร้านแล้ว');}
+    catch(_e){prompt('คัดลอกลิงก์ร้านนี้',url);}
+  }
+  async function shareShopDirectLink(shopId){
+    const shop=[...shops,...shopIndex].find(s=>String(s.id)===String(shopId));
+    const url=shopDirectUrl(shopId);
+    if(navigator.share){
+      try{await navigator.share({title:shop?.name||'ร้านค้าในตลาดกระทุ่มแบน',text:`ดูร้าน ${shop?.name||''} ในตลาดกระทุ่มแบน`,url});return;}catch(e){if(e?.name==='AbortError')return;}
+    }
+    copyShopDirectLink(shopId);
+  }
+  function browseOtherShops(){
+    closeModal('shopDetailModal');
+    const u=new URL(window.location.href);u.searchParams.delete('shop');
+    history.replaceState({},'',u.pathname+(u.searchParams.toString()?`?${u.searchParams}`:'')+u.hash);
+    document.getElementById('shops')?.scrollIntoView({behavior:'smooth',block:'start'});
+  }
+  async function handleShopDirectLink(){
+    const shopId=new URLSearchParams(location.search).get('shop');
+    if(!shopId)return;
+    // Direct shop links land on that shop, but the rest of the marketplace remains available.
+    await openShopDetails(shopId);
   }
 
   async function loadShopReviews(shopId,targetId='reviewList'){
@@ -1505,6 +1543,9 @@
         else if(text.includes('shopee')||clickedLink.classList.contains('shopee'))trackAnalytics('order_shopee_click',analyticsShopId);
         else if(clickedLink.classList.contains('order-btn')||clickedLink.classList.contains('detail-order'))trackAnalytics('order_click',analyticsShopId);
       }
+      const shareBtn=ev.target.closest('[data-share-shop]');if(shareBtn){shareShopDirectLink(shareBtn.dataset.shareShop);return;}
+      const copyBtn=ev.target.closest('[data-copy-shop-link]');if(copyBtn){copyShopDirectLink(copyBtn.dataset.copyShopLink);return;}
+      if(ev.target.closest('[data-browse-other-shops]')){browseOtherShops();return;}
       const action=ev.target.dataset.action;
       const explicitShopId=ev.target.dataset.shopId;
       const card=ev.target.closest('.card[data-id]');
@@ -1542,7 +1583,7 @@
   async function start(){
     renderHoursEditor();initMaps();bindEvents();
     trackAnalytics('page_view');
-    try{await loadCategories();await loadReviewStats();await loadPromotions();await loadShopIndex();await loadPublicShops({reset:true});renderShops();renderRecommended();await refreshAuth();await handleRecoveryLink();}
+    try{await loadCategories();await loadReviewStats();await loadPromotions();await loadShopIndex();await loadPublicShops({reset:true});renderShops();renderRecommended();await refreshAuth();await handleRecoveryLink();await handleShopDirectLink();}
     catch(err){console.error(err);showNotice('เกิดข้อผิดพลาด: '+err.message,true);}
   }
   start();
@@ -1649,7 +1690,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=5.7.9.32', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=5.7.9.33', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
