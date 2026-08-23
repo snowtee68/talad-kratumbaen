@@ -66,29 +66,21 @@ self.addEventListener('push', event => {
 
 self.addEventListener('notificationclick', event => {
   event.notification.close();
-
   event.waitUntil((async () => {
-    const raw = event.notification.data?.url || './';
+    const raw=event.notification.data?.url||'./';
     let target;
-    try {
-      target = new URL(raw, self.registration.scope).href;
-    } catch (_e) {
-      target = self.registration.scope;
+    try{target=new URL(raw,self.registration.scope).href}catch(_e){target=self.registration.scope}
+
+    const windows=await clients.matchAll({type:'window',includeUncontrolled:true});
+    if(windows.length){
+      const client=windows[0];
+      // iOS/PWA can ignore or normalize client.navigate(). Send the route directly too.
+      try{client.postMessage({type:'MARKET_NOTIFICATION_DEEPLINK',url:target})}catch(_e){}
+      try{if('focus' in client)await client.focus()}catch(_e){}
+      // Also update browser URL where supported, but routing no longer depends on this.
+      try{if('navigate' in client)await client.navigate(target)}catch(_e){}
+      return;
     }
-
-    const windows = await clients.matchAll({
-      type: 'window',
-      includeUncontrolled: true
-    });
-
-    for (const client of windows) {
-      try {
-        if ('navigate' in client) await client.navigate(target);
-        if ('focus' in client) await client.focus();
-        return;
-      } catch (_e) {}
-    }
-
-    if (clients.openWindow) await clients.openWindow(target);
+    if(clients.openWindow)await clients.openWindow(target);
   })());
 });

@@ -13,7 +13,7 @@
   const ORDER_NOTIFY_KEY='talad_order_notify_v042';
   let orderNotifyTimer=null,orderNotifyRealtime=null,orderNotifyRealtimeDebounce=null,orderNotifyBusy=false,orderNotifyBaseline=false,orderNotifyAudioArmed=false;
   let customerOrderTab='waiting',sellerOrderTab='action',customerOrderPage=1,sellerOrderPage=1,orderSearchTerm='',orderDateFilter='today',customerFocusGroupId=null;
-  const ORDER_UI_VERSION='0.5.20';
+  const ORDER_UI_VERSION='0.5.20.1';
   let orderNotifyState={statuses:{},viewed:{},reminded:{},unread:0};
   const esc=(v='')=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const money=n=>Number(n||0).toLocaleString('th-TH',{minimumFractionDigits:0,maximumFractionDigits:2});
@@ -47,6 +47,17 @@
   async function init(){
     const {data}=await db.auth.getSession();session=data.session;
     injectUI();wire();renderNavState();updateCartBadge();applyOrderAccess();
+    if('serviceWorker' in navigator){
+      navigator.serviceWorker.addEventListener('message',async ev=>{
+        if(ev.data?.type!=='MARKET_NOTIFICATION_DEEPLINK')return;
+        try{
+          const target=ev.data?.url||location.href;
+          const u=new URL(target,location.href);
+          history.replaceState(null,'',u.pathname+u.search+u.hash);
+          await openOrderDeepLink(target);
+        }catch(err){console.warn('Notification deep link:',err?.message||err)}
+      });
+    }
     db.auth.onAuthStateChange(async(_e,s)=>{session=s;renderNavState();applyOrderAccess();stopOrderNotifications();if(canUseOrders()){await refreshProductShops();decorateShopCards();startOrderNotifications();await openOrderDeepLink();}});
     if(canUseOrders()){await refreshProductShops();decorateShopCards();startOrderNotifications();await openOrderDeepLink();}
     new MutationObserver(()=>{if(canUseOrders())decorateShopCards();attachCartToBottomNav();}).observe(document.body,{childList:true,subtree:true});
@@ -729,7 +740,7 @@
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=5.7.9.16',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=5.7.9.17',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
@@ -805,13 +816,11 @@
     return;
   }
 
-  function orderDeepLink(){
+  function orderDeepLink(sourceUrl=location.href){
     try{
-      const u=new URL(location.href);
-      const tab=u.searchParams.get('order_tab');
-      const groupId=u.searchParams.get('group_id');
-      const orderId=u.searchParams.get('order_id');
-      const shopId=u.searchParams.get('shop_id');
+      const u=new URL(sourceUrl,location.href),h=new URLSearchParams(String(u.hash||'').replace(/^#/,''));
+      const get=k=>u.searchParams.get(k)||h.get(k);
+      const tab=get('order_tab'),groupId=get('group_id'),orderId=get('order_id'),shopId=get('shop_id');
       if(!tab&&!groupId&&!orderId&&!shopId)return null;
       return {tab:tab==='seller'?'seller':'customer',groupId,orderId,shopId};
     }catch(_e){return null}
@@ -841,8 +850,8 @@
     }catch(_e){}
     return null;
   }
-  async function openOrderDeepLink(){
-    const d=orderDeepLink();
+  async function openOrderDeepLink(sourceUrl=null){
+    const d=orderDeepLink(sourceUrl||location.href);
     if(!d||!session)return false;
     orderDateFilter='all';
     if(d.tab==='seller'){

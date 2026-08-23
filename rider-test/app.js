@@ -50,6 +50,12 @@
     const {data:{session:s}} = await db.auth.getSession(); session=s;
     db.auth.onAuthStateChange(async (_e,s2)=>{session=s2; await refreshAuth();});
     wire(); renderPickupStops(1); await Promise.all([refreshAuth(), loadMarketShopIndex()]);
+    if('serviceWorker' in navigator){navigator.serviceWorker.addEventListener('message',async ev=>{
+      if(ev.data?.type!=='RIDER_NOTIFICATION_DEEPLINK')return;
+      const target=ev.data?.url||location.href;
+      try{const u=new URL(target,location.href);history.replaceState(null,'',u.pathname+u.search+u.hash)}catch(_e){}
+      await focusJobFromUrl(target);
+    })}
     await refreshPushState();
     focusJobFromUrl();
   }
@@ -570,7 +576,7 @@
 
   async function ensurePushRegistration(){
     if(!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) throw new Error('เบราว์เซอร์นี้ยังไม่รองรับ Web Push');
-    pushRegistration=pushRegistration||await navigator.serviceWorker.register('sw.js?v=0.4.3',{scope:'./',updateViaCache:'none'});
+    pushRegistration=pushRegistration||await navigator.serviceWorker.register('sw.js?v=0.4.4',{scope:'./',updateViaCache:'none'});
     await navigator.serviceWorker.ready;
     return pushRegistration;
   }
@@ -648,14 +654,16 @@
     }catch(err){ console.warn('Push dispatch failed',err); }
   }
 
-  function focusJobFromUrl(){
-    const id=new URLSearchParams(location.search).get('job');
-    if(!id) return;
+  async function focusJobFromUrl(sourceUrl=location.href){
+    let id=null;
+    try{const u=new URL(sourceUrl,location.href),h=new URLSearchParams(String(u.hash||'').replace(/^#/,''));id=u.searchParams.get('job')||h.get('job')}catch(_e){}
+    if(!id)return;
+    try{await loadRiderJobs()}catch(_e){}
     setTimeout(()=>{
       const card=document.querySelector(`[data-job-id="${CSS.escape(id)}"]`);
-      if(card){ card.scrollIntoView({behavior:'smooth',block:'center'}); card.classList.add('push-highlight'); setTimeout(()=>card.classList.remove('push-highlight'),5000); }
+      if(card){card.scrollIntoView({behavior:'smooth',block:'center'});card.classList.add('push-highlight');setTimeout(()=>card.classList.remove('push-highlight'),5000)}
       else $('#openJobs')?.scrollIntoView({behavior:'smooth',block:'start'});
-    },1800);
+    },300);
   }
 
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden && jobAlertEnabled && riderProfile?.online){ primeKnownOpenJobs().then(startJobAlertRealtime); } });

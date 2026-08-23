@@ -1,4 +1,4 @@
-const CACHE='rider-push-v0.4.3-pod';
+const CACHE='rider-push-v0.4.4-deeplink';
 self.addEventListener('install',()=>self.skipWaiting());
 self.addEventListener('activate',event=>event.waitUntil((async()=>{
   const keys=await caches.keys(); await Promise.all(keys.filter(k=>k.startsWith('rider-push-')&&k!==CACHE).map(k=>caches.delete(k)));
@@ -27,10 +27,17 @@ self.addEventListener('push',event=>{
 
 self.addEventListener('notificationclick',event=>{
   event.notification.close();
-  const target=new URL(event.notification.data?.url||'./',self.location.href).href;
   event.waitUntil((async()=>{
+    const raw=event.notification.data?.url||'./';
+    let target;try{target=new URL(raw,self.registration.scope).href}catch(_e){target=self.registration.scope}
     const list=await clients.matchAll({type:'window',includeUncontrolled:true});
-    for(const c of list){ if('focus' in c){ await c.navigate(target); return c.focus(); } }
-    return clients.openWindow(target);
+    if(list.length){
+      const c=list[0];
+      try{c.postMessage({type:'RIDER_NOTIFICATION_DEEPLINK',url:target})}catch(_e){}
+      try{if('focus' in c)await c.focus()}catch(_e){}
+      try{if('navigate' in c)await c.navigate(target)}catch(_e){}
+      return;
+    }
+    if(clients.openWindow)await clients.openWindow(target);
   })());
 });
