@@ -338,3 +338,79 @@ fieldset{border:1px solid var(--line);border-radius:14px;padding:14px}legend{fon
 .shop-share-actions button{border:1px solid #dbcac1;background:#fff;color:#5b4038;border-radius:999px;padding:9px 13px;font-weight:700;cursor:pointer}
 .shop-share-actions button:last-child{background:#f7f2ed}
 @media(max-width:640px){.shop-share-actions button{flex:1 1 100%}}
+
+/* V0.5.20.25 — iPhone/mobile header: keep Login/Account visible */
+@media (max-width:640px){
+  .site-header .nav{
+    min-height:auto!important;
+    padding:8px 0 9px!important;
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:7px!important;
+  }
+  .site-header .brand{
+    width:100%!important;
+    min-width:0!important;
+  }
+  .site-header .brand b{
+    font-size:15px!important;
+    white-space:nowrap!important;
+  }
+  .site-header .logo{
+    width:36px!important;
+    height:36px!important;
+    min-width:36px!important;
+    border-radius:11px!important;
+    font-size:20px!important;
+  }
+  .site-header .nav-actions{
+    width:100%!important;
+    display:flex!important;
+    flex-wrap:wrap!important;
+    gap:6px!important;
+    justify-content:stretch!important;
+    overflow:visible!important;
+  }
+  .site-header .nav-actions button{
+    flex:1 1 auto!important;
+    min-width:0!important;
+    min-height:38px!important;
+    padding:7px 8px!important;
+    font-size:12px!important;
+    line-height:1.2!important;
+    white-space:nowrap!important;
+  }
+  .site-header #accountBtn{
+    display:inline-flex!important;
+    visibility:visible!important;
+    opacity:1!important;
+    align-items:center!important;
+    justify-content:center!important;
+    flex:1 1 95px!important;
+    min-width:88px!important;
+    order:1!important;
+  }
+  .site-header #marketOrdersBtn{
+    flex:1 1 95px!important;
+    order:2!important;
+  }
+  .site-header #addShopBtn{
+    flex:1 1 88px!important;
+    order:3!important;
+  }
+  .site-header #favoritesBtn{
+    flex:1 1 105px!important;
+    order:4!important;
+  }
+  .site-header #nearBtn{
+    display:none!important;
+  }
+}
+@media (max-width:375px){
+  .site-header .nav-actions button{
+    font-size:11px!important;
+    padding-left:6px!important;
+    padding-right:6px!important;
+  }
+  .site-header #accountBtn{min-width:82px!important;}
+}
