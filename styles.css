@@ -468,3 +468,46 @@ fieldset{border:1px solid var(--line);border-radius:14px;padding:14px}legend{fon
     height:210px;
   }
 }
+
+/* V0.5.20.51 HARD FIX: recommended slider is independent from generic .grid */
+#recommendedGrid.recommended-slider{
+  display:flex !important;
+  flex-flow:row nowrap !important;
+  align-items:stretch;
+  justify-content:flex-start;
+  gap:16px;
+  width:100%;
+  max-width:100%;
+  overflow-x:scroll !important;
+  overflow-y:hidden !important;
+  overscroll-behavior-x:contain;
+  -webkit-overflow-scrolling:touch;
+  touch-action:pan-x pan-y;
+  scroll-snap-type:x mandatory;
+  padding:4px 12px 16px 2px;
+  box-sizing:border-box;
+}
+#recommendedGrid.recommended-slider > .recommended-compact-card{
+  display:block;
+  flex:0 0 min(360px, 88vw) !important;
+  width:min(360px, 88vw) !important;
+  min-width:min(360px, 88vw) !important;
+  max-width:min(360px, 88vw) !important;
+  scroll-snap-align:start;
+  scroll-snap-stop:always;
+  box-sizing:border-box;
+}
+#recommendedGrid.recommended-slider .recommended-compact-image{
+  width:100% !important;
+  height:220px !important;
+  min-height:220px;
+  flex:none;
+}
+@media(min-width:641px){
+  #recommendedGrid.recommended-slider > .recommended-compact-card{
+    flex-basis:340px !important;
+    width:340px !important;
+    min-width:340px !important;
+    max-width:340px !important;
+  }
+}
