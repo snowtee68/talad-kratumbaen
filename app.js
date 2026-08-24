@@ -190,9 +190,41 @@
     return db.storage.from(bucket).getPublicUrl(path).data.publicUrl;
   }
 
+  function normalizeThaiPhone(value=''){
+    const raw=String(value||'').trim().replace(/[^\d+]/g,'');
+    if(/^\+66\d{8,9}$/.test(raw))return raw;
+    const digits=raw.replace(/\D/g,'');
+    if(/^66\d{8,9}$/.test(digits))return '+'+digits;
+    if(/^0\d{9}$/.test(digits))return '+66'+digits.slice(1);
+    return null;
+  }
+  function formatPhoneForDisplay(value=''){
+    const p=String(value||'');
+    if(/^\+66\d{9}$/.test(p))return '0'+p.slice(3);
+    return p;
+  }
+  function authMethod(){
+    return String($('authForm')?.elements?.auth_method?.value||'email');
+  }
+  function setAuthMethod(method='email'){
+    const m=method==='phone'?'phone':'email';
+    const form=$('authForm'); if(!form)return;
+    form.elements.auth_method.value=m;
+    document.querySelectorAll('[data-auth-method]').forEach(b=>b.classList.toggle('active',b.dataset.authMethod===m));
+    $('authEmailLabel')?.classList.toggle('hidden',m!=='email');
+    $('authPhoneLabel')?.classList.toggle('hidden',m!=='phone');
+    $('authPhoneHelp')?.classList.toggle('hidden',m!=='phone');
+    $('phoneRecoveryHelp')?.classList.toggle('hidden',m!=='phone');
+    form.elements.email.required=m==='email';
+    form.elements.phone.required=m==='phone';
+    form.elements.password.autocomplete='current-password';
+  }
+
   function friendlyAuthError(message=''){
     const m=String(message).toLowerCase();
-    if(m.includes('invalid login credentials')) return 'อีเมลหรือรหัสผ่านไม่ถูกต้อง';
+    if(m.includes('invalid login credentials')) return 'ข้อมูลเข้าสู่ระบบหรือรหัสผ่านไม่ถูกต้อง';
+    if(m.includes('phone')&&m.includes('disabled')) return 'ระบบเข้าสู่ระบบด้วยเบอร์โทรยังไม่ได้เปิดใน Supabase';
+    if(m.includes('sms')&&m.includes('provider')) return 'การตั้งค่าเบอร์โทรยังไม่พร้อม กรุณาตรวจสอบ Phone Provider / Confirm phone ใน Supabase';
     if(m.includes('email not confirmed')) return 'กรุณายืนยันอีเมลก่อนเข้าสู่ระบบ';
     if(m.includes('email rate limit exceeded')) return 'ส่งอีเมลถี่เกินไป กรุณารอสักครู่แล้วลองใหม่';
     if(m.includes('user already registered')) return 'อีเมลนี้สมัครสมาชิกแล้ว กรุณาเข้าสู่ระบบหรือกดลืมรหัสผ่าน';
@@ -1211,7 +1243,7 @@
   }
 
   function updateAccountUI(){
-    $('accountBtn').textContent=session?(profile?.display_name||session.user.email):'เข้าสู่ระบบ';
+    $('accountBtn').textContent=session?(profile?.display_name||session.user.email||formatPhoneForDisplay(session.user.phone)||'บัญชีของฉัน'):'เข้าสู่ระบบ';
     $('dashboard').classList.toggle('hidden',!session);
     const favBtn=$('favoritesBtn'); if(favBtn)favBtn.classList.toggle('hidden',!session);
   }
@@ -1377,19 +1409,25 @@
         resetShopList({scroll:true});
       }
     });
+    document.querySelectorAll('[data-auth-method]').forEach(b=>b.addEventListener('click',()=>setAuthMethod(b.dataset.authMethod)));
+    setAuthMethod('email');
     $('authForm').addEventListener('submit',async ev=>{
       ev.preventDefault();
       if(!db)return alert('ยังไม่ได้ตั้งค่า Supabase');
       const form=ev.currentTarget;
       if(!form.reportValidity())return;
-      const fd=new FormData(form);
-      const email=String(fd.get('email')||'').trim();
+      const fd=new FormData(form),method=String(fd.get('auth_method')||'email');
       const password=String(fd.get('password')||'');
-      if(!email||password.length<6)return alert('กรุณากรอกอีเมลและรหัสผ่านอย่างน้อย 6 ตัว');
+      const email=String(fd.get('email')||'').trim();
+      const phone=normalizeThaiPhone(fd.get('phone'));
+      if(password.length<6)return alert('รหัสผ่านต้องมีอย่างน้อย 6 ตัว');
+      if(method==='email'&&!email)return alert('กรุณากรอกอีเมล');
+      if(method==='phone'&&!phone)return alert('กรุณากรอกเบอร์มือถือให้ถูกต้อง เช่น 0812345678');
       const btn=form.querySelector('button[type=submit]');
       btn.disabled=true;btn.textContent='กำลังเข้าสู่ระบบ...';
       try{
-        const {error}=await db.auth.signInWithPassword({email,password});
+        const credentials=method==='phone'?{phone,password}:{email,password};
+        const {error}=await db.auth.signInWithPassword(credentials);
         if(error)throw error;
         closeModal('authModal');
         await refreshAuth();
@@ -1400,23 +1438,37 @@
       if(!db)return alert('ยังไม่ได้ตั้งค่า Supabase');
       const form=$('authForm');
       if(!form.reportValidity())return;
-      const fd=new FormData(form);
+      const fd=new FormData(form),method=String(fd.get('auth_method')||'email');
       const email=String(fd.get('email')||'').trim();
+      const phone=normalizeThaiPhone(fd.get('phone'));
       const password=String(fd.get('password')||'');
-      if(!email||password.length<6)return alert('กรุณากรอกอีเมลและรหัสผ่านอย่างน้อย 6 ตัว');
+      if(password.length<6)return alert('รหัสผ่านต้องมีอย่างน้อย 6 ตัว');
+      if(method==='email'&&!email)return alert('กรุณากรอกอีเมล');
+      if(method==='phone'&&!phone)return alert('กรุณากรอกเบอร์มือถือให้ถูกต้อง เช่น 0812345678');
       const btn=$('signUpBtn');
       btn.disabled=true;btn.textContent='กำลังสมัคร...';
       try{
-        const {data,error}=await db.auth.signUp({
-          email,
-          password,
-          options:{emailRedirectTo:window.location.origin}
-        });
+        let data,error;
+        if(method==='phone'){
+          ({data,error}=await db.auth.signUp({
+            phone,
+            password,
+            options:{data:{signup_method:'phone',phone_local:formatPhoneForDisplay(phone)}}
+          }));
+        }else{
+          ({data,error}=await db.auth.signUp({
+            email,
+            password,
+            options:{emailRedirectTo:window.location.origin,data:{signup_method:'email'}}
+          }));
+        }
         if(error)throw error;
         if(data.session){
-          alert('สมัครสมาชิกสำเร็จ และเข้าสู่ระบบแล้ว');
+          alert(method==='phone'?'สมัครด้วยเบอร์โทรสำเร็จ และเข้าสู่ระบบแล้ว':'สมัครสมาชิกสำเร็จ และเข้าสู่ระบบแล้ว');
           closeModal('authModal');
           await refreshAuth();
+        }else if(method==='phone'){
+          alert('สมัครเบอร์โทรแล้ว แต่ระบบยังขอการยืนยันเบอร์ กรุณาตรวจสอบการตั้งค่า Confirm phone ใน Supabase');
         }else{
           alert('สมัครสมาชิกสำเร็จ กรุณาเปิดอีเมลเพื่อยืนยันบัญชี แล้วกลับมาเข้าสู่ระบบ');
         }
@@ -1426,6 +1478,10 @@
     $('forgotPasswordBtn').addEventListener('click',async()=>{
       if(!db)return alert('ยังไม่ได้ตั้งค่า Supabase');
       const form=$('authForm');
+      if(authMethod()==='phone'){
+        const phone=formatPhoneForDisplay(normalizeThaiPhone(form.elements.phone.value)||form.elements.phone.value||'');
+        return alert(`บัญชีที่สมัครด้วยเบอร์โทร${phone?` (${phone})`:''}\n\nกรุณาติดต่อผู้ดูแลเพื่อขอรีเซ็ตรหัสผ่าน โดยแจ้งเบอร์โทรที่ใช้สมัคร`);
+      }
       const email=String(new FormData(form).get('email')||'').trim();
       if(!email)return alert('กรุณากรอกอีเมลก่อนกดลืมรหัสผ่าน');
       const btn=$('forgotPasswordBtn');
@@ -1690,7 +1746,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=5.7.9.60', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=5.7.9.61', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
