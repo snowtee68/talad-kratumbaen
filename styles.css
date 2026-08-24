@@ -511,3 +511,19 @@ fieldset{border:1px solid var(--line);border-radius:14px;padding:14px}legend{fon
     max-width:340px !important;
   }
 }
+
+/* Visible deployed version */
+.site-version-footer{
+  width:100%;
+  text-align:center;
+  padding:18px 12px 24px;
+  box-sizing:border-box;
+  font-size:12px;
+  color:#777;
+}
+.site-version-footer span{
+  display:inline-block;
+  padding:5px 10px;
+  border-radius:999px;
+  background:rgba(0,0,0,.04);
+}
