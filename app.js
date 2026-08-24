@@ -1182,8 +1182,8 @@
           <small>${rating.count?`${rating.count} รีวิว`:'ยังไม่มีรีวิว'}</small>
         </div>
         <p class="compact-shop-description">${esc(s.description||'ร้านค้าในตลาดกระทุ่มแบน')}</p>
-        <div class="open-badge ${state.open===false?'closed':''}">${state.open===true?'🟢':state.open===false?'🔴':'🕒'} ${esc(state.text)}</div>
-        <div class="community-actions compact-shop-actions">
+        <div class="compact-shop-footer">
+          <div class="open-badge ${state.open===false?'closed':''}">${state.open===true?'🟢':state.open===false?'🔴':'🕒'} ${esc(state.text)}</div>
           <button data-action="details">ดูรายละเอียด</button>
         </div>
       </div>
@@ -1765,7 +1765,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=5.7.9.75', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=5.7.9.77', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
