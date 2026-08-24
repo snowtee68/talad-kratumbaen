@@ -348,3 +348,46 @@ fieldset{border:1px solid var(--line);border-radius:14px;padding:14px}legend{fon
 #promotionGrid .promo-image{width:100%;height:auto;aspect-ratio:1 / 1;overflow:hidden}
 #promotionGrid .promo-image img{width:100%;height:100%;display:block;object-fit:cover;object-position:center}
 @media(max-width:640px){#promotionGrid .promo-card{max-width:360px}}
+
+/* V0.5.20.45: compact recommended shops */
+#recommendedGrid .recommended-compact-card{
+  background:#fff;border:1px solid #eee;border-radius:16px;overflow:hidden;
+  box-shadow:0 4px 14px rgba(0,0,0,.05)
+}
+#recommendedGrid .recommended-compact-image{
+  width:100%;aspect-ratio:16/9;background:#f3f3f3;overflow:hidden
+}
+#recommendedGrid .recommended-compact-image img{
+  width:100%;height:100%;object-fit:cover;display:block
+}
+#recommendedGrid .recommended-compact-body{padding:12px}
+#recommendedGrid .recommended-compact-body h3{margin:0 0 7px;font-size:1rem}
+#recommendedGrid .recommended-compact-body .rating-line{margin-bottom:10px}
+#recommendedGrid .recommended-detail-btn{
+  width:100%;border:0;border-radius:10px;padding:9px 10px;font-weight:700;cursor:pointer
+}
+
+/* V0.5.20.46: compact all public shop cards */
+#shopGrid .compact-shop-card .card-img{
+  aspect-ratio:16/9;
+  height:auto;
+}
+#shopGrid .compact-shop-card .card-body{
+  padding:13px;
+}
+#shopGrid .compact-shop-card h3{
+  margin:0 0 7px;
+}
+#shopGrid .compact-shop-description{
+  margin:8px 0 12px;
+  display:-webkit-box;
+  -webkit-line-clamp:3;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+}
+#shopGrid .compact-shop-actions{
+  margin-top:8px;
+}
+#shopGrid .compact-shop-actions button{
+  width:100%;
+}

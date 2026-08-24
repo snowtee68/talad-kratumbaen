@@ -730,11 +730,28 @@
     renderFavoriteList(); openModal('favoritesModal');
   }
 
+  function recommendedCompactCard(s){
+    const rating=ratingForShop(s.id);
+    const cover=s.cover_url?`<img src="${esc(s.cover_url)}" alt="${esc(s.name)}" loading="lazy" onerror="this.remove()">`:'';
+    return `<article class="recommended-compact-card" data-id="${esc(s.id)}">
+      <div class="recommended-compact-image">${cover}</div>
+      <div class="recommended-compact-body">
+        <h3>${esc(s.name)}</h3>
+        <div class="rating-line">
+          <span>${stars(rating.average)}</span>
+          <b>${rating.count?rating.average.toFixed(1):'ใหม่'}</b>
+          <small>${rating.count?`${rating.count} รีวิว`:'ยังไม่มีรีวิว'}</small>
+        </div>
+        <button type="button" class="recommended-detail-btn" data-action="details">รายละเอียดเพิ่มเติม</button>
+      </div>
+    </article>`;
+  }
+
   function renderRecommended(){
     const box=$('recommendedGrid');
     if(!box)return;
     const list=recommendedShops();
-    box.innerHTML=list.length?list.map(s=>shopCard(s)).join(''):'<div class="empty-inline">ยังไม่มีร้านแนะนำ</div>';
+    box.innerHTML=list.length?list.map(s=>recommendedCompactCard(s)).join(''):'<div class="empty-inline">ยังไม่มีร้านแนะนำ</div>';
   }
 
   async function openShopDetails(shopId){
@@ -1137,13 +1154,40 @@
 
   function shopCard(s, dashboard=false){
     const category=s.category?.name||'ร้านค้า';
-    const mapsTarget=googleMapsTarget(s);
     const cover=s.cover_url?`<img src="${esc(s.cover_url)}" alt="${esc(s.name)}" loading="lazy" onerror="this.remove()">`:'';
-    const status=dashboard?`<span class="status-pill ${s.status==='approved'?'approved':''}">${s.status==='approved'?'เผยแพร่แล้ว':s.status==='rejected'?'ไม่อนุมัติ':'รอตรวจสอบ'}</span>`:'';
-    const state=openState(s), loc=[s.zone,s.lock_number,s.floor].filter(Boolean).join(' • '), badges=serviceBadges(s);
-    const rating=ratingForShop(s.id), promo=visiblePromotionForShop(s.id), distance=shopDistance(s);
-    const distanceLine=distance==null?'':`<div class="distance-line">📏 ห่างจากคุณ ${esc(formatDistance(distance))}</div>`;
-    return `<article class="card" data-id="${esc(s.id)}"><div class="card-img">${cover}<span class="tag">${esc(category)}</span>${promo?`<span class="promo-ribbon ${promotionState(promo)==='upcoming'?'upcoming':''}">🔥 ${esc(promo.discount_text||'มีโปรโมชั่น')}<small>${esc(promotionTimingText(promo))}</small></span>`:''}</div><div class="card-body"><div style="display:flex;justify-content:space-between;gap:10px;align-items:start"><h3>${esc(s.name)}</h3>${status}</div><div class="rating-line"><span>${stars(rating.average)}</span><b>${rating.count?rating.average.toFixed(1):'ใหม่'}</b><small>${rating.count?`(${rating.count})`:'ยังไม่มีรีวิว'}</small></div><p>${esc(s.description||'ร้านค้าในตลาดกระทุ่มแบน')}</p><div class="meta">📍 ${esc(s.address||'ตลาดกระทุ่มแบน')}</div>${loc?`<div class="location-line">🏪 ${esc(loc)}</div>`:''}${distanceLine}<div class="open-badge ${state.open===false?'closed':''}">${state.open===true?'🟢':state.open===false?'🔴':'🕒'} ${esc(state.text)}</div>${badges?`<div class="service-badges">${badges}</div>`:''}<div class="links">${mapsTarget?`<a class="go" href="${esc(mapsTarget.url)}" target="_blank" rel="noopener noreferrer">${esc(mapsTarget.label)}</a>`:''}${s.phone?`<a href="tel:${esc(s.phone)}">📞 โทร</a>`:''}${s.email?`<a href="mailto:${esc(s.email)}">✉️ Email</a>`:''}${s.facebook?`<a href="${esc(link(s.facebook,'facebook'))}" target="_blank" rel="noopener noreferrer">Facebook</a>`:''}${s.line?`<a href="${esc(link(s.line,'line'))}" target="_blank" rel="noopener noreferrer">LINE</a>`:''}${s.tiktok?`<a href="${esc(link(s.tiktok,'tiktok'))}" target="_blank" rel="noopener noreferrer">TikTok</a>`:''}${s.instagram?`<a href="${esc(link(s.instagram,'instagram'))}" target="_blank" rel="noopener noreferrer">Instagram</a>`:''}${s.website?`<a href="${esc(safeExternalUrl(s.website))}" target="_blank" rel="noopener noreferrer">🌐 Website</a>`:''}</div>${(s.lineman_url||s.grab_url||s.shopeefood_url)?`<div class="delivery-links">${s.lineman_url?`<a class="order-btn lineman" href="${esc(safeExternalUrl(s.lineman_url))}" target="_blank" rel="noopener noreferrer">สั่ง LINE MAN</a>`:''}${s.grab_url?`<a class="order-btn grab" href="${esc(safeExternalUrl(s.grab_url))}" target="_blank" rel="noopener noreferrer">สั่ง GrabFood</a>`:''}${s.shopeefood_url?`<a class="order-btn shopee" href="${esc(safeExternalUrl(s.shopeefood_url))}" target="_blank" rel="noopener noreferrer">สั่ง ShopeeFood</a>`:''}</div>`:''}<div class="community-actions"><button data-action="details">ดูรายละเอียด</button><button data-action="review">⭐ รีวิว</button>${favoriteButton(s.id)}</div>${dashboard?`<div class="admin-actions"><button data-action="edit">แก้ไขร้าน</button><button class="manage-promo-btn" data-action="manage-promotions">⚙️ จัดการโปรโมชั่น</button><button data-action="promotion">+ เพิ่มโปรโมชั่น</button>${profile?.role==='admin'&&s.status!=='approved'?'<button data-action="approve">อนุมัติ</button>':''}${profile?.role==='admin'?`<button data-action="feature">${s.featured?'ยกเลิกแนะนำ':'แนะนำร้าน'}</button><button data-action="reject">ไม่อนุมัติ</button>`:''}</div>`:''}</div></article>`;
+    const rating=ratingForShop(s.id);
+    const state=openState(s);
+
+    if(dashboard){
+      const status=`<span class="status-pill ${s.status==='approved'?'approved':''}">${s.status==='approved'?'เผยแพร่แล้ว':s.status==='rejected'?'ไม่อนุมัติ':'รอตรวจสอบ'}</span>`;
+      return `<article class="card" data-id="${esc(s.id)}">
+        <div class="card-img">${cover}<span class="tag">${esc(category)}</span></div>
+        <div class="card-body">
+          <div style="display:flex;justify-content:space-between;gap:10px;align-items:start"><h3>${esc(s.name)}</h3>${status}</div>
+          <div class="rating-line"><span>${stars(rating.average)}</span><b>${rating.count?rating.average.toFixed(1):'ใหม่'}</b><small>${rating.count?`(${rating.count})`:'ยังไม่มีรีวิว'}</small></div>
+          <p>${esc(s.description||'ร้านค้าในตลาดกระทุ่มแบน')}</p>
+          <div class="community-actions"><button data-action="details">ดูรายละเอียด</button><button data-action="review">⭐ รีวิว</button>${favoriteButton(s.id)}</div>
+          <div class="admin-actions"><button data-action="edit">แก้ไขร้าน</button><button class="manage-promo-btn" data-action="manage-promotions">⚙️ จัดการโปรโมชั่น</button><button data-action="promotion">+ เพิ่มโปรโมชั่น</button>${profile?.role==='admin'&&s.status!=='approved'?'<button data-action="approve">อนุมัติ</button>':''}${profile?.role==='admin'?`<button data-action="feature">${s.featured?'ยกเลิกแนะนำ':'แนะนำร้าน'}</button><button data-action="reject">ไม่อนุมัติ</button>`:''}</div>
+        </div>
+      </article>`;
+    }
+
+    return `<article class="card compact-shop-card" data-id="${esc(s.id)}">
+      <div class="card-img">${cover}</div>
+      <div class="card-body">
+        <h3>${esc(s.name)}</h3>
+        <div class="rating-line">
+          <span>${stars(rating.average)}</span>
+          <b>${rating.count?rating.average.toFixed(1):'ใหม่'}</b>
+          <small>${rating.count?`${rating.count} รีวิว`:'ยังไม่มีรีวิว'}</small>
+        </div>
+        <p class="compact-shop-description">${esc(s.description||'ร้านค้าในตลาดกระทุ่มแบน')}</p>
+        <div class="open-badge ${state.open===false?'closed':''}">${state.open===true?'🟢':state.open===false?'🔴':'🕒'} ${esc(state.text)}</div>
+        <div class="community-actions compact-shop-actions">
+          <button data-action="details">ดูรายละเอียด</button>
+        </div>
+      </div>
+    </article>`;
   }
 
   function renderShops(){
@@ -1721,7 +1765,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=5.7.9.72', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=5.7.9.75', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
