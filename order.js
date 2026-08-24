@@ -13,7 +13,7 @@
   const ORDER_NOTIFY_KEY='talad_order_notify_v042';
   let orderNotifyTimer=null,orderNotifyRealtime=null,orderNotifyRealtimeDebounce=null,orderNotifyBusy=false,orderNotifyBaseline=false,orderNotifyAudioArmed=false;
   let customerOrderTab='waiting',sellerOrderTab='action',customerOrderPage=1,sellerOrderPage=1,orderSearchTerm='',orderDateFilter='today',customerFocusGroupId=null,customerFocusOrderId=null;
-  const ORDER_UI_VERSION='0.5.20.23';
+  const ORDER_UI_VERSION='0.5.20.24';
   let orderNotifyState={statuses:{},viewed:{},reminded:{},unread:0};
   const esc=(v='')=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const money=n=>Number(n||0).toLocaleString('th-TH',{minimumFractionDigits:0,maximumFractionDigits:2});
@@ -356,7 +356,7 @@
     document.addEventListener('keydown',armOrderNotificationAudio,{once:true,capture:true});
     document.addEventListener('click',e=>{if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(false);if(e.target.closest('#closeDeliveryFareInfoBtn'))return closeModal();
       if(e.target?.closest?.('#orderNotifyBanner')){
-        e.preventDefault();markNotificationAreaViewed();session?openAccountHub():requireLogin();
+        e.preventDefault();markNotificationAreaViewed();openAccountHub('customer');
       }
     });
     // Bottom navigation in the base app may have its own click handlers.
@@ -369,7 +369,7 @@
       if(typeof e.stopImmediatePropagation==='function')e.stopImmediatePropagation();
       renderCart();
     },true);
-    document.getElementById('marketOrdersBtn')?.addEventListener('click',()=>session?openAccountHub():requireLogin());
+    document.getElementById('marketOrdersBtn')?.addEventListener('click',()=>openAccountHub('customer'));
     document.addEventListener('click',e=>{
       if(e.target.closest('[data-mo-close]'))return closeModal();
       const orderBtn=e.target.closest('[data-market-order-shop]');if(orderBtn){e.preventDefault();return openShopMenu(orderBtn.dataset.marketOrderShop);}
@@ -453,7 +453,7 @@
     if(cart)cart.style.display=allowed?'':'none';
     if(!allowed){document.querySelectorAll('[data-market-order-shop]').forEach(el=>el.remove());closeModal();}
   }
-  function renderNavState(){const b=document.getElementById('marketOrdersBtn');if(b)b.title=session?'ดูออเดอร์และจัดการร้าน':'สั่งซื้อได้โดยไม่ต้องสมัครสมาชิก';}
+  function renderNavState(){const b=document.getElementById('marketOrdersBtn');if(b)b.title=session&&!isGuestSession()?'ดูออเดอร์และจัดการร้าน':'ดูออเดอร์ของฉัน · ไม่ต้องสมัครสมาชิก';}
   function updateCartBadge(){const c=getCart(),n=c.reduce((s,x)=>s+Number(x.qty||0),0);const x=document.querySelector('#marketCartBtn .count');if(x)x.textContent=n;}
 
   async function imageToBitmap(file){
@@ -825,11 +825,11 @@
     await openAccountHub('customer');
   }
   async function openPayment(orderId){
-    if(!session)return requireLogin();const {data:o,error}=await db.from('market_orders').select('id,subtotal,status,payment_qr_url,payment_name,payment_note,shop:market_shops(name)').eq('id',orderId).maybeSingle();if(error||!o)return alert('ไม่พบออเดอร์');if(o.status!=='awaiting_payment')return alert('ยังชำระไม่ได้ กรุณารอร้านรับออเดอร์หรือยืนยันรายการที่แก้ไขก่อน');
+    try{await ensureCheckoutSession()}catch(err){return alert(err.message)}const {data:o,error}=await db.from('market_orders').select('id,subtotal,status,payment_qr_url,payment_name,payment_note,shop:market_shops(name)').eq('id',orderId).maybeSingle();if(error||!o)return alert('ไม่พบออเดอร์');if(o.status!=='awaiting_payment')return alert('ยังชำระไม่ได้ กรุณารอร้านรับออเดอร์หรือยืนยันรายการที่แก้ไขก่อน');
     openModal(`<h2 class="mo-title">แจ้งชำระเงิน</h2><div class="payment-card"><b>${esc(o.shop?.name||'ร้านค้า')}</b><div class="payment-amount">${money(o.subtotal)} บาท</div>${o.payment_qr_url?`<img src="${esc(o.payment_qr_url)}">`:''}<div>${esc(o.payment_name||'')}</div></div><input id="paymentOrderId" type="hidden" value="${esc(orderId)}"><div class="mo-form"><label>เลขอ้างอิง/4–6 หลักท้าย (ถ้ามี)<input id="paymentRef" placeholder="เช่น 483921"></label><label>แนบสลิป<input id="paymentSlip" type="file" accept="image/*"></label></div><div class="mo-actions"><button id="submitPaymentBtn" class="mo-primary">ส่งหลักฐานให้ร้านตรวจสอบ</button></div>`);
   }
   async function submitPayment(){
-    if(!session)return requireLogin();const orderId=document.getElementById('paymentOrderId').value,ref=document.getElementById('paymentRef').value.trim(),file=document.getElementById('paymentSlip').files?.[0];let path=null;
+    try{await ensureCheckoutSession()}catch(err){return alert(err.message)}const orderId=document.getElementById('paymentOrderId').value,ref=document.getElementById('paymentRef').value.trim(),file=document.getElementById('paymentSlip').files?.[0];let path=null;
     const btn=document.getElementById('submitPaymentBtn');btn.disabled=true;btn.textContent='กำลังส่ง...';
     let oldSlipPath=null;
     if(file){
@@ -851,7 +851,7 @@
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=5.7.9.36',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=5.7.9.37',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
@@ -875,7 +875,7 @@
     }catch(err){st.textContent='ตรวจสถานะแจ้งเตือนไม่สำเร็จ: '+(err?.message||err);}
   }
   async function enableOrderPush(){
-    if(!session)return requireLogin();
+    try{await ensureCheckoutSession()}catch(err){return alert(err.message)}
     const btn=document.getElementById('enableOrderPushBtn'),st=document.getElementById('orderPushStatus'),old=btn?.textContent||'เปิดการแจ้งเตือนบนมือถือ';
     if(btn){btn.disabled=true;btn.textContent='⏳ กำลังเปิดการแจ้งเตือน...';}
     if(st)st.textContent='กำลังติดต่อระบบแจ้งเตือนของอุปกรณ์ กรุณารอสักครู่...';
@@ -910,7 +910,7 @@
     finally{if(btn){btn.disabled=false;btn.textContent=old;}}
   }
   async function testOrderPush(){
-    if(!session)return requireLogin();
+    try{await ensureCheckoutSession()}catch(err){return alert(err.message)}
     const btn=document.getElementById('testOrderPushBtn'),old=btn?.textContent||'🔔 ส่งแจ้งเตือนทดสอบ';
     if(btn){btn.disabled=true;btn.textContent='⏳ กำลังส่งทดสอบ...';}
     try{
@@ -986,10 +986,8 @@
   }
   async function openAccountHub(tab='customer'){
     if(!canUseOrders())return;
-    if(!session){
-      if(tab==='customer'){try{await ensureCheckoutSession()}catch(err){return alert(err.message)}}
-      else return requireLogin();
-    }
+    if(tab==='seller'&&!session)return requireLogin();
+    if(!session){try{await ensureCheckoutSession()}catch(err){return alert(err.message)}}
     if(isGuestSession())tab='customer';
     openModal(`<h2 class="mo-title">🛍️ ออเดอร์และร้านของฉัน</h2>${isGuestSession()?'<div class="guest-order-banner">สั่งซื้อแบบไม่สมัครสมาชิก · ออเดอร์นี้ผูกกับเบราว์เซอร์/เครื่องที่ใช้อยู่ กรุณาอย่าล้างข้อมูลเว็บไซต์จนกว่าออเดอร์จะเสร็จ</div>':''}<div id="orderPushSettings" class="payment-card"><b>🔔 การแจ้งเตือนบนมือถือ</b><div class="mo-muted" id="orderPushStatus">กำลังตรวจสอบ...</div><div class="mo-actions"><button id="enableOrderPushBtn" class="mo-primary">เปิดการแจ้งเตือนบนมือถือ</button><button id="disableOrderPushBtn" class="mo-secondary" style="display:none">ปิดการแจ้งเตือนเครื่องนี้</button><button id="testOrderPushBtn" class="mo-secondary" style="display:none">🔔 ส่งแจ้งเตือนทดสอบ</button></div></div><div class="seller-tabs"><button data-hub-tab="customer" class="${tab==='customer'?'active':''}">ออเดอร์ที่ฉันสั่ง</button>${isGuestSession()?'':`<button data-hub-tab="seller" class="${tab==='seller'?'active':''}">ร้าน / ออเดอร์ที่ได้รับ</button>`}</div><div id="hubContent">กำลังโหลด...</div>`,true);await refreshOrderPushUI();await renderHubTab(tab);
   }
@@ -1433,7 +1431,7 @@
   function routeKm(stops){let km=0;for(let i=1;i<stops.length;i++)km+=haversine(stops[i-1],stops[i]);return km}
   function fareFor(km,pickups){if(km>10)return null;const base=km<=2?25:25+Math.ceil((km-2)/2)*10,extra=Math.max(0,pickups-1)*EXTRA_PICKUP_FEE;return{base,extra,total:base+extra}}
   async function customerCancelProblemShop(orderId){
-    if(!session)return requireLogin();
+    try{await ensureCheckoutSession()}catch(err){return alert(err.message)}
     const reason=prompt('เหตุผลที่ตัดร้านนี้ออก\\nเช่น ร้านแจ้งว่าสินค้าหมด / ร้านไม่สามารถทำออเดอร์ได้');
     if(reason===null)return;if(!reason.trim())return alert('กรุณาระบุเหตุผล');
     if(!confirm('ยกเลิกเฉพาะร้านนี้ใช่หรือไม่?\\n\\nร้านอื่นจะไม่ถูกยกเลิกและ Delivery ไปต่อได้'))return;
@@ -1443,7 +1441,7 @@
     openAccountHub('customer');
   }
   async function createDelivery(groupId){
-    if(!session)return requireLogin();
+    try{await ensureCheckoutSession()}catch(err){return alert(err.message)}
     const {data:g,error}=await db.from('market_delivery_groups').select('*,orders:market_orders(id,status,shop:market_shops(id,name,latitude,longitude,phone,landmark,address)),batches:market_delivery_batches(id,status,batch_orders:market_delivery_batch_orders(order_id))').eq('id',groupId).eq('customer_id',session.user.id).maybeSingle();
     if(error||!g)return alert('ไม่พบชุดคำสั่งซื้อ');
     if(g.fulfillment_method==='pickup')return alert('ออเดอร์นี้เลือกรับเองที่ร้าน');
