@@ -493,3 +493,31 @@ fieldset{border:1px solid var(--line);border-radius:14px;padding:14px}legend{fon
   }
   .site-header #favoritesBtn{font-size:11.2px!important;}
 }
+
+/* V0.5.20.31 — mobile header: 2 rows, large readable labels */
+@media(max-width:640px){
+  .site-header .nav-actions{
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:7px!important;
+    width:100%!important;
+  }
+  .site-header .nav-actions button{
+    width:100%!important;
+    min-width:0!important;
+    min-height:42px!important;
+    padding:8px 7px!important;
+    font-size:13px!important;
+    line-height:1.15!important;
+    letter-spacing:0!important;
+    white-space:nowrap!important;
+    overflow:visible!important;
+    text-overflow:clip!important;
+    justify-content:center!important;
+  }
+  .site-header #accountBtn{order:1!important;font-size:13px!important;}
+  .site-header #marketOrdersBtn{order:2!important;font-size:13px!important;}
+  .site-header #favoritesBtn{order:3!important;font-size:13px!important;}
+  .site-header #addShopBtn{order:4!important;font-size:13px!important;}
+  .site-header #nearBtn{display:none!important;}
+}
