@@ -414,3 +414,15 @@ fieldset{border:1px solid var(--line);border-radius:14px;padding:14px}legend{fon
   }
   .site-header #accountBtn{min-width:82px!important;}
 }
+
+/* V0.5.20.26 — mobile hero order: intro -> search -> categories */
+@media(max-width:640px){
+  .hero .search-box{
+    margin-top:22px!important;
+    margin-bottom:14px!important;
+    width:100%!important;
+  }
+  .hero .chips{
+    margin-top:0!important;
+  }
+}
