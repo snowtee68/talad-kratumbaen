@@ -1,4 +1,4 @@
-const CACHE_NAME = 'talad-kratumbaen-v5.7.9.71';
+const CACHE_NAME = 'talad-kratumbaen-v5.7.9.72';
 const CORE = [
   './',
   './index.html',
