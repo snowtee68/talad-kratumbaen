@@ -1199,21 +1199,26 @@
     }
   }
 
+  function isAnonymousSession(){
+    return !!(session?.user?.is_anonymous || session?.user?.app_metadata?.provider==='anonymous');
+  }
+
   async function refreshAuth(){
     if(!db){ updateAccountUI(); return; }
     const {data}=await db.auth.getSession(); session=data.session;
     profile=null;
-    if(session){const {data:p}=await db.from('market_profiles').select('*').eq('id',session.user.id).maybeSingle();profile=p;}
+    if(session&&!isAnonymousSession()){const {data:p}=await db.from('market_profiles').select('*').eq('id',session.user.id).maybeSingle();profile=p;}
     updateAccountUI();
-    await loadFavorites();
+    if(session&&!isAnonymousSession())await loadFavorites(); else favorites.clear?.();
     renderShops(); renderRecommended();
-    if(session) await loadDashboard();
+    if(session&&!isAnonymousSession()) await loadDashboard();
   }
 
   function updateAccountUI(){
-    $('accountBtn').textContent=session?(profile?.display_name||session.user.email):'เข้าสู่ระบบ';
-    $('dashboard').classList.toggle('hidden',!session);
-    const favBtn=$('favoritesBtn'); if(favBtn)favBtn.classList.toggle('hidden',!session);
+    const realLoggedIn=!!session&&!isAnonymousSession();
+    $('accountBtn').textContent=realLoggedIn?(profile?.display_name||session.user.email||'บัญชีของฉัน'):'เข้าสู่ระบบ';
+    $('dashboard').classList.toggle('hidden',!realLoggedIn);
+    const favBtn=$('favoritesBtn'); if(favBtn)favBtn.classList.remove('hidden');
   }
 
   async function loadDashboard(){
@@ -1368,8 +1373,8 @@
     $('floatingHomeBtn')?.addEventListener('click',goHome);
     $('floatingBackBtn')?.addEventListener('click',goBack);
     document.querySelectorAll('[data-analytics-days]').forEach(btn=>btn.addEventListener('click',()=>loadAnalyticsDashboard(Number(btn.dataset.analyticsDays)||7)));
-    $('accountBtn').addEventListener('click',()=>session?$('dashboard').scrollIntoView({behavior:'smooth'}):openModal('authModal'));
-    $('addShopBtn').addEventListener('click',()=>{if(!session)return openModal('authModal');$('shopForm').reset();fillOpeningHours($('shopForm'),{});$('shopFormTitle').textContent='เพิ่มร้านของฉัน';openModal('shopModal');});
+    $('accountBtn').addEventListener('click',()=>session&&!isAnonymousSession()?$('dashboard').scrollIntoView({behavior:'smooth'}):openModal('authModal'));
+    $('addShopBtn').addEventListener('click',()=>{if(!session||isAnonymousSession())return openModal('authModal');$('shopForm').reset();fillOpeningHours($('shopForm'),{});$('shopFormTitle').textContent='เพิ่มร้านของฉัน';openModal('shopModal');});
     $('searchBtn').addEventListener('click',()=>resetShopList({scroll:true}));
     $('searchInput').addEventListener('keydown',ev=>{
       if(ev.key==='Enter'){
@@ -1690,7 +1695,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=5.7.9.39', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=5.7.9.40', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
