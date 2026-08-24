@@ -527,3 +527,39 @@ fieldset{border:1px solid var(--line);border-radius:14px;padding:14px}legend{fon
   border-radius:999px;
   background:rgba(0,0,0,.04);
 }
+
+/* V0.5.20.54: compact buttons inside shop details */
+#shopDetailModal .detail-action-grid{
+  display:flex !important;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:8px;
+}
+#shopDetailModal .detail-action-grid .detail-action{
+  width:auto !important;
+  flex:0 0 auto !important;
+  min-width:0;
+  padding:9px 13px;
+  white-space:nowrap;
+}
+#shopDetailModal .shop-share-actions{
+  display:flex !important;
+  flex-wrap:wrap;
+  justify-content:center;
+  gap:8px;
+}
+#shopDetailModal .shop-share-actions button{
+  width:auto !important;
+  flex:0 0 auto !important;
+  padding:9px 12px;
+  white-space:nowrap;
+}
+@media(max-width:480px){
+  #shopDetailModal .detail-action-grid,
+  #shopDetailModal .shop-share-actions{gap:7px}
+  #shopDetailModal .detail-action-grid .detail-action,
+  #shopDetailModal .shop-share-actions button{
+    font-size:13px;
+    padding:8px 10px;
+  }
+}
