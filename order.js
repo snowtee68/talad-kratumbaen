@@ -13,7 +13,7 @@
   const ORDER_NOTIFY_KEY='talad_order_notify_v042';
   let orderNotifyTimer=null,orderNotifyRealtime=null,orderNotifyRealtimeDebounce=null,orderNotifyBusy=false,orderNotifyBaseline=false,orderNotifyAudioArmed=false;
   let customerOrderTab='waiting',sellerOrderTab='action',customerOrderPage=1,sellerOrderPage=1,orderSearchTerm='',orderDateFilter='today',customerFocusGroupId=null,customerFocusOrderId=null,sellerFocusOrderId=null;
-  const ORDER_UI_VERSION='0.5.20.36';
+  const ORDER_UI_VERSION='0.5.20.37';
   let orderNotifyState={statuses:{},viewed:{},reminded:{},unread:0};
   const esc=(v='')=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const money=n=>Number(n||0).toLocaleString('th-TH',{minimumFractionDigits:0,maximumFractionDigits:2});
@@ -356,7 +356,7 @@
     document.addEventListener('keydown',armOrderNotificationAudio,{once:true,capture:true});
     document.addEventListener('click',e=>{if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(false);if(e.target.closest('#closeDeliveryFareInfoBtn'))return closeModal();
       if(e.target?.closest?.('#orderNotifyBanner')){
-        e.preventDefault();markNotificationAreaViewed();openAccountHub('customer');
+        e.preventDefault();markNotificationAreaViewed();openOrdersForCurrentUser();
       }
     });
     // Bottom navigation in the base app may have its own click handlers.
@@ -369,7 +369,7 @@
       if(typeof e.stopImmediatePropagation==='function')e.stopImmediatePropagation();
       renderCart();
     },true);
-    document.getElementById('marketOrdersBtn')?.addEventListener('click',()=>openAccountHub('customer'));
+    document.getElementById('marketOrdersBtn')?.addEventListener('click',()=>openOrdersForCurrentUser());
     document.addEventListener('click',e=>{
       if(e.target.closest('[data-mo-close]'))return closeModal();
       const orderBtn=e.target.closest('[data-market-order-shop]');if(orderBtn){e.preventDefault();return openShopMenu(orderBtn.dataset.marketOrderShop);}
@@ -453,6 +453,29 @@
     if(cart)cart.style.display=allowed?'':'none';
     if(!allowed){document.querySelectorAll('[data-market-order-shop]').forEach(el=>el.remove());closeModal();}
   }
+  async function openOrdersForCurrentUser(){
+    if(!session || isGuestSession()) return openAccountHub('customer');
+    try{
+      const {data:shops,error}=await db.from('market_shops')
+        .select('id,name,status')
+        .eq('owner_id',session.user.id)
+        .order('created_at',{ascending:false});
+      if(error)throw error;
+      if((shops||[]).length===1){
+        sellerOrderTab='action';
+        sellerOrderPage=1;
+        orderSearchTerm='';
+        orderDateFilter='all';
+        await openAccountHub('seller');
+        return openSellerShop(shops[0].id);
+      }
+      if((shops||[]).length>1) return openAccountHub('seller');
+    }catch(err){
+      console.warn('Open seller inbox:',err?.message||err);
+    }
+    return openAccountHub('customer');
+  }
+
   function renderNavState(){const b=document.getElementById('marketOrdersBtn');if(b)b.title=session&&!isGuestSession()?'ดูออเดอร์และจัดการร้าน':'ดูออเดอร์ของฉัน · ไม่ต้องสมัครสมาชิก';}
   function updateCartBadge(){const c=getCart(),n=c.reduce((s,x)=>s+Number(x.qty||0),0);const x=document.querySelector('#marketCartBtn .count');if(x)x.textContent=n;}
 
@@ -851,7 +874,7 @@
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=5.7.9.49',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=5.7.9.50',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
@@ -965,6 +988,15 @@
     const d=orderDeepLink(sourceUrl||location.href);
     if(!d||!session)return false;
     orderDateFilter='all';
+    if(d.orderId && d.tab!=='seller' && !isGuestSession()){
+      try{
+        const {data:o}=await db.from('market_orders').select('shop_id').eq('id',d.orderId).maybeSingle();
+        if(o?.shop_id){
+          const {data:mine}=await db.from('market_shops').select('id').eq('id',o.shop_id).eq('owner_id',session.user.id).maybeSingle();
+          if(mine?.id){d.tab='seller';d.shopId=mine.id;}
+        }
+      }catch(_e){}
+    }
     if(d.tab==='seller'){
       sellerOrderTab='action';
       sellerOrderPage=1;
@@ -1138,6 +1170,11 @@
     box.innerHTML='กำลังโหลด...';
     const {data:shops,error}=await db.from('market_shops').select('id,name,status').eq('owner_id',session.user.id).order('created_at',{ascending:false});
     if(error){box.innerHTML=esc(error.message);return}
+    if((shops||[]).length===1){
+      const only=shops[0];
+      setTimeout(()=>openSellerShop(only.id),0);
+      return;
+    }
     const rows=await Promise.all((shops||[]).map(async sh=>{
       try{
         const orders=await loadSellerOrdersDetailed(sh.id);
