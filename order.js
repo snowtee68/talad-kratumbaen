@@ -13,7 +13,7 @@
   const ORDER_NOTIFY_KEY='talad_order_notify_v042';
   let orderNotifyTimer=null,orderNotifyRealtime=null,orderNotifyRealtimeDebounce=null,orderNotifyBusy=false,orderNotifyBaseline=false,orderNotifyAudioArmed=false;
   let customerOrderTab='waiting',sellerOrderTab='action',customerOrderPage=1,sellerOrderPage=1,orderSearchTerm='',orderDateFilter='today',customerFocusGroupId=null,customerFocusOrderId=null;
-  const ORDER_UI_VERSION='0.5.20.32';
+  const ORDER_UI_VERSION='0.5.20.33';
   let orderNotifyState={statuses:{},viewed:{},reminded:{},unread:0};
   const esc=(v='')=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const money=n=>Number(n||0).toLocaleString('th-TH',{minimumFractionDigits:0,maximumFractionDigits:2});
@@ -851,7 +851,7 @@
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=5.7.9.45',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=5.7.9.46',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
@@ -1151,12 +1151,79 @@
       <div class="mo-muted" style="margin-top:10px">💡 ${Number(x.shop_views||0)>=10&&Number(x.completed_orders||0)===0?'มีคนสนใจร้านแล้ว ลองเพิ่มรูปสินค้า เมนู หรือโปรโมชั่นเพื่อช่วยเปลี่ยนเป็นออเดอร์':Number(x.navigate_clicks||0)>0?'มีลูกค้ากดดูพิกัดร้านของคุณ แสดงว่ามีความสนใจเดินทางมาที่ร้าน':'ระบบจะสรุปคำแนะนำเมื่อมีข้อมูลเพียงพอ'}</div>
     </section>`;
   }
+  async function loadSellerOrdersDetailed(shopId){
+    const orderFields='id,subtotal,status,payment_ref,payment_slip_path,payment_submitted_at,response_due_at,paid_at,customer_cancel_reason,customer_cancelled_at,rejection_reason,shop_response_due_at,shop_accepted_at,shop_viewed_at,pickup_completed_at,revision_note,revision_subtotal,revision_requested_at,revision_confirmed_at,refund_required,refund_status,refund_amount,refund_ref,refund_slip_path,refund_submitted_at,refund_confirmed_at,refund_destination_type,refund_destination_promptpay_type,refund_destination_value,refund_destination_bank,refund_destination_name,refund_destination_submitted_at,created_at,customer_id,group_id';
+    const {data:orders,error}=await db.from('market_orders').select(orderFields).eq('shop_id',shopId).order('created_at',{ascending:false}).limit(50);
+    if(error)throw error;
+    const list=orders||[];
+    if(!list.length)return list;
+
+    const orderIds=list.map(o=>o.id);
+    const groupIds=[...new Set(list.map(o=>o.group_id).filter(Boolean))];
+
+    const [itemsRes,groupsRes,batchesRes]=await Promise.all([
+      db.from('market_order_items').select('order_id,product_name,unit_price,qty,options_json,note').in('order_id',orderIds),
+      groupIds.length
+        ? db.from('market_delivery_groups').select('id,customer_name,customer_phone,delivery_address,fulfillment_method,pickup_requested_at,status').in('id',groupIds)
+        : Promise.resolve({data:[],error:null}),
+      groupIds.length
+        ? db.from('market_delivery_batches').select('id,group_id,status,rider_job_id,rider_name,rider_phone,delivery_fee,distance_km,accepted_at,pickup_started_at,picked_up_at,delivering_at,delivery_arrived_at,proof_path,proof_uploaded_at,customer_confirmed_at,delivery_issue_status,delivery_issue_note,delivery_issue_at,proof_deleted_at,completed_at').in('group_id',groupIds)
+        : Promise.resolve({data:[],error:null})
+    ]);
+    if(itemsRes.error)throw itemsRes.error;
+    if(groupsRes.error)throw groupsRes.error;
+    if(batchesRes.error)throw batchesRes.error;
+
+    const batchIds=(batchesRes.data||[]).map(b=>b.id);
+    let batchOrders=[];
+    if(batchIds.length){
+      const {data,error:boErr}=await db.from('market_delivery_batch_orders').select('batch_id,order_id').in('batch_id',batchIds);
+      if(boErr)throw boErr;
+      batchOrders=data||[];
+    }
+
+    const itemsByOrder=new Map();
+    for(const i of (itemsRes.data||[])){
+      if(!itemsByOrder.has(i.order_id))itemsByOrder.set(i.order_id,[]);
+      itemsByOrder.get(i.order_id).push(i);
+    }
+    const groupById=new Map((groupsRes.data||[]).map(g=>[g.id,{...g,batches:[]}]));
+    const boByBatch=new Map();
+    for(const bo of batchOrders){
+      if(!boByBatch.has(bo.batch_id))boByBatch.set(bo.batch_id,[]);
+      boByBatch.get(bo.batch_id).push({order_id:bo.order_id});
+    }
+    for(const b of (batchesRes.data||[])){
+      const g=groupById.get(b.group_id);
+      if(g)g.batches.push({...b,batch_orders:boByBatch.get(b.id)||[]});
+    }
+
+    return list.map(o=>({
+      ...o,
+      group:o.group_id?(groupById.get(o.group_id)||null):null,
+      items:itemsByOrder.get(o.id)||[]
+    }));
+  }
+
   async function openSellerShop(shopId){
     markSellerOrdersViewed(shopId);
-    const [{data:shop},{data:setting},{data:categories},{data:products},{data:orders,error},insights]=await Promise.all([
-      db.from('market_shops').select('id,name,owner_id').eq('id',shopId).maybeSingle(),db.from('market_shop_order_settings').select('*').eq('shop_id',shopId).maybeSingle(),db.from('market_product_categories').select('*').eq('shop_id',shopId).order('sort_order').order('created_at'),db.from('market_products').select('*').eq('shop_id',shopId).order('sort_order').order('created_at'),db.from('market_orders').select('id,subtotal,status,payment_ref,payment_slip_path,payment_submitted_at,response_due_at,paid_at,customer_cancel_reason,customer_cancelled_at,rejection_reason,shop_response_due_at,shop_accepted_at,shop_viewed_at,pickup_completed_at,revision_note,revision_subtotal,revision_requested_at,revision_confirmed_at,refund_required,refund_status,refund_amount,refund_ref,refund_slip_path,refund_submitted_at,refund_confirmed_at,refund_destination_type,refund_destination_promptpay_type,refund_destination_value,refund_destination_bank,refund_destination_name,refund_destination_submitted_at,created_at,customer_id,group:market_delivery_groups(id,customer_name,customer_phone,delivery_address,fulfillment_method,pickup_requested_at,status,batches:market_delivery_batches(id,status,rider_job_id,rider_name,rider_phone,delivery_fee,distance_km,accepted_at,pickup_started_at,picked_up_at,delivering_at,delivery_arrived_at,proof_path,proof_uploaded_at,customer_confirmed_at,delivery_issue_status,delivery_issue_note,delivery_issue_at,proof_deleted_at,completed_at,batch_orders:market_delivery_batch_orders(order_id))),items:market_order_items(product_name,unit_price,qty,options_json,note)').eq('shop_id',shopId).order('created_at',{ascending:false}).limit(50),
-      loadShopInsights(shopId)
-    ]);if(error)return alert(error.message);
+    let shop,setting,categories,products,orders,insights;
+    try{
+      const results=await Promise.all([
+        db.from('market_shops').select('id,name,owner_id').eq('id',shopId).maybeSingle(),
+        db.from('market_shop_order_settings').select('*').eq('shop_id',shopId).maybeSingle(),
+        db.from('market_product_categories').select('*').eq('shop_id',shopId).order('sort_order').order('created_at'),
+        db.from('market_products').select('*').eq('shop_id',shopId).order('sort_order').order('created_at'),
+        loadSellerOrdersDetailed(shopId),
+        loadShopInsights(shopId)
+      ]);
+      shop=results[0].data;setting=results[1].data;categories=results[2].data||[];products=results[3].data||[];orders=results[4]||[];insights=results[5];
+      const firstErr=results.slice(0,4).map(x=>x?.error).find(Boolean);
+      if(firstErr)throw firstErr;
+    }catch(err){
+      console.error('Seller data load failed',err);
+      return alert('โหลดออเดอร์ร้านไม่สำเร็จ: '+(err?.message||err));
+    }
     try{const unseenIds=(orders||[]).filter(o=>!o.shop_viewed_at&&!['cancelled','completed'].includes(o.status)).map(o=>o.id);if(unseenIds.length)await db.rpc('market_shop_mark_orders_viewed',{p_order_ids:unseenIds});}catch(_e){}
     const {data:shopAccess}=await db.from('market_order_shop_access').select('enabled').eq('shop_id',shopId).maybeSingle();
     const accepting=setting?.accepting_status||'open';
