@@ -742,7 +742,7 @@
           <b>${rating.count?rating.average.toFixed(1):'ใหม่'}</b>
           <small>${rating.count?`${rating.count} รีวิว`:'ยังไม่มีรีวิว'}</small>
         </div>
-        <button type="button" class="recommended-detail-btn" data-action="details">รายละเอียดเพิ่มเติม</button>
+        <button type="button" class="recommended-detail-btn" data-action="details" data-shop-id="${esc(s.id)}">รายละเอียดเพิ่มเติม</button>
       </div>
     </article>`;
   }
@@ -1765,7 +1765,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=5.7.9.80', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=5.7.9.81', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
