@@ -461,3 +461,35 @@ fieldset{border:1px solid var(--line);border-radius:14px;padding:14px}legend{fon
 @media(min-width:390px) and (max-width:640px){
   .site-header .nav-actions button{font-size:12px!important;padding-left:5px!important;padding-right:5px!important;}
 }
+
+/* V0.5.20.28 — iPhone header: show full labels, no ellipsis */
+@media(max-width:640px){
+  .site-header .nav-actions{
+    grid-template-columns:1.14fr .84fr 1.27fr .95fr!important;
+    gap:5px!important;
+  }
+  .site-header .nav-actions button{
+    min-width:0!important;
+    padding:7px 3px!important;
+    font-size:10.5px!important;
+    letter-spacing:-.15px!important;
+    white-space:nowrap!important;
+    overflow:visible!important;
+    text-overflow:clip!important;
+  }
+  .site-header #accountBtn{font-size:10.5px!important;}
+  .site-header #marketOrdersBtn{font-size:10.5px!important;}
+  .site-header #favoritesBtn{font-size:10.2px!important;}
+  .site-header #addShopBtn{font-size:10.5px!important;}
+}
+@media(min-width:390px) and (max-width:640px){
+  .site-header .nav-actions{
+    grid-template-columns:1.12fr .86fr 1.24fr .98fr!important;
+    gap:6px!important;
+  }
+  .site-header .nav-actions button{
+    font-size:11.5px!important;
+    padding:7px 4px!important;
+  }
+  .site-header #favoritesBtn{font-size:11.2px!important;}
+}
