@@ -186,3 +186,8 @@
 /* V0.5.20.21 product quick status toggle */
 .mo-warning{border:1px solid #d99b20!important;background:#fff7df!important;color:#7a5200!important;border-radius:10px;padding:8px 10px;font-weight:700;cursor:pointer}
 .mo-success{border:1px solid #2d8a55!important;background:#eaf8ef!important;color:#17643b!important;border-radius:10px;padding:8px 10px;font-weight:700;cursor:pointer}
+
+/* V0.5.20.22 Guest Checkout */
+.guest-checkout-note{margin:12px 0 8px;padding:10px 12px;border-radius:12px;background:#eef9f1;border:1px solid #bfe3c8;color:#285c37;font-weight:700;text-align:center}
+.guest-checkout-note small{font-weight:500;color:#587060}
+.guest-order-banner{margin:0 0 12px;padding:10px 12px;border-radius:12px;background:#fff7df;border:1px solid #ead28a;color:#705500;font-size:13px}
