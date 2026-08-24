@@ -13,7 +13,7 @@
   const ORDER_NOTIFY_KEY='talad_order_notify_v042';
   let orderNotifyTimer=null,orderNotifyRealtime=null,orderNotifyRealtimeDebounce=null,orderNotifyBusy=false,orderNotifyBaseline=false,orderNotifyAudioArmed=false;
   let customerOrderTab='waiting',sellerOrderTab='action',customerOrderPage=1,sellerOrderPage=1,orderSearchTerm='',orderDateFilter='today',customerFocusGroupId=null,customerFocusOrderId=null,sellerFocusOrderId=null;
-  const ORDER_UI_VERSION='0.5.20.35';
+  const ORDER_UI_VERSION='0.5.20.36';
   let orderNotifyState={statuses:{},viewed:{},reminded:{},unread:0};
   const esc=(v='')=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const money=n=>Number(n||0).toLocaleString('th-TH',{minimumFractionDigits:0,maximumFractionDigits:2});
@@ -851,7 +851,7 @@
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=5.7.9.48',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=5.7.9.49',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
@@ -1194,6 +1194,9 @@
   }
 
   async function openSellerShop(shopId){
+    // Seller inbox must always reveal incoming orders first.
+    // Do not inherit a search/date filter previously used in customer history.
+    if(sellerFocusOrderId){orderSearchTerm='';orderDateFilter='all';}
     markSellerOrdersViewed(shopId);
     let shop,setting,categories,products,orders,insights;
     try{
@@ -1262,16 +1265,25 @@
     return new Date(o.created_at).toLocaleString('th-TH');
   }
   function renderSellerOrderSections(orders){
+    const allBuckets={action:[],preparing:[],ready:[],done:[]};
+    for(const o of (orders||[]))allBuckets[sellerOrderBucket(o)].push(o);
     const b={action:[],preparing:[],ready:[],done:[]};
     for(const o of (orders||[]).filter(x=>orderDateMatches(x.created_at)&&sellerOrderSearchMatches(x)))b[sellerOrderBucket(o)].push(o);
+    // Never let a stale filter hide a live order that requires seller action.
+    if(sellerOrderTab==='action' && !b.action.length && allBuckets.action.length){
+      orderSearchTerm='';
+      orderDateFilter='all';
+      b.action=[...allBuckets.action];
+    }
     for(const key of Object.keys(b))b[key].sort((a,c)=>sellerOrderPriority(a)-sellerOrderPriority(c)||new Date(a.created_at)-new Date(c.created_at));
 
     if(!b[sellerOrderTab])sellerOrderTab='action';
     const active=b[sellerOrderTab],limit=10*sellerOrderPage,shown=active.slice(0,limit);
     const title={action:'🔴 ต้องทำตอนนี้',preparing:'🟠 กำลังเตรียม',ready:'🟢 พร้อมส่ง / พร้อมรับ',done:'⚪ จบแล้ว'}[sellerOrderTab];
     const unseenCount=active.filter(o=>!isOrderSeen(o.id)).length;
+    const rawCount=(orders||[]).length;
 
-    return orderTabsToolbar('seller',b)+
+    return `<div class="mo-muted" style="margin-bottom:6px">ระบบพบออเดอร์ร้าน ${rawCount} รายการ</div>`+orderTabsToolbar('seller',b)+
       `<section class="order-active-pane">${sellerOrderTab==='action'&&active.length?`<div class="order-queue-summary"><div><b>งานที่ต้องจัดการ ${active.length}</b><small>${unseenCount?` · ใหม่ ${unseenCount}`:''}</small></div><div class="queue-priority">ทำรายการบนสุดก่อน</div></div>`:''}<div class="order-active-head"><b>${title}</b><span>${active.length} รายการ</span></div>
       ${shown.length?shown.map(sellerOrderCard).join(''):'<div class="order-group-empty">ไม่มีรายการในหมวดนี้</div>'}
       ${active.length>shown.length?`<div class="order-load-more"><div class="mo-muted">แสดง ${shown.length} จาก ${active.length} รายการ</div><button id="sellerLoadMoreOrders" class="mo-secondary">โหลดเพิ่ม</button></div>`:''}
