@@ -338,3 +338,8 @@ fieldset{border:1px solid var(--line);border-radius:14px;padding:14px}legend{fon
 .shop-share-actions button{border:1px solid #dbcac1;background:#fff;color:#5b4038;border-radius:999px;padding:9px 13px;font-weight:700;cursor:pointer}
 .shop-share-actions button:last-child{background:#f7f2ed}
 @media(max-width:640px){.shop-share-actions button{flex:1 1 100%}}
+
+.auth-method-switch{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0 14px}
+.auth-method{padding:10px;border:1px solid #ddd;border-radius:12px;background:#fff;font-weight:700}
+.auth-method.active{background:#222;color:#fff;border-color:#222}
+.auth-help{font-size:12px;color:#666;margin:-4px 0 10px}
