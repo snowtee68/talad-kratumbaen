@@ -563,3 +563,42 @@ fieldset{border:1px solid var(--line);border-radius:14px;padding:14px}legend{fon
     padding:8px 10px;
   }
 }
+
+/* V0.5.20.55 HARD MOBILE FIX: compact shop-detail buttons on mobile */
+@media (max-width:640px){
+  #shopDetailModal #detailSummary .detail-action-grid{
+    display:flex !important;
+    flex-direction:row !important;
+    flex-wrap:wrap !important;
+    justify-content:center !important;
+    align-items:center !important;
+    gap:7px !important;
+  }
+  #shopDetailModal #detailSummary .detail-action-grid > a.detail-action{
+    display:inline-flex !important;
+    width:auto !important;
+    max-width:100% !important;
+    min-width:0 !important;
+    min-height:40px !important;
+    flex:0 0 auto !important;
+    padding:8px 10px !important;
+    font-size:13px !important;
+    white-space:nowrap !important;
+  }
+  #shopDetailModal #detailSummary .shop-share-actions{
+    display:flex !important;
+    flex-direction:row !important;
+    flex-wrap:wrap !important;
+    justify-content:center !important;
+    gap:7px !important;
+  }
+  #shopDetailModal #detailSummary .shop-share-actions > button{
+    width:auto !important;
+    max-width:100% !important;
+    flex:0 0 auto !important;
+    min-height:38px !important;
+    padding:8px 10px !important;
+    font-size:12.5px !important;
+    white-space:nowrap !important;
+  }
+}
