@@ -1,9 +1,9 @@
-const CACHE_NAME = 'talad-kratumbaen-v5.7.9.50';
+const CACHE_NAME = 'talad-kratumbaen-v5.7.9.51';
 const CORE = [
   './',
-  './index.html?v=5.7.9.50',
-  './styles.css?v=5.7.9.50',
-  './app.js?v=5.7.9.50',
+  './index.html?v=5.7.9.51',
+  './styles.css?v=5.7.9.51',
+  './app.js?v=5.7.9.51',
   './manifest.webmanifest',
   './icons/icon-192.png',
   './icons/icon-512.png',

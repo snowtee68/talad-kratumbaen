@@ -191,3 +191,7 @@
 .guest-checkout-note{margin:12px 0 8px;padding:10px 12px;border-radius:12px;background:#eef9f1;border:1px solid #bfe3c8;color:#285c37;font-weight:700;text-align:center}
 .guest-checkout-note small{font-weight:500;color:#587060}
 .guest-order-banner{margin:0 0 12px;padding:10px 12px;border-radius:12px;background:#fff7df;border:1px solid #ead28a;color:#705500;font-size:13px}
+
+/* V0.5.20.38 direct seller inbox */
+.direct-seller-order{border:2px solid rgba(179,18,23,.16);padding:14px;margin:10px 0;border-radius:16px;background:#fff}
+.direct-seller-order .mo-actions{margin-top:12px}

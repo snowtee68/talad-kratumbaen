@@ -13,7 +13,7 @@
   const ORDER_NOTIFY_KEY='talad_order_notify_v042';
   let orderNotifyTimer=null,orderNotifyRealtime=null,orderNotifyRealtimeDebounce=null,orderNotifyBusy=false,orderNotifyBaseline=false,orderNotifyAudioArmed=false;
   let customerOrderTab='waiting',sellerOrderTab='action',customerOrderPage=1,sellerOrderPage=1,orderSearchTerm='',orderDateFilter='today',customerFocusGroupId=null,customerFocusOrderId=null,sellerFocusOrderId=null;
-  const ORDER_UI_VERSION='0.5.20.37';
+  const ORDER_UI_VERSION='0.5.20.38';
   let orderNotifyState={statuses:{},viewed:{},reminded:{},unread:0};
   const esc=(v='')=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const money=n=>Number(n||0).toLocaleString('th-TH',{minimumFractionDigits:0,maximumFractionDigits:2});
@@ -297,7 +297,8 @@
         const oldScroll=panel?.scrollTop||0;
         const sid=document.getElementById('sellerShopId')?.value;
         if(sid){
-          await openSellerShop(sid);
+          const isFull=!!document.getElementById('orderEnabled');
+          if(isFull)await openSellerShop(sid); else await openDirectSellerInbox(sid);
           const np=document.querySelector('#marketOrderModal .market-order-panel');
           if(np)np.scrollTop=oldScroll;
           return;
@@ -388,7 +389,8 @@
       const cancelOrder=e.target.closest('[data-cancel-shop-order]');if(cancelOrder)return customerCancelShopOrder(cancelOrder.dataset.cancelShopOrder);
       const pay=e.target.closest('[data-pay-order]');if(pay)return openPayment(pay.dataset.payOrder);
       if(e.target.closest('#submitPaymentBtn'))return submitPayment();
-      const seller=e.target.closest('[data-seller-shop]');if(seller)return openSellerShop(seller.dataset.sellerShop);
+      const seller=e.target.closest('[data-seller-shop]');if(seller)return openDirectSellerInbox(seller.dataset.sellerShop);
+      const fullSeller=e.target.closest('[data-open-full-seller]');if(fullSeller)return openSellerShop(fullSeller.dataset.openFullSeller);
       if(e.target.closest('#saveOrderSettingsBtn'))return saveOrderSettings();
       if(e.target.closest('#addProductCategoryBtn'))return addProductCategory();
       const editCat=e.target.closest('[data-edit-product-category]');if(editCat)return editProductCategory(editCat.dataset.editProductCategory);
@@ -462,12 +464,7 @@
         .order('created_at',{ascending:false});
       if(error)throw error;
       if((shops||[]).length===1){
-        sellerOrderTab='action';
-        sellerOrderPage=1;
-        orderSearchTerm='';
-        orderDateFilter='all';
-        await openAccountHub('seller');
-        return openSellerShop(shops[0].id);
+        return openDirectSellerInbox(shops[0].id);
       }
       if((shops||[]).length>1) return openAccountHub('seller');
     }catch(err){
@@ -874,7 +871,7 @@
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=5.7.9.50',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=5.7.9.51',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
@@ -1004,7 +1001,7 @@
       const sid=await resolveSellerShopFromDeepLink(d);
       await openAccountHub('seller');
       if(sid){
-        await openSellerShop(sid);
+        await openDirectSellerInbox(sid);
         if(sellerFocusOrderId){
           setTimeout(()=>{
             const card=document.querySelector(`[data-order-card-id="${CSS.escape(sellerFocusOrderId)}"]`);
@@ -1166,13 +1163,57 @@
       </section>`;
     if(focused||focusedOrder)setTimeout(()=>{customerFocusGroupId=null;customerFocusOrderId=null},2500);
   }
+  function directSellerOrderCard(o){
+    const customer=o.group?.customer_name||'ลูกค้า';
+    const phone=o.group?.customer_phone||'';
+    const items=(o.items||[]).map(i=>`<div style="margin-top:5px"><b>${esc(i.product_name||'สินค้า')} × ${Number(i.qty||1)}</b>${i.note?`<div class="mo-muted">📝 ${esc(i.note)}</div>`:''}</div>`).join('');
+    const status=o.status||'';
+    const actions=status==='pending_shop'
+      ? `<div class="mo-actions"><button class="mo-primary" data-accept-order="${o.id}">✅ รับออเดอร์</button><button class="mo-danger" data-reject-order="${o.id}">ปฏิเสธ</button></div>`
+      : `<div class="mo-muted">สถานะ: ${esc(statusText(status))}</div>`;
+    return `<article class="order-card direct-seller-order" data-order-card-id="${o.id}">
+      <div class="order-card-head">
+        <div><b>Order ${esc(String(o.id).slice(0,8).toUpperCase())}</b><div class="mo-muted">${new Date(o.created_at).toLocaleString('th-TH')}</div></div>
+        <span class="status-pill">${esc(statusText(status))}</span>
+      </div>
+      <div style="margin-top:8px"><b>👤 ${esc(customer)}</b>${phone?` · <a href="tel:${esc(phone)}">${esc(phone)}</a>`:''}</div>
+      ${items||'<div class="mo-muted">ไม่มีรายละเอียดสินค้า</div>'}
+      <div style="margin-top:8px"><b>รวม ${money(o.subtotal)} บาท</b></div>
+      ${actions}
+    </article>`;
+  }
+
+  async function openDirectSellerInbox(shopId){
+    let orders;
+    try{
+      orders=await loadSellerOrdersDetailed(shopId);
+    }catch(err){
+      return alert('โหลดออเดอร์ร้านไม่สำเร็จ: '+(err?.message||err));
+    }
+    const live=(orders||[]).filter(o=>!['cancelled','completed'].includes(o.status));
+    const waiting=live.filter(o=>o.status==='pending_shop');
+    const other=live.filter(o=>o.status!=='pending_shop');
+
+    const {data:shop}=await db.from('market_shops').select('id,name').eq('id',shopId).maybeSingle();
+    openModal(`<input id="sellerShopId" type="hidden" value="${esc(shopId)}">
+      <h2 class="mo-title">🏪 ${esc(shop?.name||'ร้าน')} · ออเดอร์</h2>
+      <div class="ready-banner"><b>Backend พบ ${orders?.length||0} ออเดอร์</b> · รอรับ ${waiting.length} รายการ</div>
+      <section class="seller-section">
+        <div class="order-card-head"><h3 style="margin:0">🔴 ออเดอร์ใหม่ / รอรับ</h3><span>${waiting.length}</span></div>
+        ${waiting.length?waiting.map(directSellerOrderCard).join(''):'<div class="order-group-empty">ยังไม่มีออเดอร์ใหม่</div>'}
+      </section>
+      ${other.length?`<section class="seller-section"><div class="order-card-head"><h3 style="margin:0">ออเดอร์ที่กำลังดำเนินการ</h3><span>${other.length}</span></div>${other.map(directSellerOrderCard).join('')}</section>`:''}
+      <div class="mo-actions"><button class="mo-secondary" data-open-full-seller="${shopId}">⚙️ จัดการร้าน / สินค้า / ตั้งค่า</button></div>
+    `,true);
+  }
+
   async function renderSellerHub(box){
     box.innerHTML='กำลังโหลด...';
     const {data:shops,error}=await db.from('market_shops').select('id,name,status').eq('owner_id',session.user.id).order('created_at',{ascending:false});
     if(error){box.innerHTML=esc(error.message);return}
     if((shops||[]).length===1){
       const only=shops[0];
-      setTimeout(()=>openSellerShop(only.id),0);
+      setTimeout(()=>openDirectSellerInbox(only.id),0);
       return;
     }
     const rows=await Promise.all((shops||[]).map(async sh=>{
