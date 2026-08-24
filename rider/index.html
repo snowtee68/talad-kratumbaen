@@ -7,18 +7,17 @@
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <title>เรียกวินรับ-ส่งของ | ตลาดกระทุ่มแบน</title>
+  <title>เรียกวิน / ศูนย์งานวิน | ตลาดกระทุ่มแบน</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=0.4.0">
+  <link rel="stylesheet" href="styles.css?v=0.4.6">
 </head>
 <body>
 <header class="topbar">
   <div class="container nav">
     <a class="brand" href="../">← ตลาดกระทุ่มแบน</a>
     <div class="nav-actions">
-      <a class="ghost" href="../rider/">🌐 เปิดหน้า Public</a>
       <button id="accountBtn" class="ghost">เข้าสู่ระบบ</button>
       <button id="riderModeBtn" class="ghost">🛵 สมัคร/โหมดวิน</button>
     </div>
@@ -28,12 +27,12 @@
 <main class="container">
   <section class="hero card">
     <div>
-      <span class="eyebrow">RIDER TEST · v0.4.1 SYSTEM SOUND</span>
+      <span class="eyebrow">ระบบวินชุมชน · ตลาดกระทุ่มแบน</span>
       <h1>🛵 เรียกวินรับ-ส่งของ</h1>
-      <p>ทดลองจับคู่งานรับ-ส่งของในชุมชน โดยเว็บไม่รับเงินค่าสินค้าและไม่ให้วินสำรองค่าสินค้า</p><div class="row hero-actions"><button id="heroRiderBtn" type="button" class="primary">🛵 สมัครเป็นวิน / เข้าโหมดวิน</button></div>
+      <p>เรียกวินรับ-ส่งของในชุมชน หรือลงทะเบียนเป็นวินเพื่อรับงานจากร้านค้าและลูกค้าในระบบ</p><div class="row hero-actions"><button id="heroRiderBtn" type="button" class="primary">🛵 สมัครเป็นวิน / เข้าโหมดวิน</button></div>
     </div>
     <div class="rulebox">
-      <b>ค่าบริการทดสอบ</b>
+      <b>ค่าบริการโดยประมาณ</b>
       <span>0–2 กม. 25 บาท · ทุก 2 กม. ถัดไป +10 บาท · จุดรับเพิ่ม +10 บาท/จุด · สูงสุด 10 กม.</span>
       <small>ระยะทางคำนวณแบบเส้นตรงเพื่อประมาณการ รุ่นจริงสามารถเปลี่ยนสูตรภายหลังได้</small>
     </div>
@@ -80,7 +79,7 @@
 
       <div id="farePreview" class="fare-preview">ระบุพิกัดจุดรับและจุดส่งเพื่อคำนวณค่าบริการ</div>
       <button class="primary big" type="submit">สร้างงานเรียกวิน</button>
-      <p class="muted">ระบบทดสอบนี้ไม่รับชำระเงินผ่านเว็บ ผู้ที่ระบุไว้ชำระค่าวินโดยตรงเมื่อส่งงาน</p>
+      <p class="muted">ระบบนี้ไม่รับชำระค่าวินผ่านเว็บ ผู้ที่ระบุไว้ชำระค่าวินโดยตรงเมื่อส่งงาน</p>
     </form>
 
     <div class="section-head"><div><span class="eyebrow">ติดตามงาน</span><h2>งานของฉัน</h2></div><button id="refreshMyJobs" class="ghost">รีเฟรช</button></div>
@@ -91,7 +90,7 @@
     <div class="section-head"><div><span class="eyebrow">สำหรับวิน</span><h2>ศูนย์งานวิน</h2></div></div>
 
     <div id="riderRegisterCard" class="card hidden">
-      <h3>สมัครเป็นวินทดสอบ</h3>
+      <h3>สมัครเป็นวิน</h3>
       <form id="riderForm" class="form-grid two">
         <label>ชื่อที่แสดง<input name="display_name" required></label>
         <label>เบอร์โทร<input name="phone" required></label>
@@ -99,7 +98,7 @@
         <label>ทะเบียนรถ<input name="plate" placeholder="เช่น 1กข 1234"></label>
         <button class="primary" type="submit">ส่งสมัครวิน</button>
       </form>
-      <p class="muted">บัญชีวินต้องได้รับการอนุมัติจาก Admin ก่อนรับงาน</p>
+      <p class="muted">เพื่อความปลอดภัย บัญชีวินต้องได้รับการอนุมัติจากผู้ดูแลระบบก่อนเริ่มรับงาน</p>
     </div>
 
     <div id="riderStatusCard" class="card hidden">
@@ -138,7 +137,7 @@
       <div id="riderJobs" class="job-list"></div>
     </div>
 
-    <div id="adminRiderArea" class="hidden">
+    <div id="adminRiderArea" class="hidden public-admin-disabled" aria-hidden="true">
       <div class="section-head"><div><span class="eyebrow">Admin</span><h2>วินที่รออนุมัติ</h2></div></div>
       <div id="pendingRiders" class="job-list"></div>
       <div class="section-head admin-approved-head"><div><span class="eyebrow">Admin</span><h2>วินในระบบ</h2></div><button id="refreshRidersBtn" type="button" class="ghost">รีเฟรช</button></div>
@@ -175,10 +174,10 @@
   </div>
 </div>
 
-<footer><div class="container">Rider Test v0.4.1 System Sound · ตลาดกระทุ่มแบน · ไม่ใช่ระบบชำระเงิน</div></footer>
+<footer><div class="container">ระบบวินชุมชน · ตลาดกระทุ่มแบน · ชำระค่าวินโดยตรงตามเงื่อนไขของงาน</div></footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
-<script src="app.js?v=0.4.0"></script>
+<script src="app.js?v=0.4.6"></script>
 </body>
 </html>
