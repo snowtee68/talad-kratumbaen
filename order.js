@@ -12,8 +12,8 @@
   let session=null, productShopIds=new Set(), productOptionDraft=[];
   const ORDER_NOTIFY_KEY='talad_order_notify_v042';
   let orderNotifyTimer=null,orderNotifyRealtime=null,orderNotifyRealtimeDebounce=null,orderNotifyBusy=false,orderNotifyBaseline=false,orderNotifyAudioArmed=false;
-  let customerOrderTab='waiting',sellerOrderTab='action',customerOrderPage=1,sellerOrderPage=1,orderSearchTerm='',orderDateFilter='today',customerFocusGroupId=null,customerFocusOrderId=null;
-  const ORDER_UI_VERSION='0.5.20.33';
+  let customerOrderTab='waiting',sellerOrderTab='action',customerOrderPage=1,sellerOrderPage=1,orderSearchTerm='',orderDateFilter='today',customerFocusGroupId=null,customerFocusOrderId=null,sellerFocusOrderId=null;
+  const ORDER_UI_VERSION='0.5.20.35';
   let orderNotifyState={statuses:{},viewed:{},reminded:{},unread:0};
   const esc=(v='')=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const money=n=>Number(n||0).toLocaleString('th-TH',{minimumFractionDigits:0,maximumFractionDigits:2});
@@ -851,7 +851,7 @@
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=5.7.9.46',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=5.7.9.48',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
@@ -966,9 +966,24 @@
     if(!d||!session)return false;
     orderDateFilter='all';
     if(d.tab==='seller'){
-      await openAccountHub('seller');
+      sellerOrderTab='action';
+      sellerOrderPage=1;
+      sellerFocusOrderId=d.orderId?String(d.orderId):null;
       const sid=await resolveSellerShopFromDeepLink(d);
-      if(sid)await openSellerShop(sid);
+      await openAccountHub('seller');
+      if(sid){
+        await openSellerShop(sid);
+        if(sellerFocusOrderId){
+          setTimeout(()=>{
+            const card=document.querySelector(`[data-order-card-id="${CSS.escape(sellerFocusOrderId)}"]`);
+            if(card){
+              card.classList.add('focused-checkout-order');
+              markOrderSeen(sellerFocusOrderId);
+              card.scrollIntoView({behavior:'smooth',block:'center'});
+            }
+          },120);
+        }
+      }
     }else{
       if(d.orderId)customerFocusOrderId=String(d.orderId);
       if(d.groupId)customerFocusGroupId=String(d.groupId);
@@ -1120,7 +1135,21 @@
     if(focused||focusedOrder)setTimeout(()=>{customerFocusGroupId=null;customerFocusOrderId=null},2500);
   }
   async function renderSellerHub(box){
-    box.innerHTML='กำลังโหลด...';const {data:shops,error}=await db.from('market_shops').select('id,name,status').eq('owner_id',session.user.id).order('created_at',{ascending:false});if(error){box.innerHTML=esc(error.message);return}box.innerHTML=`<div class="mo-muted">เลือกแท็บร้านเพื่อจัดสินค้า QR รับเงิน และดูออเดอร์ที่ลูกค้าสั่งเข้ามา</div>${(shops||[]).map(s=>`<button class="seller-shop-card" style="display:block;width:100%;text-align:left;background:#fff;cursor:pointer" data-seller-shop="${s.id}"><b>🏪 ${esc(s.name)}</b><div class="mo-muted">สถานะร้าน: ${esc(s.status)}</div></button>`).join('')||'<p>บัญชีนี้ยังไม่มีร้าน</p>'}`;
+    box.innerHTML='กำลังโหลด...';
+    const {data:shops,error}=await db.from('market_shops').select('id,name,status').eq('owner_id',session.user.id).order('created_at',{ascending:false});
+    if(error){box.innerHTML=esc(error.message);return}
+    const rows=await Promise.all((shops||[]).map(async sh=>{
+      try{
+        const orders=await loadSellerOrdersDetailed(sh.id);
+        const active=orders.filter(o=>!['cancelled','completed'].includes(o.status));
+        const action=active.filter(o=>['pending_shop','awaiting_customer_confirmation','awaiting_payment','payment_review'].includes(o.status));
+        return {...sh,order_count:active.length,action_count:action.length};
+      }catch(err){
+        console.error('Seller hub count failed',sh.id,err);
+        return {...sh,order_count:null,action_count:null,error:err?.message||String(err)};
+      }
+    }));
+    box.innerHTML=`<div class="mo-muted">เลือกแท็บร้านเพื่อจัดสินค้า QR รับเงิน และดูออเดอร์ที่ลูกค้าสั่งเข้ามา</div>${rows.map(sh=>`<button class="seller-shop-card" style="display:block;width:100%;text-align:left;background:#fff;cursor:pointer" data-seller-shop="${sh.id}"><div class="order-card-head"><b>🏪 ${esc(sh.name)}</b>${sh.order_count===null?'<span class="status-pill">โหลดไม่สำเร็จ</span>':`<span class="status-pill">${sh.action_count?`🔴 ${sh.action_count} รอจัดการ`:`${sh.order_count} ออเดอร์`}</span>`}</div><div class="mo-muted">สถานะร้าน: ${esc(sh.status)}${sh.error?` · ${esc(sh.error)}`:''}</div></button>`).join('')||'<p>บัญชีนี้ยังไม่มีร้าน</p>'}`;
   }
 
   async function loadShopInsights(shopId){
@@ -1152,57 +1181,16 @@
     </section>`;
   }
   async function loadSellerOrdersDetailed(shopId){
-    const orderFields='id,subtotal,status,payment_ref,payment_slip_path,payment_submitted_at,response_due_at,paid_at,customer_cancel_reason,customer_cancelled_at,rejection_reason,shop_response_due_at,shop_accepted_at,shop_viewed_at,pickup_completed_at,revision_note,revision_subtotal,revision_requested_at,revision_confirmed_at,refund_required,refund_status,refund_amount,refund_ref,refund_slip_path,refund_submitted_at,refund_confirmed_at,refund_destination_type,refund_destination_promptpay_type,refund_destination_value,refund_destination_bank,refund_destination_name,refund_destination_submitted_at,created_at,customer_id,group_id';
-    const {data:orders,error}=await db.from('market_orders').select(orderFields).eq('shop_id',shopId).order('created_at',{ascending:false}).limit(50);
+    const {data,error}=await db.rpc('market_shop_owner_order_feed',{p_shop_id:shopId,p_limit:50});
     if(error)throw error;
-    const list=orders||[];
-    if(!list.length)return list;
-
-    const orderIds=list.map(o=>o.id);
-    const groupIds=[...new Set(list.map(o=>o.group_id).filter(Boolean))];
-
-    const [itemsRes,groupsRes,batchesRes]=await Promise.all([
-      db.from('market_order_items').select('order_id,product_name,unit_price,qty,options_json,note').in('order_id',orderIds),
-      groupIds.length
-        ? db.from('market_delivery_groups').select('id,customer_name,customer_phone,delivery_address,fulfillment_method,pickup_requested_at,status').in('id',groupIds)
-        : Promise.resolve({data:[],error:null}),
-      groupIds.length
-        ? db.from('market_delivery_batches').select('id,group_id,status,rider_job_id,rider_name,rider_phone,delivery_fee,distance_km,accepted_at,pickup_started_at,picked_up_at,delivering_at,delivery_arrived_at,proof_path,proof_uploaded_at,customer_confirmed_at,delivery_issue_status,delivery_issue_note,delivery_issue_at,proof_deleted_at,completed_at').in('group_id',groupIds)
-        : Promise.resolve({data:[],error:null})
-    ]);
-    if(itemsRes.error)throw itemsRes.error;
-    if(groupsRes.error)throw groupsRes.error;
-    if(batchesRes.error)throw batchesRes.error;
-
-    const batchIds=(batchesRes.data||[]).map(b=>b.id);
-    let batchOrders=[];
-    if(batchIds.length){
-      const {data,error:boErr}=await db.from('market_delivery_batch_orders').select('batch_id,order_id').in('batch_id',batchIds);
-      if(boErr)throw boErr;
-      batchOrders=data||[];
+    if(Array.isArray(data))return data;
+    if(data==null)return [];
+    // Supabase may return jsonb already decoded; defensive fallback for string responses.
+    if(typeof data==='string'){
+      try{const parsed=JSON.parse(data);return Array.isArray(parsed)?parsed:[]}
+      catch(_e){return[]}
     }
-
-    const itemsByOrder=new Map();
-    for(const i of (itemsRes.data||[])){
-      if(!itemsByOrder.has(i.order_id))itemsByOrder.set(i.order_id,[]);
-      itemsByOrder.get(i.order_id).push(i);
-    }
-    const groupById=new Map((groupsRes.data||[]).map(g=>[g.id,{...g,batches:[]}]));
-    const boByBatch=new Map();
-    for(const bo of batchOrders){
-      if(!boByBatch.has(bo.batch_id))boByBatch.set(bo.batch_id,[]);
-      boByBatch.get(bo.batch_id).push({order_id:bo.order_id});
-    }
-    for(const b of (batchesRes.data||[])){
-      const g=groupById.get(b.group_id);
-      if(g)g.batches.push({...b,batch_orders:boByBatch.get(b.id)||[]});
-    }
-
-    return list.map(o=>({
-      ...o,
-      group:o.group_id?(groupById.get(o.group_id)||null):null,
-      items:itemsByOrder.get(o.id)||[]
-    }));
+    return [];
   }
 
   async function openSellerShop(shopId){
@@ -1225,6 +1213,14 @@
       return alert('โหลดออเดอร์ร้านไม่สำเร็จ: '+(err?.message||err));
     }
     try{const unseenIds=(orders||[]).filter(o=>!o.shop_viewed_at&&!['cancelled','completed'].includes(o.status)).map(o=>o.id);if(unseenIds.length)await db.rpc('market_shop_mark_orders_viewed',{p_order_ids:unseenIds});}catch(_e){}
+    if(sellerFocusOrderId){
+      const target=(orders||[]).find(o=>String(o.id)===String(sellerFocusOrderId));
+      if(target){
+        sellerOrderTab=sellerOrderBucket(target);
+        sellerOrderPage=1;
+        orderDateFilter='all';
+      }
+    }
     const {data:shopAccess}=await db.from('market_order_shop_access').select('enabled').eq('shop_id',shopId).maybeSingle();
     const accepting=setting?.accepting_status||'open';
     openModal(`<input id="sellerShopId" type="hidden" value="${esc(shopId)}"><h2 class="mo-title">🏪 ${esc(shop?.name||'ร้าน')}</h2>${shopInsightHtml(insights)}<section class="seller-section"><h3>รับออเดอร์และการชำระเงิน</h3>${shopAccess?.enabled?'<div class="ready-banner">✅ ร้านนี้ได้รับสิทธิ์ใช้งานระบบสั่งซื้อจริงแล้ว</div>':'<div class="warning-banner">🔒 ร้านนี้ยังไม่ได้รับสิทธิ์เปิดขายผ่านระบบจริง กรุณาติดต่อผู้ดูแลระบบ</div>'}<div class="mo-form two"><label class="full"><input id="orderEnabled" type="checkbox" ${setting?.enabled?'checked':''}> เปิดระบบรับออเดอร์ผ่านตลาด</label><label>สถานะรับออเดอร์ตอนนี้<select id="acceptingStatus"><option value="open" ${accepting==='open'?'selected':''}>🟢 เปิดรับออเดอร์</option><option value="paused" ${accepting==='paused'?'selected':''}>⏸️ พักรับออเดอร์ชั่วคราว</option></select></label><label>เหตุผลที่พักรับ<input id="pauseReason" value="${esc(setting?.pause_reason||'')}" placeholder="เช่น ของหมด / คนไม่พอ"></label><label>เริ่มรับออเดอร์<input id="orderStartTime" type="time" value="${esc(hhmm(setting?.order_start_time))}"></label><label>หยุดรับออเดอร์<input id="orderEndTime" type="time" value="${esc(hhmm(setting?.order_end_time))}"></label><label>โหมดรับออเดอร์<select id="autoAcceptMode"><option value="manual" ${(setting?.auto_accept_mode||'manual')==='manual'?'selected':''}>✋ ร้านกดรับเอง</option><option value="always" ${setting?.auto_accept_mode==='always'?'selected':''}>⚡ รับอัตโนมัติตลอด</option><option value="schedule" ${setting?.auto_accept_mode==='schedule'?'selected':''}>🕐 รับอัตโนมัติตามเวลา</option></select></label><label>Auto เริ่ม<input id="autoAcceptStartTime" type="time" value="${esc(hhmm(setting?.auto_accept_start_time))}"></label><label>Auto หยุด<input id="autoAcceptEndTime" type="time" value="${esc(hhmm(setting?.auto_accept_end_time))}"></label><label class="full"><small>โหมดตามเวลา: นอกช่วงเวลาที่กำหนด ออเดอร์จะกลับไปรอร้านกดรับเอง ร้านเปลี่ยนโหมดนี้ได้ทุกเมื่อ</small></label><label>ชื่อบัญชี/ชื่อรับเงิน<input id="paymentName" value="${esc(setting?.payment_name||'')}"></label><label>หมายเหตุการชำระเงิน<input id="paymentNote" value="${esc(setting?.payment_note||'')}"></label><label class="full">อัปโหลดรูป QR PromptPay<input id="paymentQrFile" type="file" accept="image/*"></label>${setting?.payment_qr_url?`<div class="full"><img src="${esc(setting.payment_qr_url)}" style="max-width:180px;border:1px solid #ddd;border-radius:12px"></div>`:''}</div><div class="warning-banner">ถ้าไม่กำหนดเวลาเริ่ม/หยุด ระบบจะรับออเดอร์ตลอดวันที่ร้านเปิดระบบไว้</div><div class="mo-actions"><button id="saveOrderSettingsBtn" class="mo-primary">บันทึกการตั้งค่า</button></div></section><section class="seller-section"><div class="order-card-head"><div><h3 style="margin:0">หมวดหมู่สินค้า</h3><div class="mo-muted">ร้านตั้งชื่อและเรียงลำดับหมวดเองได้</div></div><button id="addProductCategoryBtn" class="mo-secondary">+ เพิ่มหมวดหมู่</button></div>${(categories||[]).length?`<div class="category-admin-list">${categories.map((c,i)=>`<div class="seller-product-row"><div><b>${esc(c.name)}</b> <span class="mo-muted">${(products||[]).filter(p=>String(p.category_id||'')===String(c.id)).length} สินค้า</span></div><div><button class="mo-secondary" data-category-up="${c.id}" ${i===0?'disabled':''}>↑</button> <button class="mo-secondary" data-category-down="${c.id}" ${i===categories.length-1?'disabled':''}>↓</button> <button class="mo-secondary" data-edit-product-category="${c.id}">แก้ชื่อ</button> <button class="mo-danger" data-delete-product-category="${c.id}">ลบ</button></div></div>`).join('')}</div>`:'<div class="mo-muted">ยังไม่มีหมวดหมู่ สามารถเพิ่มได้ เช่น เครื่องดื่ม / เบเกอรี่ / เมนูแนะนำ</div>'}</section><section class="seller-section"><div class="order-card-head"><div><h3 style="margin:0">สินค้า</h3><div class="mo-muted">${(products||[]).length}/100 รายการต่อร้าน</div></div><button id="addProductBtn" class="mo-primary" ${(products||[]).length>=100?'disabled style="opacity:.5" title="ครบ 100 รายการแล้ว"':''}>+ เพิ่มสินค้า</button></div>${(products||[]).length?`${[...(categories||[]),{id:null,name:'อื่น ๆ'}].map(c=>{const rows=(products||[]).filter(p=>c.id?String(p.category_id||'')===String(c.id):!p.category_id);if(!rows.length)return'';return `<div class="seller-category-group"><h4>${esc(c.name)}</h4>${rows.map(p=>`<div class="seller-product-row"><div><b>${esc(p.name)}</b> · ${money(p.price)} บาท <span class="status-pill">${esc(productStatusText(p.sale_status|| (p.active?'available':'sold_out')))}</span></div><div>${p.sale_status==='discontinued'?'<span class="mo-muted">เลิกขาย</span>':`<button class="${p.sale_status==='available'?'mo-warning':'mo-success'}" data-toggle-product-status="${p.id}" data-current-status="${esc(p.sale_status||'sold_out')}">${p.sale_status==='available'?'⏸️ หมดชั่วคราว':'▶️ เปิดขาย'}</button>`} <button class="mo-secondary" data-product-options="${p.id}">⚙️ ตัวเลือก</button> <button class="mo-secondary" data-edit-product="${p.id}">แก้ไข</button> <button class="mo-danger" data-delete-product="${p.id}">ลบถาวร</button></div></div>`).join('')}</div>`}).join('')}`:'<p>ยังไม่มีสินค้า</p>'}</section><section class="seller-section"><h3>ออเดอร์ที่ได้รับ</h3>${renderSellerOrderSections(orders||[])}</section>`,true);
@@ -1297,7 +1293,7 @@
     const pendingActions=o.status==='pending_shop'?`<div class="warning-banner">${overdue?'⚠️ รอรับออเดอร์เกิน 15 นาทีแล้ว':'ลูกค้ายังไม่ได้ชำระเงิน ร้านสามารถโทรคุยและตรวจรายการก่อนรับได้'}</div><div class="mo-actions"><button class="mo-primary" data-accept-order="${o.id}">✅ รับออเดอร์</button><button class="mo-secondary" data-revise-order="${o.id}">✏️ เสนอเปลี่ยนรายการ/ยอด</button></div>`:'';
     const revisionWait=o.status==='awaiting_customer_confirmation'?`<div class="warning-banner">⏳ รอลูกค้ายืนยันรายการใหม่<br>${esc(o.revision_note||'')}<br>ยอดที่เสนอ <b>${money(o.revision_subtotal||o.subtotal)} บาท</b></div>`:'';
     const unseen=!isOrderSeen(o.id),nextAction=orderActionLabel(o);
-    return `<article class="order-card ${unseen?'order-unseen':''}" data-order-card-id="${esc(o.id)}"><div class="order-card-head"><div><div class="seller-order-title"><b>Order #${esc(String(o.id).slice(0,8).toUpperCase())}</b>${unseen?'<span class="order-new-badge">ใหม่</span>':''}<span class="order-age ${overdue?'urgent':''}">⏱ ${esc(sellerOrderAge(o))}</span></div>${nextAction?`<div class="order-next-action">ตอนนี้: <b>${esc(nextAction)}</b></div>`:''}<div class="mo-muted">${esc(o.group?.customer_name||'ลูกค้า')} · ${esc(phone)} ${!closed&&phone?`<a href="tel:${esc(phone)}">📞 โทร</a>`:''}<br>${o.group?.fulfillment_method==='pickup'?`🏪 รับเองที่ร้าน${o.group?.pickup_requested_at?` · ขอรับ ${new Date(o.group.pickup_requested_at).toLocaleString('th-TH')}`:' · รับเร็วที่สุด'}`:`🛵 จัดส่ง · ${esc(o.group?.delivery_address||'')}`}</div></div><span class="status-pill status-${esc(o.status)}">${esc(statusText(o.status))}</span></div><div class="order-items">${(o.items||[]).map(i=>renderOrderItem(i,false)).join('')}</div><b>ยอด ${money(o.subtotal)} บาท</b>${o.pickup_completed_at?`<div class="ready-banner">✅ ลูกค้ารับสินค้าแล้ว<br><small>${new Date(o.pickup_completed_at).toLocaleString('th-TH')}</small></div>`:''}${o.revision_confirmed_at&&o.revision_note?`<div class="ready-banner">✅ ลูกค้ายืนยันรายการแก้ไขแล้ว: ${esc(o.revision_note)}</div>`:''}${pendingActions}${revisionWait}${o.payment_ref?`<div>อ้างอิง: ${esc(o.payment_ref)}</div>`:''}${o.rejection_reason?`<div class="mo-muted">เหตุผลยกเลิก: ${esc(o.rejection_reason)}</div>`:''}${sellerOrderDeliveryInfo(o)}${refund}<div class="mo-actions">${o.payment_slip_path?`<button class="mo-secondary" onclick="window.marketOrderOpenSlip('${esc(o.payment_slip_path)}')">ดูสลิปชำระ</button>`:''}${o.status==='payment_review'?`<button class="mo-primary" data-order-id="${o.id}" data-order-status="preparing">✅ เงินเข้าแล้ว / เริ่มเตรียม</button><button class="mo-danger" data-order-id="${o.id}" data-order-status="awaiting_payment">ยังไม่พบยอด</button>`:''}${o.status==='preparing'?`<button class="mo-primary" data-order-id="${o.id}" data-order-status="ready">📦 สินค้าพร้อมรับ</button>`:''}${o.status==='ready'&&o.group?.fulfillment_method==='pickup'&&!o.pickup_completed_at?`<button class="mo-primary" data-pickup-complete="${o.id}">✅ ลูกค้ารับสินค้าแล้ว</button>`:''}${rejectable?`<button class="mo-danger" data-reject-order="${o.id}">ปฏิเสธออเดอร์</button>`:''}</div></article>`;
+    return `<article data-order-card-id="${o.id}" class="order-card ${unseen?'order-unseen':''}" data-order-card-id="${esc(o.id)}"><div class="order-card-head"><div><div class="seller-order-title"><b>Order #${esc(String(o.id).slice(0,8).toUpperCase())}</b>${unseen?'<span class="order-new-badge">ใหม่</span>':''}<span class="order-age ${overdue?'urgent':''}">⏱ ${esc(sellerOrderAge(o))}</span></div>${nextAction?`<div class="order-next-action">ตอนนี้: <b>${esc(nextAction)}</b></div>`:''}<div class="mo-muted">${esc(o.group?.customer_name||'ลูกค้า')} · ${esc(phone)} ${!closed&&phone?`<a href="tel:${esc(phone)}">📞 โทร</a>`:''}<br>${o.group?.fulfillment_method==='pickup'?`🏪 รับเองที่ร้าน${o.group?.pickup_requested_at?` · ขอรับ ${new Date(o.group.pickup_requested_at).toLocaleString('th-TH')}`:' · รับเร็วที่สุด'}`:`🛵 จัดส่ง · ${esc(o.group?.delivery_address||'')}`}</div></div><span class="status-pill status-${esc(o.status)}">${esc(statusText(o.status))}</span></div><div class="order-items">${(o.items||[]).map(i=>renderOrderItem(i,false)).join('')}</div><b>ยอด ${money(o.subtotal)} บาท</b>${o.pickup_completed_at?`<div class="ready-banner">✅ ลูกค้ารับสินค้าแล้ว<br><small>${new Date(o.pickup_completed_at).toLocaleString('th-TH')}</small></div>`:''}${o.revision_confirmed_at&&o.revision_note?`<div class="ready-banner">✅ ลูกค้ายืนยันรายการแก้ไขแล้ว: ${esc(o.revision_note)}</div>`:''}${pendingActions}${revisionWait}${o.payment_ref?`<div>อ้างอิง: ${esc(o.payment_ref)}</div>`:''}${o.rejection_reason?`<div class="mo-muted">เหตุผลยกเลิก: ${esc(o.rejection_reason)}</div>`:''}${sellerOrderDeliveryInfo(o)}${refund}<div class="mo-actions">${o.payment_slip_path?`<button class="mo-secondary" onclick="window.marketOrderOpenSlip('${esc(o.payment_slip_path)}')">ดูสลิปชำระ</button>`:''}${o.status==='payment_review'?`<button class="mo-primary" data-order-id="${o.id}" data-order-status="preparing">✅ เงินเข้าแล้ว / เริ่มเตรียม</button><button class="mo-danger" data-order-id="${o.id}" data-order-status="awaiting_payment">ยังไม่พบยอด</button>`:''}${o.status==='preparing'?`<button class="mo-primary" data-order-id="${o.id}" data-order-status="ready">📦 สินค้าพร้อมรับ</button>`:''}${o.status==='ready'&&o.group?.fulfillment_method==='pickup'&&!o.pickup_completed_at?`<button class="mo-primary" data-pickup-complete="${o.id}">✅ ลูกค้ารับสินค้าแล้ว</button>`:''}${rejectable?`<button class="mo-danger" data-reject-order="${o.id}">ปฏิเสธออเดอร์</button>`:''}</div></article>`;
   }
   function maskPhone(v){const x=String(v||'');if(x.length<7)return x?x.slice(0,2)+'X-XXX-'+x.slice(-3):'';return x.slice(0,2)+'X-XXX-'+x.slice(-3);}
 
