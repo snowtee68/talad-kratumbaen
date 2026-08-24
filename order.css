@@ -182,3 +182,7 @@
 .market-order-cta-row + .community-actions{
   margin-top:10px!important;
 }
+
+/* V0.5.20.21 product quick status toggle */
+.mo-warning{border:1px solid #d99b20!important;background:#fff7df!important;color:#7a5200!important;border-radius:10px;padding:8px 10px;font-weight:700;cursor:pointer}
+.mo-success{border:1px solid #2d8a55!important;background:#eaf8ef!important;color:#17643b!important;border-radius:10px;padding:8px 10px;font-weight:700;cursor:pointer}

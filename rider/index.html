@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=0.4.7">
+  <link rel="stylesheet" href="styles.css?v=0.4.6">
 </head>
 <body>
 <header class="topbar">
@@ -38,13 +38,9 @@
     </div>
   </section>
 
-  <section id="guestNotice" class="notice rider-guest-card">
-  <b>🛵 สำหรับผู้สมัครและวินตลาดกระทุ่มแบน</b>
-  <span>เข้าสู่ระบบก่อน หากยังไม่มีบัญชีสามารถสมัครสมาชิก แล้วสมัครเป็นวินได้ทันที</span>
-  <button id="guestRiderStartBtn" type="button" class="primary">สมัคร / เข้าสู่ระบบวิน</button>
-</section>
+  <section id="guestNotice" class="notice">เข้าสู่ระบบเพื่อสร้างงานหรือสมัครเป็นวิน</section>
 
-  <section id="customerPanel" class="section hidden rider-public-no-customer" aria-hidden="true">
+  <section id="customerPanel" class="section hidden">
     <div class="section-head">
       <div><span class="eyebrow">สำหรับลูกค้า / ร้านค้า</span><h2>สร้างงานรับ-ส่งของ</h2></div>
     </div>
@@ -91,7 +87,7 @@
   </section>
 
   <section id="riderPanel" class="section hidden">
-    <div class="section-head"><div><span class="eyebrow">RIDER</span><h2>ศูนย์งานวิน</h2><p class="muted">สมัครวิน → รออนุมัติ → เปิดพร้อมรับงาน → รับและจัดส่งงาน</p></div></div>
+    <div class="section-head"><div><span class="eyebrow">สำหรับวิน</span><h2>ศูนย์งานวิน</h2></div></div>
 
     <div id="riderRegisterCard" class="card hidden">
       <h3>สมัครเป็นวิน</h3>
@@ -182,6 +178,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
-<script src="app.js?v=0.4.7"></script>
+<script src="app.js?v=0.4.6"></script>
 </body>
 </html>

@@ -31,12 +31,3 @@
 .push-notification-box>div:first-child{display:grid;gap:4px}.push-notification-box small{display:block}
 .push-highlight{outline:4px solid rgba(155,28,31,.2);box-shadow:0 0 0 8px rgba(155,28,31,.08);transition:.2s}
 @media(max-width:640px){.push-notification-box .row{display:grid;grid-template-columns:1fr}.push-notification-box button{width:100%}}
-
-/* Public Rider v0.4.7: rider-only onboarding/dashboard */
-.rider-public-no-customer{display:none!important}
-.rider-guest-card{display:flex;flex-direction:column;gap:10px;align-items:flex-start;padding:18px}
-.rider-guest-card b{font-size:18px}
-.rider-guest-card span{color:#6b5b56}
-#riderRegisterCard{max-width:760px;margin:0 auto}
-#riderStatusCard{margin-bottom:18px}
-#riderWorkArea .section-head{margin-top:18px}
