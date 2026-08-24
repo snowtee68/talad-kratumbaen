@@ -82,6 +82,7 @@
     const goRider=()=>{ if(!session){ openModal('authModal'); return; } $('#riderPanel').scrollIntoView({behavior:'smooth'}); };
     $('#riderModeBtn').onclick=goRider;
     $('#heroRiderBtn').onclick=goRider;
+    $('#guestRiderStartBtn')?.addEventListener('click',()=>openModal('authModal'));
     $('#refreshMyJobs').onclick=loadMyJobs;
     $('#refreshOpenJobs').onclick=loadRiderJobs;
     document.addEventListener('click',handleAction);
@@ -203,7 +204,7 @@
   async function refreshAuth(){
     $('#accountBtn').textContent=session?'ออกจากระบบ':'เข้าสู่ระบบ';
     $('#guestNotice').classList.toggle('hidden',!!session);
-    $('#customerPanel').classList.toggle('hidden',!session);
+    $('#customerPanel').classList.add('hidden');
     $('#riderPanel').classList.toggle('hidden',!session);
     $('#riderModeBtn').classList.remove('hidden');
     $('#riderModeBtn').textContent=session?'🛵 โหมดวิน':'🛵 สมัคร/โหมดวิน';
@@ -213,7 +214,7 @@
     const {data:p}=await db.from('market_profiles').select('role,display_name').eq('id',uid).maybeSingle(); profile=p;
     const {data:r}=await db.from('rider_profiles').select('*').eq('user_id',uid).maybeSingle(); riderProfile=r;
     renderRiderState();
-    await Promise.all([loadMyJobs(),loadRiderJobs(),loadPendingRiders(),loadApprovedRiders()]);
+    await loadRiderJobs();
     await refreshPushState();
   }
 
@@ -285,9 +286,9 @@
   }
 
   function renderRiderState(){
+    const approved=riderProfile?.approval_status==='approved';
     $('#riderRegisterCard').classList.toggle('hidden',!!riderProfile);
     $('#riderStatusCard').classList.toggle('hidden',!riderProfile);
-    const approved=riderProfile?.approval_status==='approved';
     $('#riderWorkArea').classList.toggle('hidden',!approved);
     if(riderProfile){
       $('#riderName').textContent=riderProfile.display_name;
@@ -295,6 +296,7 @@
       $('#onlineToggle').checked=!!riderProfile.online;
       $('#onlineToggle').disabled=!approved;
       $('#jobAlertControls').classList.toggle('hidden',!approved);
+      document.querySelector('.push-notification-box')?.classList.toggle('hidden',!approved);
       updateJobAlertUi();
       if(approved && riderProfile.online && jobAlertEnabled) startJobAlertRealtime(); else stopJobAlertRealtime();
     }
@@ -576,7 +578,7 @@
 
   async function ensurePushRegistration(){
     if(!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) throw new Error('เบราว์เซอร์นี้ยังไม่รองรับ Web Push');
-    pushRegistration=pushRegistration||await navigator.serviceWorker.register('sw.js?v=0.4.5',{scope:'./',updateViaCache:'none'});
+    pushRegistration=pushRegistration||await navigator.serviceWorker.register('sw.js?v=0.4.7',{scope:'./',updateViaCache:'none'});
     await navigator.serviceWorker.ready;
     return pushRegistration;
   }
