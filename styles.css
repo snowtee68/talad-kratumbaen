@@ -729,3 +729,7 @@ fieldset{border:1px solid var(--line);border-radius:14px;padding:14px}legend{fon
   .order-role-choice{grid-template-columns:1fr}
   .order-role-card{min-height:76px}
 }
+
+/* V0.5.20.60 strict Buyer/Seller separation */
+.seller-orders-only .seller-section{margin-top:0}
+#hubContent .seller-tabs,[data-buyer-only] .seller-tabs{display:none!important}

@@ -317,25 +317,24 @@
         const oldScroll=panel?.scrollTop||0;
         const sid=document.getElementById('sellerShopId')?.value;
         if(sid){
-          await openSellerShop(sid);
+          if(document.getElementById('sellerOrdersOnly'))await openSellerOrders(sid,changedOrderId||null);
+          else await openSellerShop(sid);
           const np=document.querySelector('#marketOrderModal .market-order-panel');
           if(np)np.scrollTop=oldScroll;
           return;
         }
         const hub=document.getElementById('hubContent');
         if(hub){
-          const active=document.querySelector('[data-hub-tab].active')?.dataset?.hubTab||'customer';
-          // Customer screen should follow the status of the order/group being viewed
-          // instead of remaining on the old tab after a realtime transition.
-          if(active==='customer'&&customerFocusOrderId){
+          // Buyer screen is customer-only in V0.5.20.60.
+          if(customerFocusOrderId){
             try{
               const {data:o}=await db.from('market_orders').select('status').eq('id',customerFocusOrderId).maybeSingle();
               if(o?.status)customerOrderTab=customerOrderStatusBucket(o.status);
             }catch(_e){}
           }
-          await renderHubTab(active);
+          await renderCustomerHub(hub);
           // For a customer status transition, move the changed order into view.
-          if(active==='customer'&&customerFocusOrderId){
+          if(customerFocusOrderId){
             setTimeout(()=>{
               const card=document.querySelector(`[data-order-card-id="${CSS.escape(customerFocusOrderId)}"]`);
               const ship=document.querySelector('[data-create-delivery]');
@@ -389,7 +388,7 @@
       if(typeof e.stopImmediatePropagation==='function')e.stopImmediatePropagation();
       renderCart();
     },true);
-    document.getElementById('marketOrdersBtn')?.addEventListener('click',()=>session?openOrdersRoleHub():requireLogin());
+    document.getElementById('marketOrdersBtn')?.addEventListener('click',()=>{if(!session)return requireLogin();return Number(orderNotifyState.activeSellerOrders||0)>0?openSellerOrdersFromNav():openOrdersRoleHub();});
     document.addEventListener('click',e=>{
       if(e.target.closest('[data-mo-close]'))return closeModal();
       const orderBtn=e.target.closest('[data-market-order-shop]');if(orderBtn){e.preventDefault();return openShopMenu(orderBtn.dataset.marketOrderShop);}
@@ -861,7 +860,7 @@
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=5.7.9.87',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=5.7.9.88',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
@@ -997,9 +996,11 @@
   async function openAccountHub(tab='customer'){
     if(!canUseOrders())return;
     if(!session)return requireLogin();
-    openModal(`<h2 class="mo-title">🛍️ ออเดอร์และร้านของฉัน</h2><div id="orderPushSettings" class="payment-card"><b>🔔 การแจ้งเตือนบนมือถือ</b><div class="mo-muted" id="orderPushStatus">กำลังตรวจสอบ...</div><div class="mo-actions"><button id="enableOrderPushBtn" class="mo-primary">เปิดการแจ้งเตือนบนมือถือ</button><button id="disableOrderPushBtn" class="mo-secondary" style="display:none">ปิดการแจ้งเตือนเครื่องนี้</button><button id="testOrderPushBtn" class="mo-secondary" style="display:none">🔔 ส่งแจ้งเตือนทดสอบ</button></div></div><div class="seller-tabs"><button data-hub-tab="customer" class="${tab==='customer'?'active':''}">ออเดอร์ที่ฉันสั่ง</button><button data-hub-tab="seller" class="${tab==='seller'?'active':''}">ร้าน / ออเดอร์ที่ได้รับ</button></div><div id="hubContent">กำลังโหลด...</div>`,true);await refreshOrderPushUI();await renderHubTab(tab);
+    // Strict role separation: buyer screen never renders seller controls.
+    if(tab==='seller')return openSellerOrdersFromNav();
+    openModal(`<h2 class="mo-title">🛒 ออเดอร์ที่ฉันสั่งซื้อ</h2><div id="orderPushSettings" class="payment-card"><b>🔔 การแจ้งเตือนบนมือถือ</b><div class="mo-muted" id="orderPushStatus">กำลังตรวจสอบ...</div><div class="mo-actions"><button id="enableOrderPushBtn" class="mo-primary">เปิดการแจ้งเตือนบนมือถือ</button><button id="disableOrderPushBtn" class="mo-secondary" style="display:none">ปิดการแจ้งเตือนเครื่องนี้</button><button id="testOrderPushBtn" class="mo-secondary" style="display:none">🔔 ส่งแจ้งเตือนทดสอบ</button></div></div><div id="hubContent">กำลังโหลด...</div>`,true);await refreshOrderPushUI();await renderCustomerHub(document.getElementById('hubContent'));
   }
-  async function renderHubTab(tab){document.querySelectorAll('[data-hub-tab]').forEach(b=>b.classList.toggle('active',b.dataset.hubTab===tab));const box=document.getElementById('hubContent');if(!box)return;if(tab==='seller')return renderSellerHub(box);return renderCustomerHub(box);}
+  async function renderHubTab(tab){const box=document.getElementById('hubContent');if(!box)return;if(tab==='seller')return openSellerOrdersFromNav();return renderCustomerHub(box);}
   async function guideCustomerToGroup(groupId,message=''){
     customerFocusGroupId=String(groupId||'');customerOrderPage=1;orderDateFilter='all';
     await openAccountHub('customer');
