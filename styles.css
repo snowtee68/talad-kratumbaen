@@ -602,3 +602,93 @@ fieldset{border:1px solid var(--line);border-radius:14px;padding:14px}legend{fon
     white-space:nowrap !important;
   }
 }
+
+/* V0.5.20.58 — dedicated seller order page + mobile product layout */
+.seller-orders-page-head{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:12px;flex-wrap:wrap;margin-bottom:12px
+}
+.seller-orders-page-head .mo-title{margin:0}
+.seller-order-shop-picker{display:grid;gap:10px}
+.seller-order-shop-picker button{width:100%;text-align:left}
+.seller-settings-link{white-space:nowrap}
+.seller-orders-only{margin-top:0}
+
+.seller-product-main{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  min-width:0;flex:1
+}
+.seller-product-name{min-width:0;overflow-wrap:anywhere}
+.seller-product-price,.seller-product-status{flex:0 0 auto;white-space:nowrap}
+.seller-product-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+
+@media(max-width:640px){
+  .seller-orders-page-head{
+    align-items:flex-start;
+  }
+  .seller-orders-page-head > button{
+    width:auto!important;
+    flex:0 0 auto!important;
+  }
+
+  .seller-product-admin-row{
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:9px!important;
+    align-items:start!important;
+  }
+  .seller-product-admin-row .seller-product-main{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) auto!important;
+    grid-template-areas:
+      "name price"
+      "status status";
+    width:100%!important;
+    gap:5px 10px!important;
+    align-items:center!important;
+  }
+  .seller-product-admin-row .seller-product-name{
+    grid-area:name;
+    font-size:15px!important;
+    line-height:1.35!important;
+    min-width:0!important;
+    overflow-wrap:anywhere!important;
+  }
+  .seller-product-admin-row .seller-product-price{
+    grid-area:price;
+    font-weight:800!important;
+    text-align:right!important;
+    white-space:nowrap!important;
+  }
+  .seller-product-admin-row .seller-product-status{
+    grid-area:status;
+    justify-self:start!important;
+    white-space:nowrap!important;
+  }
+  .seller-product-admin-row .seller-product-actions{
+    width:100%!important;
+    justify-content:flex-start!important;
+    gap:6px!important;
+  }
+  .seller-product-admin-row .seller-product-actions button{
+    width:auto!important;
+    flex:0 0 auto!important;
+    padding:7px 9px!important;
+    font-size:12px!important;
+    white-space:nowrap!important;
+  }
+
+  .product-editor-grid{
+    grid-template-columns:1fr!important;
+  }
+  .product-editor-grid > label{
+    min-width:0!important;
+    width:100%!important;
+  }
+  .product-editor-grid input,
+  .product-editor-grid select,
+  .product-editor-grid textarea{
+    width:100%!important;
+    box-sizing:border-box!important;
+  }
+}
