@@ -389,7 +389,7 @@
       if(typeof e.stopImmediatePropagation==='function')e.stopImmediatePropagation();
       renderCart();
     },true);
-    document.getElementById('marketOrdersBtn')?.addEventListener('click',()=>session?openSellerOrdersFromNav():requireLogin());
+    document.getElementById('marketOrdersBtn')?.addEventListener('click',()=>session?openOrdersRoleHub():requireLogin());
     document.addEventListener('click',e=>{
       if(e.target.closest('[data-mo-close]'))return closeModal();
       const orderBtn=e.target.closest('[data-market-order-shop]');if(orderBtn){e.preventDefault();return openShopMenu(orderBtn.dataset.marketOrderShop);}
@@ -408,7 +408,7 @@
       const cancelOrder=e.target.closest('[data-cancel-shop-order]');if(cancelOrder)return customerCancelShopOrder(cancelOrder.dataset.cancelShopOrder);
       const pay=e.target.closest('[data-pay-order]');if(pay)return openPayment(pay.dataset.payOrder);
       if(e.target.closest('#submitPaymentBtn'))return submitPayment();
-      const seller=e.target.closest('[data-seller-shop]');if(seller)return openSellerShop(seller.dataset.sellerShop);const sop=e.target.closest('[data-seller-orders-shop]');if(sop)return openSellerOrders(sop.dataset.sellerOrdersShop);const ss=e.target.closest('[data-seller-settings]');if(ss)return openSellerShop(ss.dataset.sellerSettings);
+      const seller=e.target.closest('[data-seller-shop]');if(seller)return openSellerShop(seller.dataset.sellerShop);const role=e.target.closest('[data-orders-role]');if(role){return role.dataset.ordersRole==='customer'?openAccountHub('customer'):openSellerOrdersFromNav();}const sop=e.target.closest('[data-seller-orders-shop]');if(sop)return openSellerOrders(sop.dataset.sellerOrdersShop);const ss=e.target.closest('[data-seller-settings]');if(ss)return openSellerShop(ss.dataset.sellerSettings);
       if(e.target.closest('#saveOrderSettingsBtn'))return saveOrderSettings();
       if(e.target.closest('#addProductCategoryBtn'))return addProductCategory();
       const editCat=e.target.closest('[data-edit-product-category]');if(editCat)return editProductCategory(editCat.dataset.editProductCategory);
@@ -861,7 +861,7 @@
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=5.7.9.86',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=5.7.9.87',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
@@ -1220,6 +1220,34 @@
     openModal(`<h2 class="mo-title">🛍️ เลือกร้านเพื่อดูออเดอร์</h2>
       <div class="seller-order-shop-picker">${shops.map(x=>`<button type="button" class="mo-primary" data-seller-orders-shop="${esc(x.id)}">${esc(x.name)}</button>`).join('')}</div>`);
   }
+
+  async function openOrdersRoleHub(){
+    if(!session)return requireLogin();
+    const {data:shops,error}=await db.from('market_shops').select('id,name').eq('owner_id',session.user.id).order('created_at');
+    if(error)return alert(error.message);
+
+    // Normal customer: one tap goes straight to My Orders.
+    if(!(shops||[]).length){
+      return openAccountHub('customer');
+    }
+
+    // A shop owner can also be a buyer. Keep the two roles explicit.
+    openModal(`
+      <h2 class="mo-title">🛍️ ออเดอร์</h2>
+      <p class="mo-muted">ต้องการดูออเดอร์ส่วนไหน</p>
+      <div class="order-role-choice">
+        <button type="button" class="order-role-card buyer" data-orders-role="customer">
+          <span class="order-role-icon">🛒</span>
+          <span><b>ออเดอร์ที่ฉันสั่งซื้อ</b><small>ดูรายการที่ซื้อจากร้านต่าง ๆ</small></span>
+        </button>
+        <button type="button" class="order-role-card seller" data-orders-role="seller">
+          <span class="order-role-icon">🏪</span>
+          <span><b>ออเดอร์ที่ร้านได้รับ</b><small>รับและจัดการออเดอร์ของร้าน</small></span>
+        </button>
+      </div>
+    `);
+  }
+
 
   async function openSellerShop(shopId){
     markSellerOrdersViewed(shopId);

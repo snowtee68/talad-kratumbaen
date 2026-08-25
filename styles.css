@@ -692,3 +692,40 @@ fieldset{border:1px solid var(--line);border-radius:14px;padding:14px}legend{fon
     box-sizing:border-box!important;
   }
 }
+
+/* V0.5.20.59 — role-aware Order entry */
+.order-role-choice{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;
+  margin-top:14px;
+}
+.order-role-card{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  width:100%;
+  min-height:88px;
+  padding:14px;
+  border:1px solid rgba(0,0,0,.10);
+  border-radius:14px;
+  background:#fff;
+  text-align:left;
+  cursor:pointer;
+}
+.order-role-card .order-role-icon{
+  font-size:30px;
+  flex:0 0 auto;
+}
+.order-role-card span:last-child{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  min-width:0;
+}
+.order-role-card b{font-size:15px}
+.order-role-card small{font-size:12px;opacity:.72;line-height:1.35}
+@media(max-width:640px){
+  .order-role-choice{grid-template-columns:1fr}
+  .order-role-card{min-height:76px}
+}
