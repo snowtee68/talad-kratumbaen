@@ -14,7 +14,7 @@
   let orderNotifyTimer=null,orderNotifyRealtime=null,orderNotifyRealtimeDebounce=null,orderNotifyBusy=false,orderNotifyBaseline=false,orderNotifyAudioArmed=false,orderNotifySoundRepeatTimer=null;
   let customerOrderTab='waiting',sellerOrderTab='action',customerOrderPage=1,sellerOrderPage=1,orderSearchTerm='',orderDateFilter='today',customerFocusGroupId=null,customerFocusOrderId=null;
   const ORDER_UI_VERSION='0.5.20.42-restore';
-  let orderNotifyState={statuses:{},viewed:{},reminded:{},unread:0};
+  let orderNotifyState={statuses:{},viewed:{},reminded:{},unread:0,activeSellerOrders:0};
   const esc=(v='')=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const money=n=>Number(n||0).toLocaleString('th-TH',{minimumFractionDigits:0,maximumFractionDigits:2});
   const uuid=()=>crypto.randomUUID?.()||('xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0,v=c==='x'?r:(r&3|8);return v.toString(16)}));
@@ -175,7 +175,7 @@
     loadOrderNotifyState();renderOrderNotifyBadge();
   }
   function loadOrderNotifyState(){
-    try{const x=JSON.parse(localStorage.getItem(ORDER_NOTIFY_KEY)||'{}');orderNotifyState={statuses:x.statuses||{},viewed:x.viewed||{},reminded:x.reminded||{},unread:Number(x.unread||0)}}catch(_){orderNotifyState={statuses:{},viewed:{},reminded:{},unread:0}}
+    try{const x=JSON.parse(localStorage.getItem(ORDER_NOTIFY_KEY)||'{}');orderNotifyState={statuses:x.statuses||{},viewed:x.viewed||{},reminded:x.reminded||{},unread:Number(x.unread||0),activeSellerOrders:Number(x.activeSellerOrders||0)}}catch(_){orderNotifyState={statuses:{},viewed:{},reminded:{},unread:0,activeSellerOrders:0}}
   }
   function saveOrderNotifyState(){
     const trimObj=o=>Object.fromEntries(Object.entries(o||{}).slice(-300));
@@ -216,8 +216,11 @@
     },20000);
   }
   function renderOrderNotifyBadge(){
-    const nav=document.getElementById('marketOrdersBtn'),b=nav?.querySelector('.order-notify-badge'),n=Math.max(0,Number(orderNotifyState.unread||0));
-    if(b)b.textContent=n>99?'99+':String(n);nav?.classList.toggle('has-order-notify',n>0);
+    const nav=document.getElementById('marketOrdersBtn'),b=nav?.querySelector('.order-notify-badge');
+    // Badge = actual seller orders that still need shop attention, not only local notification events.
+    const n=Math.max(0,Number(orderNotifyState.activeSellerOrders||0));
+    if(b)b.textContent=n>99?'99+':String(n);
+    nav?.classList.toggle('has-order-notify',n>0);
   }
   function showOrderNotifyBanner(title,detail,count=1){
     const b=document.getElementById('orderNotifyBanner');if(!b)return;
@@ -248,6 +251,10 @@
         const {data}=await db.from('market_orders').select('id,shop_id,status,created_at,updated_at,shop_response_due_at,payment_submitted_at').in('shop_id',sellerIds).order('created_at',{ascending:false}).limit(100);
         sellerOrders=data||[];
       }
+      // Always keep the nav badge synced with real current seller orders.
+      // pending_shop = new order waiting for shop; payment_review = payment waiting for shop review.
+      orderNotifyState.activeSellerOrders=sellerOrders.filter(o=>['pending_shop','payment_review'].includes(o.status)).length;
+      renderOrderNotifyBadge();
       {
         const {data}=await db.from('market_orders').select('id,status,created_at,updated_at,shop_id').eq('customer_id',session.user.id).order('created_at',{ascending:false}).limit(100);
         customerOrders=data||[];
@@ -854,7 +861,7 @@
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=5.7.9.84',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=5.7.9.85',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
