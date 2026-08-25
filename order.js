@@ -813,6 +813,22 @@
         return alert('ตรวจสอบพื้นที่จัดส่งไม่สำเร็จ: '+(err?.message||err));
       }
     }
+    // Re-check shop open/closed state immediately before creating the order.
+    // Existing orders are not affected; this blocks only NEW checkout creation.
+    try{
+      const ids=groups.map(g=>g.shop_id);
+      const [{data:ss,error:se},{data:cs,error:ce}]=await Promise.all([
+        db.from('market_shop_order_settings').select('*').in('shop_id',ids),
+        db.from('market_shops').select('id,temporarily_closed,open_24_hours,opening_hours').in('id',ids)
+      ]);
+      if(se||ce)throw(se||ce);
+      const sb=Object.fromEntries((ss||[]).map(x=>[String(x.shop_id),x]));
+      const cb=Object.fromEntries((cs||[]).map(x=>[String(x.id),x]));
+      const stopped=groups.map(g=>({g,av:shopAvailability(sb[String(g.shop_id)],cb[String(g.shop_id)])})).filter(x=>!x.av.ok);
+      if(stopped.length)return alert('มีร้านปิดหรือหยุดรับออเดอร์แล้ว:\n'+stopped.map(x=>`• ${x.g.shop_name}: ${x.av.msg}`).join('\n')+'\n\nกรุณาตรวจสอบตะกร้าอีกครั้ง');
+    }catch(err){
+      return alert('ตรวจสอบสถานะร้านก่อนสร้างออเดอร์ไม่สำเร็จ กรุณาลองใหม่');
+    }
     const btn=document.getElementById('submitCheckoutBtn');if(btn){btn.disabled=true;btn.textContent='กำลังสร้างออเดอร์...'}
     const {data,error}=await db.rpc('market_create_checkout_v041',{p_customer_name:name,p_customer_phone:phone,p_fulfillment_method:method,p_delivery_address:method==='delivery'?address:null,p_delivery_lat:method==='delivery'?lat:null,p_delivery_lng:method==='delivery'?lng:null,p_pickup_requested_at:pickupAt,p_orders:payload});
     if(error){if(btn){btn.disabled=false;btn.textContent='สร้างออเดอร์'}return alert('สร้างออเดอร์ไม่สำเร็จ: '+error.message)}
@@ -860,7 +876,7 @@
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=5.7.9.89',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=5.7.9.90',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
