@@ -1,4 +1,4 @@
-const CACHE_NAME = 'talad-kratumbaen-v5.7.9.83';
+const CACHE_NAME = 'talad-kratumbaen-v5.7.9.84';
 const CORE = [
   './',
   './index.html',
@@ -55,8 +55,10 @@ self.addEventListener('push', event => {
     body: data.body || 'มีอัปเดตคำสั่งซื้อ',
     tag: data.tag || 'market-order',
     renotify: true,
+    requireInteraction: true,
+    silent: false,
     data: { url: data.url || './' },
-    vibrate: [250,120,250,120,450]
+    vibrate: [400,150,400,150,700,180,700]
   };
 
   event.waitUntil(

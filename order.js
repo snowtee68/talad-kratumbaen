@@ -11,7 +11,7 @@
   const MAX_PICKUPS=5, EXTRA_PICKUP_FEE=10;
   let session=null, productShopIds=new Set(), productOptionDraft=[];
   const ORDER_NOTIFY_KEY='talad_order_notify_v042';
-  let orderNotifyTimer=null,orderNotifyRealtime=null,orderNotifyRealtimeDebounce=null,orderNotifyBusy=false,orderNotifyBaseline=false,orderNotifyAudioArmed=false;
+  let orderNotifyTimer=null,orderNotifyRealtime=null,orderNotifyRealtimeDebounce=null,orderNotifyBusy=false,orderNotifyBaseline=false,orderNotifyAudioArmed=false,orderNotifySoundRepeatTimer=null;
   let customerOrderTab='waiting',sellerOrderTab='action',customerOrderPage=1,sellerOrderPage=1,orderSearchTerm='',orderDateFilter='today',customerFocusGroupId=null,customerFocusOrderId=null;
   const ORDER_UI_VERSION='0.5.20.42-restore';
   let orderNotifyState={statuses:{},viewed:{},reminded:{},unread:0};
@@ -103,8 +103,9 @@
       #orderNotifyBanner{position:fixed;top:max(12px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:100000;width:min(92vw,560px);background:#fff;border:1px solid rgba(120,70,55,.22);box-shadow:0 12px 34px rgba(38,24,20,.2);border-radius:18px;padding:13px 16px;display:none;cursor:pointer}
       #orderNotifyBanner.show{display:flex;gap:11px;align-items:center}
       #orderNotifyBanner .bell{font-size:24px}.order-notify-title{font-weight:900}.order-notify-detail{font-size:13px;opacity:.72;margin-top:2px}
-      #marketOrdersBtn{position:relative}.order-notify-badge{display:none;position:absolute;right:-8px;top:-9px;min-width:21px;height:21px;padding:0 5px;border-radius:999px;background:#c70f17;color:#fff;border:2px solid #fff;font-size:11px;font-weight:900;align-items:center;justify-content:center}
-      #marketOrdersBtn.has-order-notify .order-notify-badge{display:flex}
+      #marketOrdersBtn{position:relative;overflow:visible!important}.order-notify-badge{display:none;position:static!important;flex:0 0 auto;min-width:20px;height:20px;padding:0 5px;margin-left:5px;border-radius:999px;background:#c70f17;color:#fff;border:1px solid rgba(255,255,255,.9);font-size:11px;font-weight:900;line-height:20px;text-align:center;box-sizing:border-box;vertical-align:middle}
+      #marketOrdersBtn.has-order-notify .order-notify-badge{display:inline-block!important}
+      @media(max-width:520px){#marketOrdersBtn .order-notify-badge{min-width:19px;height:19px;line-height:19px;padding:0 4px;margin-left:3px;font-size:10px}}
       .order-group-section{margin:14px 0 20px;padding:12px;border:1px solid rgba(120,70,55,.13);border-radius:18px;background:rgba(255,255,255,.62)}
       .order-group-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.order-group-head h3{margin:0 0 3px;font-size:18px}
       .order-group-count{display:inline-grid;place-items:center;min-width:25px;height:25px;padding:0 7px;border-radius:999px;background:#efe5df;color:#5a3328;font-size:13px}
@@ -190,18 +191,29 @@
     try{
       const C=window.AudioContext||window.webkitAudioContext,c=window.__marketOrderAudioContext||new C();window.__marketOrderAudioContext=c;c.resume?.();
       const now=c.currentTime;
-      // Noticeable ~4 second order chime. Queue events still trigger only once per batch.
-      const notes=[660,880,660,880,740,990,740,990];
+      // Strong ~8 second in-app alert. This only runs while the web/PWA is active.
+      const notes=[740,990,740,990,820,1100,820,1100,740,990,740,990,820,1100,820,1100];
       notes.forEach((freq,i)=>{
-        const d=i*.46,o=c.createOscillator(),g=c.createGain();
-        o.type='sine';o.frequency.value=freq;
+        const d=i*.48,o=c.createOscillator(),g=c.createGain();
+        o.type='square';o.frequency.value=freq;
         g.gain.setValueAtTime(.0001,now+d);
-        g.gain.exponentialRampToValueAtTime(.28,now+d+.025);
-        g.gain.setValueAtTime(.22,now+d+.24);
-        g.gain.exponentialRampToValueAtTime(.0001,now+d+.40);
-        o.connect(g);g.connect(c.destination);o.start(now+d);o.stop(now+d+.42);
+        g.gain.exponentialRampToValueAtTime(.38,now+d+.025);
+        g.gain.setValueAtTime(.30,now+d+.28);
+        g.gain.exponentialRampToValueAtTime(.0001,now+d+.43);
+        o.connect(g);g.connect(c.destination);o.start(now+d);o.stop(now+d+.45);
       });
     }catch(_){}
+  }
+  function stopOrderSoundRepeat(){
+    if(orderNotifySoundRepeatTimer){clearInterval(orderNotifySoundRepeatTimer);orderNotifySoundRepeatTimer=null}
+  }
+  function startOrderSoundRepeat(){
+    stopOrderSoundRepeat();
+    if(Number(orderNotifyState.unread||0)<=0)return;
+    // Repeat only while the page/PWA is visible. Background alerts remain Web Push controlled by the OS.
+    orderNotifySoundRepeatTimer=setInterval(()=>{
+      if(document.visibilityState==='visible'&&Number(orderNotifyState.unread||0)>0)playOrderNotificationSound();
+    },20000);
   }
   function renderOrderNotifyBadge(){
     const nav=document.getElementById('marketOrdersBtn'),b=nav?.querySelector('.order-notify-badge'),n=Math.max(0,Number(orderNotifyState.unread||0));
@@ -211,12 +223,13 @@
     const b=document.getElementById('orderNotifyBanner');if(!b)return;
     b.querySelector('.order-notify-title').textContent=title;b.querySelector('.order-notify-detail').textContent=detail||'แตะเพื่อดูออเดอร์';
     b.classList.add('show');clearTimeout(b._hideTimer);b._hideTimer=setTimeout(()=>b.classList.remove('show'),6500);
-    orderNotifyState.unread=Math.min(999,Number(orderNotifyState.unread||0)+Math.max(1,count));saveOrderNotifyState();renderOrderNotifyBadge();playOrderNotificationSound();
+    orderNotifyState.unread=Math.min(999,Number(orderNotifyState.unread||0)+Math.max(1,count));saveOrderNotifyState();renderOrderNotifyBadge();playOrderNotificationSound();startOrderSoundRepeat();
   }
   function markNotificationAreaViewed(){
-    orderNotifyState.unread=0;saveOrderNotifyState();renderOrderNotifyBadge();document.getElementById('orderNotifyBanner')?.classList.remove('show');
+    orderNotifyState.unread=0;saveOrderNotifyState();renderOrderNotifyBadge();stopOrderSoundRepeat();document.getElementById('orderNotifyBanner')?.classList.remove('show');
   }
   function stopOrderNotifications(){
+    stopOrderSoundRepeat();
     if(orderNotifyTimer){clearInterval(orderNotifyTimer);orderNotifyTimer=null}
     if(orderNotifyRealtimeDebounce){clearTimeout(orderNotifyRealtimeDebounce);orderNotifyRealtimeDebounce=null}
     if(orderNotifyRealtime){try{db.removeChannel(orderNotifyRealtime)}catch(_e){}orderNotifyRealtime=null}
@@ -841,7 +854,7 @@
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=5.7.9.83',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=5.7.9.84',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
