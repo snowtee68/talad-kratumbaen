@@ -1,0 +1,11 @@
+-- เพิ่มลิงก์สั่งอาหารจาก LINE MAN, GrabFood และ ShopeeFood
+-- รันเพียงครั้งเดียวใน Supabase > SQL Editor
+
+alter table public.market_shops
+  add column if not exists lineman_url text,
+  add column if not exists grab_url text,
+  add column if not exists shopeefood_url text;
+
+comment on column public.market_shops.lineman_url is 'ลิงก์หน้าร้าน LINE MAN';
+comment on column public.market_shops.grab_url is 'ลิงก์หน้าร้าน GrabFood';
+comment on column public.market_shops.shopeefood_url is 'ลิงก์หน้าร้าน ShopeeFood';

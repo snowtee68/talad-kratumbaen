@@ -1205,7 +1205,7 @@
           <div class="rating-line"><span>${stars(rating.average)}</span><b>${rating.count?rating.average.toFixed(1):'ใหม่'}</b><small>${rating.count?`(${rating.count})`:'ยังไม่มีรีวิว'}</small></div>
           <p>${esc(s.description||'ร้านค้าในตลาดกระทุ่มแบน')}</p>
           <div class="community-actions"><button data-action="details">ดูรายละเอียด</button><button data-action="review">⭐ รีวิว</button>${favoriteButton(s.id)}</div>
-          <div class="admin-actions"><button data-action="edit">แก้ไขร้าน</button><button class="manage-promo-btn" data-action="manage-promotions">⚙️ จัดการโปรโมชั่น</button><button data-action="promotion">+ เพิ่มโปรโมชั่น</button>${profile?.role==='admin'&&s.status!=='approved'?'<button data-action="approve">อนุมัติ</button>':''}${profile?.role==='admin'?`<button data-action="feature">${s.featured?'ยกเลิกแนะนำ':'แนะนำร้าน'}</button><button data-action="reject">ไม่อนุมัติ</button>`:''}</div>
+          <div class="admin-actions"><button data-action="edit">แก้ไขร้าน</button><button class="manage-promo-btn" data-action="manage-promotions">⚙️ จัดการโปรโมชั่น</button><button data-action="promotion">+ เพิ่มโปรโมชั่น</button>${profile?.role==='admin'&&s.status!=='approved'?'<button data-action="approve">อนุมัติ</button>':''}${profile?.role==='admin'?`${s.status==='approved'&&s.delivery_access_known?`<button class="${s.delivery_access_enabled?'delivery-access-on':'delivery-access-off'}" data-action="admin-delivery-toggle" data-enabled="${s.delivery_access_enabled?'true':'false'}">${s.delivery_access_enabled?'🟢 Delivery เปิด':'⚪ Delivery ปิด'}</button>`:''}<button data-action="feature">${s.featured?'ยกเลิกแนะนำ':'แนะนำร้าน'}</button><button data-action="reject">ไม่อนุมัติ</button>`:''}</div>
         </div>
       </article>`;
     }
@@ -1328,15 +1328,19 @@
     $('adminPanel').classList.toggle('hidden',profile?.role!=='admin');
     if(profile?.role==='admin'){
       loadAnalyticsDashboard(analyticsDays);
-      const [{data:pending,error:pendingError},{data:allShops,error:allShopsError}]=await Promise.all([
+      const [{data:pending,error:pendingError},{data:allShops,error:allShopsError},{data:deliveryAccess,error:deliveryAccessError}]=await Promise.all([
         db.from('market_shops').select('*, category:market_categories(id,name,icon)').eq('status','pending').order('created_at'),
-        db.from('market_shops').select('*, category:market_categories(id,name,icon)').order('created_at',{ascending:false})
+        db.from('market_shops').select('*, category:market_categories(id,name,icon)').order('created_at',{ascending:false}),
+        db.rpc('market_admin_list_order_shop_access')
       ]);
       if(pendingError)showNotice(pendingError.message,true);
       if(allShopsError)showNotice(allShopsError.message,true);
-      $('pendingGrid').innerHTML=(pending||[]).length?(pending||[]).map(s=>shopCard(s,true)).join(''):'<p>ไม่มีร้านรออนุมัติ</p>';
+      if(deliveryAccessError)console.warn('Delivery access:',deliveryAccessError.message);
+      const accessMap=new Map((deliveryAccess||[]).map(x=>[String(x.shop_id),Boolean(x.enabled)]));
+      const withAccess=(allShops||[]).map(s=>({...s,delivery_access_known:true,delivery_access_enabled:accessMap.get(String(s.id))===true}));
+      $('pendingGrid').innerHTML=(pending||[]).length?(pending||[]).map(s=>shopCard({...s,delivery_access_known:true,delivery_access_enabled:false},true)).join(''):'<p>ไม่มีร้านรออนุมัติ</p>';
       const adminAllGrid=$('adminAllGrid');
-      if(adminAllGrid)adminAllGrid.innerHTML=(allShops||[]).length?(allShops||[]).map(s=>shopCard(s,true)).join(''):'<p>ยังไม่มีร้านค้า</p>';
+      if(adminAllGrid)adminAllGrid.innerHTML=withAccess.length?withAccess.map(s=>shopCard(s,true)).join(''):'<p>ยังไม่มีร้านค้า</p>';
     }
   }
 
@@ -1465,6 +1469,19 @@
     }
     if(history.length>1)history.back();
     else goHome();
+  }
+
+
+  async function adminToggleDeliveryAccess(shopId,currentEnabled){
+    if(!session||profile?.role!=='admin')return alert('เฉพาะ Admin เท่านั้น');
+    const next=!currentEnabled;
+    const actionText=next?'เปิดสิทธิ์ขาย/Delivery':'ปิดสิทธิ์ขาย/Delivery';
+    if(!confirm(`${actionText} สำหรับร้านนี้ใช่หรือไม่?`))return;
+    const note=next?'เปิดสิทธิ์โดย Admin':'ปิดสิทธิ์โดย Admin';
+    const {error}=await db.rpc('market_admin_set_order_shop_access',{p_shop_id:shopId,p_enabled:next,p_note:note});
+    if(error)return alert('เปลี่ยนสิทธิ์ไม่สำเร็จ: '+friendlyAuthError(error.message));
+    showNotice(next?'เปิดสิทธิ์ขาย/Delivery ให้ร้านแล้ว':'ปิดสิทธิ์ขาย/Delivery ของร้านแล้ว');
+    await loadDashboard();
   }
 
   function bindEvents(){
@@ -1667,6 +1684,7 @@
       const shopId=explicitShopId||card?.dataset.id;
       if(!action||!shopId)return;
       if(action==='favorite'){toggleFavorite(shopId);return;}
+      if(action==='admin-delivery-toggle'){adminToggleDeliveryAccess(shopId,ev.target.dataset.enabled==='true');return;}
       if(action==='edit')editShop(shopId);
       if(action==='approve')setStatus(shopId,'approved');
       if(action==='reject')setStatus(shopId,'rejected');
@@ -1805,7 +1823,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=5.7.9.93', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=5.7.9.95', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });

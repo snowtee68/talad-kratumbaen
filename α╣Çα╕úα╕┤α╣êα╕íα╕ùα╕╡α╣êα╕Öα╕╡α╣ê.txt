@@ -1,0 +1,28 @@
+ตลาดกระทุ่มแบน v2.4 FINAL — ทำต่อจากระบบเดิม
+
+ทำตามลำดับนี้
+
+1) ถ้ายังไม่เคยรันไฟล์ “อัปเกรดฐานข้อมูล-v2.2.txt” ให้รันใน Supabase > SQL Editor เพียงครั้งเดียว
+2) Supabase > Authentication > URL Configuration
+   Site URL:
+   https://talad-kratumbaen.netlify.app
+
+   Redirect URLs:
+   https://talad-kratumbaen.netlify.app/**
+
+3) ระหว่างทดสอบ ให้ปิด Confirm email ที่ Authentication > Providers > Email เพื่อไม่ติดโควตาส่งอีเมล
+4) อัปโหลดไฟล์ทั้งหมดในโฟลเดอร์นี้ขึ้น GitHub ทับไฟล์เดิม
+5) กด Commit changes ได้เลย
+6) รอ Netlify Deploy แล้วเปิดเว็บใหม่แบบรีเฟรช
+
+ทดสอบตามลำดับ
+- สมัครสมาชิก
+- เข้าสู่ระบบ
+- เพิ่มร้าน
+- กำหนดเวลาเปิด–ปิดครบ 7 วัน
+- แก้ไขร้าน
+- ตั้งบัญชีแอดมินตามไฟล์ “ตั้งค่าแอดมิน.txt”
+- อนุมัติร้าน
+- ทดสอบลืมรหัสผ่านและตั้งรหัสผ่านใหม่
+
+หมายเหตุ: ถ้าเปิด Confirm email ในอนาคต ควรตั้ง Custom SMTP ก่อนเปิดใช้งานจริง

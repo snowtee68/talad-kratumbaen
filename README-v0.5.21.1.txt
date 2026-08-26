@@ -1,0 +1,1 @@
+V0.5.21.1: ร้านที่ status=approved เปิดสิทธิ์ขายเองได้เมื่อเปิดรับออเดอร์และข้อมูลพร้อม; การอนุมัติแสดงร้านยังแยกจากสิทธิ์ขาย; Admin มี master suspension; ต้องรัน upgrade-v0.5.21.1-self-service-selling.sql ก่อน Deploy. Mission V1 retained.
