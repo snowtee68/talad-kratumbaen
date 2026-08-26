@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.5 Coupon Wallet loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.7 Coupon Checkout loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -1527,7 +1527,7 @@
   }
 
 
-  // v0.5.22.6 COUPON WALLET / PUBLIC CLAIM MODULE
+  // v0.5.22.7 COUPON WALLET / PUBLIC CLAIM MODULE
   function walletStatusLabel(v){return v==='used'?'ใช้แล้ว':v==='expired'?'หมดอายุ':'พร้อมใช้';}
   async function loadPublicShopCoupons(shopId){
     const box=$('shopPublicCouponBox');if(!box||!db)return;
@@ -1550,7 +1550,7 @@
   async function openCouponWallet(){if(!session){openModal('authModal');return;}ensureCouponWalletUI();openModal('couponWalletModal');const box=$('couponWalletList');box.innerHTML='<p>กำลังโหลดคูปอง...</p>';try{await db.rpc('market_sync_mission_coupon_claim');}catch(syncErr){console.warn('mission coupon sync skipped',syncErr);}const {data,error}=await db.rpc('market_my_coupon_wallet');if(error){console.error('coupon wallet',error);box.innerHTML=`<p>โหลดคูปองไม่สำเร็จ</p><small class="muted">${esc(error.message||'กรุณาตรวจ SQL คูปอง')}</small>`;return;}couponWalletCache=Array.isArray(data)?data:[];renderCouponWallet();}
   function renderCouponWallet(){const box=$('couponWalletList');if(!box)return;const list=couponWalletCache.filter(c=>c.wallet_status===couponWalletFilter);box.innerHTML=list.length?`<div style="display:grid;gap:10px">${list.map(c=>`<article style="border:1px solid #ddd;border-radius:14px;padding:12px"><div style="display:flex;justify-content:space-between;gap:10px"><div><b>${esc(c.title)}</b><div>${esc(c.discount_label||'')}</div><small class="muted">${esc(c.shop_name||'ร้านค้าในตลาด')} · ${esc(couponChannelLabel(c.channel))}</small></div><strong>${walletStatusLabel(c.wallet_status)}</strong></div>${Number(c.min_spend||0)>0?`<small>ยอดขั้นต่ำ ${Number(c.min_spend)} บาท</small>`:''}${c.ends_at?`<small style="display:block">หมดอายุ ${new Date(c.ends_at).toLocaleString('th-TH')}</small>`:''}</article>`).join('')}</div>`:'<div class="empty-inline">ยังไม่มีคูปองในหมวดนี้</div>';}
 
-  // v0.5.22.6 SAFE COUPON MODULE
+  // v0.5.22.7 SAFE COUPON MODULE
   // UI is injected only inside existing admin/promotion modals. No home-page markup or global CSS is changed.
   let shopCouponCache=[];
   function toLocalDateTimeInput(value){if(!value)return '';const d=new Date(value);if(Number.isNaN(d.getTime()))return '';const off=d.getTimezoneOffset()*60000;return new Date(d.getTime()-off).toISOString().slice(0,16);}
@@ -2005,7 +2005,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.22.6', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.22.7', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
