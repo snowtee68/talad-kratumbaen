@@ -17,7 +17,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
-  <link rel="stylesheet" href="styles.css?v=0.5.22.15">
+  <link rel="stylesheet" href="styles.css?v=0.5.22.16">
 <link rel="stylesheet" href="order.css?v=0.5.20.42-restore">
 <style>
 #adminPanel .admin-control-center{margin-bottom:18px}
@@ -37,10 +37,51 @@
 #adminPanel .admin-coupon-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
 #adminPanel .admin-coupon-links button{min-height:72px}
 @media(max-width:760px){#adminPanel .admin-control-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#adminPanel .admin-control-btn{min-height:82px}#adminPanel .admin-coupon-links{grid-template-columns:1fr}}
+
+/* Guest header layout — V0.5.22.16: visual-only layout before login */
+body.guest-session .site-header .header-dashboard-nav{
+  display:grid;grid-template-columns:minmax(0,1fr);gap:18px;align-items:start;padding-top:18px;padding-bottom:18px
+}
+body.guest-session .site-header .brand{justify-self:start}
+body.guest-session .site-header .nav-actions{
+  width:100%;display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:stretch;
+  padding:14px;border:1px solid rgba(120,70,55,.14);border-radius:22px;background:rgba(255,255,255,.78);box-shadow:0 10px 28px rgba(72,35,26,.06)
+}
+body.guest-session .site-header .nav-actions>.header-shortcut,
+body.guest-session .site-header .nav-actions>.market-order-nav{
+  min-width:0!important;min-height:104px;padding:12px 8px!important;border-radius:18px!important;display:flex!important;flex-direction:column;justify-content:center;align-items:center;gap:5px;text-align:center;white-space:normal
+}
+body.guest-session .site-header .nav-actions .nav-ico{font-size:27px;line-height:1.1}
+body.guest-session .site-header .nav-actions .nav-label{font-size:15px;font-weight:800;line-height:1.25}
+body.guest-session .site-header .guest-signup-btn small{display:block;font-size:10px;color:#777;line-height:1.2}
+body.guest-session .site-header #accountBtn{order:1}
+body.guest-session .site-header #guestSignUpBtn{order:2}
+body.guest-session .site-header #marketOrdersBtn{order:3}
+body.guest-session .site-header #addShopBtn{
+  order:4;grid-column:1/-1;min-height:58px!important;border-radius:18px!important;display:flex!important;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:800
+}
+body.guest-session .site-header #addShopBtn .nav-ico{font-size:23px}
+body.guest-session .site-header #addShopBtn .nav-label::after{content:'ของคุณ';margin-left:.2em}
+body.guest-session .site-header #nearBtn,
+body.guest-session .site-header #favoritesBtn,
+body.guest-session .site-header #missionBtn,
+body.guest-session .site-header #couponWalletBtn,
+body.guest-session .site-header #headerUserName{display:none!important}
+body:not(.guest-session) .site-header #guestSignUpBtn{display:none!important}
+@media(min-width:760px){
+  body.guest-session .site-header .header-dashboard-nav{grid-template-columns:minmax(260px,.8fr) minmax(520px,1.2fr);align-items:center}
+  body.guest-session .site-header .nav-actions{max-width:720px;justify-self:end}
+}
+@media(max-width:430px){
+  body.guest-session .site-header .nav-actions{padding:10px;gap:8px;border-radius:18px}
+  body.guest-session .site-header .nav-actions>.header-shortcut,body.guest-session .site-header .nav-actions>.market-order-nav{min-height:94px;padding:10px 6px!important;border-radius:16px!important}
+  body.guest-session .site-header .nav-actions .nav-label{font-size:13px}
+  body.guest-session .site-header #addShopBtn{min-height:54px!important}
+}
 </style>
 
 </head>
-<body>
+<body class="guest-session">
 <header class="site-header">
   <div class="container nav header-dashboard-nav">
     <a class="brand" href="#top">
@@ -52,6 +93,7 @@
       <button id="favoritesBtn" class="ghost hidden header-shortcut" type="button"><span class="nav-ico">❤️</span><span class="nav-label">ร้านชื่นชอบ</span></button>
       <button id="missionBtn" class="ghost hidden header-shortcut header-mission" type="button"><span class="nav-ico">🎯</span><span class="nav-label">Mission</span><span id="missionNavCount"></span></button>
       <button id="accountBtn" class="ghost header-shortcut" type="button"><span class="nav-ico">👤</span><span class="nav-label">เข้าสู่ระบบ</span></button>
+      <button id="guestSignUpBtn" class="ghost header-shortcut guest-signup-btn" type="button"><span class="nav-ico">👤＋</span><span class="nav-label">สมัครสมาชิก</span><small>สร้างบัญชีใหม่</small></button>
       <button id="addShopBtn" class="primary header-add-shop" type="button"><span class="nav-ico">＋</span><span class="nav-label">เพิ่มร้าน</span></button>
       <div id="headerUserName" class="header-user-pill hidden" aria-live="polite"></div>
     </div>
@@ -118,7 +160,7 @@
   </section>
 </main>
 
-<footer><div class="container support-footer"><div>ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ <span class="version-badge">V0.5.22.15</span></div><a class="support-openchat-link" href="https://line.me/ti/g2/26r6PGveA0bN-PKo8YNyw7dd2lF_ejymNdCNKw?utm_source=invitation&utm_medium=link_copy&utm_campaign=default" target="_blank" rel="noopener noreferrer">💬 สอบถาม / แจ้งปัญหาการใช้งาน</a></div></footer>
+<footer><div class="container support-footer"><div>ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ <span class="version-badge">V0.5.22.16</span></div><a class="support-openchat-link" href="https://line.me/ti/g2/26r6PGveA0bN-PKo8YNyw7dd2lF_ejymNdCNKw?utm_source=invitation&utm_medium=link_copy&utm_campaign=default" target="_blank" rel="noopener noreferrer">💬 สอบถาม / แจ้งปัญหาการใช้งาน</a></div></footer>
 
 <nav class="floating-navigation" aria-label="ทางลัดหน้าเว็บ">
   <button id="floatingBackBtn" type="button" class="floating-nav-button" aria-label="ย้อนกลับ">← <span>กลับ</span></button>
@@ -197,8 +239,8 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
-<script src="app.js?v=0.5.22.15"></script>
-<script src="order.js?v=0.5.22.15"></script>
+<script src="app.js?v=0.5.22.16"></script>
+<script src="order.js?v=0.5.22.16"></script>
 
 </body>
 </html>

@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.15 Rider Job Identity Fix loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.16 Guest Header Layout loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -1487,6 +1487,7 @@
   }
 
   function updateAccountUI(){
+    document.body.classList.toggle('guest-session',!session);
     const accountBtn=$('accountBtn');
     const headerUserName=$('headerUserName');
     if(accountBtn){
@@ -1823,6 +1824,7 @@
     $('floatingBackBtn')?.addEventListener('click',goBack);
     document.querySelectorAll('[data-analytics-period]').forEach(btn=>btn.addEventListener('click',()=>loadAnalyticsDashboard(btn.dataset.analyticsPeriod||'7d')));
     $('accountBtn').addEventListener('click',()=>session?$('dashboard').scrollIntoView({behavior:'smooth'}):openModal('authModal'));
+    $('guestSignUpBtn')?.addEventListener('click',()=>{setAuthMethod('email');openModal('authModal');setTimeout(()=>document.querySelector('#authModal input[name="email"]')?.focus(),60);});
     $('addShopBtn').addEventListener('click',()=>{if(!session)return openModal('authModal');$('shopForm').reset();fillOpeningHours($('shopForm'),{});$('shopFormTitle').textContent='เพิ่มร้านของฉัน';openModal('shopModal');});
     $('searchBtn').addEventListener('click',()=>resetShopList({scroll:true}));
     $('searchInput').addEventListener('keydown',ev=>{
