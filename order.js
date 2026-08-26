@@ -746,7 +746,7 @@
 
 
 
-  // v0.5.22.2 SAFE COUPON CHECKOUT MODULE
+  // v0.5.22.3 COUPON WALLET CHECKOUT MODULE
   // Coupon UI is injected into the existing checkout modal; the original checkout markup/CSS stays untouched.
   let checkoutCouponOptions=[];
   function couponEstimate(c,subtotal){let d=c.discount_type==='percent'?subtotal*Number(c.discount_value||0)/100:Number(c.discount_value||0);if(Number(c.max_discount||0)>0)d=Math.min(d,Number(c.max_discount));return Math.max(0,Math.min(subtotal,d));}
@@ -926,7 +926,7 @@
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=0.5.22.2',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=0.5.22.3',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;

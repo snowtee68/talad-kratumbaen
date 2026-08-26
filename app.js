@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.2 Safe Coupon Module loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.3 Coupon Wallet loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -871,7 +871,7 @@
     if(settings?.mission_active===false)return alert('ขณะนี้ Mission ยังไม่ได้เปิดใช้งาน');
     if(!session){openModal('authModal');return alert('กรุณาเข้าสู่ระบบก่อนทำ Mission');}
     const box=$('missionContent');openModal('missionModal');if(box)box.innerHTML='<h2>🎯 Mission กระทุ่มแบน</h2><p>กำลังตรวจสอบความคืบหน้า...</p>';
-    try{const [p,reward]=await Promise.all([loadMissionProgress(true),loadMissionReward(true)]),percent=Math.round(p.done/p.total*100);
+    try{const [p,reward]=await Promise.all([loadMissionProgress(true),loadMissionReward(true)]);if(p.allDone&&db)await db.rpc('market_sync_mission_coupon_claim').catch(()=>{});const percent=Math.round(p.done/p.total*100);
       box.innerHTML=`<div class="mission-head"><div><span class="eyebrow red">ภารกิจเริ่มต้น</span><h2>🎯 Mission กระทุ่มแบน</h2><p>ลองใช้ฟังก์ชันต่าง ๆ ของตลาดให้ครบ ${p.total} ภารกิจ</p></div><strong class="mission-score">${p.done}/${p.total}</strong></div>${missionRewardHtml(reward,p.allDone)}<div class="mission-progress"><span style="width:${percent}%"></span></div><div class="mission-list">${p.items.map(m=>`<article class="mission-item ${m.done?'done':''}"><div class="mission-icon">${m.done?'✅':m.icon}</div><div class="mission-copy"><b>${esc(m.title)}</b><small>${esc(m.detail)}</small><div class="mission-mini-progress"><span style="width:${Math.min(100,Math.round(m.value/m.goal*100))}%"></span></div></div><strong>${m.value}/${m.goal}</strong></article>`).join('')}</div>${p.allDone?`<div class="mission-complete">🎉 Mission สำเร็จครบแล้ว!<small>${reward?.reward_active&&reward?.reward_title?'คุณได้รับสิทธิ์รางวัลตามที่แสดงด้านบน':'ขณะนี้ Admin ยังไม่ได้เปิดรางวัลสำหรับ Mission นี้'}</small></div>`:'<div class="mission-note">ระบบตรวจ Mission ให้อัตโนมัติ ไม่ต้องกดยืนยันว่าทำแล้ว</div>'}`;
     }catch(err){box.innerHTML='<h2>🎯 Mission กระทุ่มแบน</h2><div class="mission-note">ยังโหลด Mission ไม่สำเร็จ กรุณารัน SQL Mission V1 ก่อน</div>';console.error(err);}
   }
@@ -910,6 +910,7 @@
       ${shop.address?`<p class="detail-address">📍 ${esc(shop.address)}</p>`:''}
       ${shop.landmark?`<p class="detail-landmark"><b>📍 จุดสังเกต:</b> ${esc(shop.landmark)}</p>`:''}
       ${promo?`<div class="detail-promo"><b>🔥 ${esc(promo.title)}</b><span>${esc(promo.description||'')}</span><small>⏰ ${esc(promotionTimingText(promo))}</small></div>`:''}
+      <div id="shopPublicCouponBox" data-shop-coupons="${esc(shop.id)}"></div>
       ${deliveryButtons?`<div class="detail-order-grid">${deliveryButtons}</div>`:''}
       <div class="detail-action-grid">${contactButtons}</div>
       <div class="shop-share-actions">
@@ -922,7 +923,7 @@
     $('reviewShopName').textContent=shop.name;
     closeModal('promotionDetailModal');
     openModal('shopDetailModal');
-    await loadShopReviews(shopId);
+    await Promise.all([loadShopReviews(shopId),loadPublicShopCoupons(shopId)]);
   }
 
   function shopDirectUrl(shopId){
@@ -1404,6 +1405,7 @@
     $('dashboard').classList.toggle('hidden',!session);
     const favBtn=$('favoritesBtn'); if(favBtn)favBtn.classList.toggle('hidden',!session);
     const missionBtn=$('missionBtn'); if(missionBtn)missionBtn.classList.add('hidden');
+    ensureCouponWalletUI();
     if(session)refreshMissionNav().catch(()=>{});
   }
 
@@ -1525,7 +1527,30 @@
   }
 
 
-  // v0.5.22.2 SAFE COUPON MODULE
+  // v0.5.22.3 COUPON WALLET / PUBLIC CLAIM MODULE
+  function walletStatusLabel(v){return v==='used'?'ใช้แล้ว':v==='expired'?'หมดอายุ':'พร้อมใช้';}
+  async function loadPublicShopCoupons(shopId){
+    const box=$('shopPublicCouponBox');if(!box||!db)return;
+    box.innerHTML='';
+    const {data,error}=await db.rpc('market_public_shop_coupons',{p_shop_id:shopId});if(error){console.warn('coupon list',error);return;}
+    const list=Array.isArray(data)?data:[];if(!list.length)return;
+    box.innerHTML=`<div style="margin:14px 0 4px"><b>🎟️ คูปองร้านค้า</b><div style="display:grid;gap:8px;margin-top:8px">${list.map(c=>`<div style="border:1px dashed #bbb;border-radius:12px;padding:10px;display:flex;justify-content:space-between;gap:10px;align-items:center"><div><b>${esc(c.title)}</b><div>${esc(c.discount_label||'')} ${Number(c.min_spend||0)>0?`· ขั้นต่ำ ${Number(c.min_spend)} บาท`:''}</div><small class="muted">${esc(couponChannelLabel(c.channel))}${c.ends_at?' · ถึง '+new Date(c.ends_at).toLocaleDateString('th-TH'):''}</small></div><button type="button" class="${c.claimed?'ghost':'primary'}" data-claim-coupon="${esc(c.id)}" ${c.claimed?'disabled':''}>${c.claimed?'✓ เก็บแล้ว':'🎟️ เก็บคูปอง'}</button></div>`).join('')}</div></div>`;
+  }
+  async function claimShopCoupon(id){
+    if(!session){openModal('authModal');return alert('กรุณาเข้าสู่ระบบก่อนเก็บคูปอง');}
+    const {error}=await db.rpc('market_claim_coupon',{p_coupon_id:id});if(error)return alert(error.message||'เก็บคูปองไม่สำเร็จ');
+    const box=$('shopPublicCouponBox'),shopId=box?.dataset?.shopCoupons;if(shopId)await loadPublicShopCoupons(shopId);showNotice('เก็บคูปองไว้ในคูปองของฉันแล้ว');
+  }
+  function ensureCouponWalletUI(){
+    if(!$('couponWalletBtn')){const b=document.createElement('button');b.id='couponWalletBtn';b.className='ghost hidden';b.textContent='🎟️ คูปองของฉัน';const account=$('accountBtn');account?.parentNode?.insertBefore(b,account);b.addEventListener('click',openCouponWallet);}
+    if(!$('couponWalletModal')){const m=document.createElement('div');m.id='couponWalletModal';m.className='modal hidden';m.innerHTML=`<div class="backdrop" data-close="couponWalletModal"></div><div class="modal-card"><button class="close" data-close="couponWalletModal">×</button><div class="section-head"><div><span class="eyebrow red">บัญชีของฉัน</span><h2>🎟️ คูปองของฉัน</h2></div></div><div id="couponWalletTabs" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><button type="button" class="ghost" data-wallet-filter="available">พร้อมใช้</button><button type="button" class="ghost" data-wallet-filter="used">ใช้แล้ว</button><button type="button" class="ghost" data-wallet-filter="expired">หมดอายุ</button></div><div id="couponWalletList"></div></div>`;document.body.appendChild(m);}
+    $('couponWalletBtn')?.classList.toggle('hidden',!session);
+  }
+  let couponWalletCache=[],couponWalletFilter='available';
+  async function openCouponWallet(){if(!session){openModal('authModal');return;}ensureCouponWalletUI();openModal('couponWalletModal');const box=$('couponWalletList');box.innerHTML='<p>กำลังโหลดคูปอง...</p>';const {data,error}=await db.rpc('market_my_coupon_wallet');if(error){box.innerHTML='<p>ยังโหลดคูปองไม่ได้ กรุณารัน SQL V0.5.22.3</p>';return;}couponWalletCache=Array.isArray(data)?data:[];renderCouponWallet();}
+  function renderCouponWallet(){const box=$('couponWalletList');if(!box)return;const list=couponWalletCache.filter(c=>c.wallet_status===couponWalletFilter);box.innerHTML=list.length?`<div style="display:grid;gap:10px">${list.map(c=>`<article style="border:1px solid #ddd;border-radius:14px;padding:12px"><div style="display:flex;justify-content:space-between;gap:10px"><div><b>${esc(c.title)}</b><div>${esc(c.discount_label||'')}</div><small class="muted">${esc(c.shop_name||'ร้านค้าในตลาด')} · ${esc(couponChannelLabel(c.channel))}</small></div><strong>${walletStatusLabel(c.wallet_status)}</strong></div>${Number(c.min_spend||0)>0?`<small>ยอดขั้นต่ำ ${Number(c.min_spend)} บาท</small>`:''}${c.ends_at?`<small style="display:block">หมดอายุ ${new Date(c.ends_at).toLocaleString('th-TH')}</small>`:''}</article>`).join('')}</div>`:'<div class="empty-inline">ยังไม่มีคูปองในหมวดนี้</div>';}
+
+  // v0.5.22.3 SAFE COUPON MODULE
   // UI is injected only inside existing admin/promotion modals. No home-page markup or global CSS is changed.
   let shopCouponCache=[];
   function toLocalDateTimeInput(value){if(!value)return '';const d=new Date(value);if(Number.isNaN(d.getTime()))return '';const off=d.getTimezoneOffset()*60000;return new Date(d.getTime()-off).toISOString().slice(0,16);}
@@ -1586,7 +1611,7 @@
   async function deleteShopCoupon(id){
     const shopId=$('managePromotionShopId')?.value;if(!shopId||!id||!confirm('ยืนยันลบคูปองนี้?'))return;const {error}=await db.rpc('market_shop_coupon_delete',{p_coupon_id:id,p_shop_id:shopId});if(error)return alert('ลบคูปองไม่สำเร็จ: '+error.message);await loadShopCoupons(shopId);
   }
-  document.addEventListener('click',ev=>{
+  document.addEventListener('click',ev=>{const claim=ev.target.closest('[data-claim-coupon]');if(claim){claimShopCoupon(claim.dataset.claimCoupon);return;}const wf=ev.target.closest('[data-wallet-filter]');if(wf){couponWalletFilter=wf.dataset.walletFilter;renderCouponWallet();return;}
     const b=ev.target.closest('[data-coupon-action]');if(!b)return;const a=b.dataset.couponAction;if(a==='new')openShopCouponEditor();else if(a==='edit')openShopCouponEditor(b.dataset.couponId);else if(a==='delete')deleteShopCoupon(b.dataset.couponId);else if(a==='close')$('shopCouponEditorModal')?.classList.add('hidden');
   });
 
@@ -1873,7 +1898,7 @@
   async function start(){
     renderHoursEditor();initMaps();bindEvents();
     trackAnalytics('page_view');
-    try{await loadCategories();await loadReviewStats();await loadPromotions();await loadShopIndex();await loadPublicShops({reset:true});renderShops();renderRecommended();await refreshAuth();await handleRecoveryLink();await handleShopDirectLink();showMissionWelcomeOncePerDay().catch(()=>{});}
+    try{await loadCategories();await loadReviewStats();await loadPromotions();await loadShopIndex();await loadPublicShops({reset:true});renderShops();renderRecommended();await refreshAuth();ensureCouponWalletUI();await handleRecoveryLink();await handleShopDirectLink();showMissionWelcomeOncePerDay().catch(()=>{});}
     catch(err){console.error(err);showNotice('เกิดข้อผิดพลาด: '+err.message,true);}
   }
   start();
@@ -1980,7 +2005,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.22.2', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.22.3', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
