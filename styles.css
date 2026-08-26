@@ -740,3 +740,28 @@ fieldset{border:1px solid var(--line);border-radius:14px;padding:14px}legend{fon
 /* V0.5.21.2 Admin controlled selling / Delivery access */
 .admin-actions .delivery-access-on{background:#e7f7eb!important;color:#176b35!important;border-color:#b9dec3!important;font-weight:800}
 .admin-actions .delivery-access-off{background:#f2f2f2!important;color:#555!important;border-color:#ddd!important;font-weight:800}
+
+
+/* Mission welcome popup */
+.mission-welcome-card{text-align:center;max-width:460px;padding:30px 26px 24px}
+.mission-welcome-icon{font-size:52px;line-height:1;margin:2px 0 10px}
+.mission-welcome-card h2{margin:8px 0 10px;font-size:26px;line-height:1.25}
+.mission-welcome-card>p{margin:0 auto;color:#6f625d;line-height:1.65;max-width:390px}
+.mission-welcome-actions{display:grid;gap:9px;margin-top:20px}
+.mission-welcome-actions button{width:100%;min-height:46px}
+.mission-welcome-note{display:block;margin-top:13px;color:#8b7e78;line-height:1.4}
+@media(max-width:640px){.mission-welcome-card{padding:27px 20px 21px}.mission-welcome-card h2{font-size:23px}.mission-welcome-icon{font-size:46px}}
+
+/* v0.5.21.5 Mission reward admin */
+.admin-mission-reward{margin:0 0 24px;padding:20px;border:1px solid #eadede;border-radius:18px;background:#fff;}
+.mission-reward-form{display:grid;gap:12px;}
+.mission-reward-form label{display:grid;gap:6px;font-weight:600;}
+.mission-reward-form input,.mission-reward-form textarea{width:100%;box-sizing:border-box;}
+.mission-reward{display:flex;gap:12px;align-items:flex-start;margin:14px 0;padding:14px;border:1px solid #ead9a6;border-radius:16px;background:#fffaf0;}
+.mission-reward.earned{border-color:#c8e3ca;background:#f3fbf4;}
+.mission-reward-icon{font-size:30px;line-height:1;}
+.mission-reward>div:last-child{display:grid;gap:3px;min-width:0;}
+.mission-reward b{font-size:1.05rem;}
+.mission-reward p{margin:2px 0;color:#555;}
+.mission-reward em{font-style:normal;font-size:.9rem;color:#256b32;}
+@media(max-width:600px){.admin-mission-reward{padding:15px}.mission-reward{padding:12px}}

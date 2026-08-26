@@ -89,12 +89,12 @@
 
   <section id="dashboard" class="container section hidden">
     <div class="section-head"><div><span class="eyebrow red">บัญชีของฉัน</span><h2 id="dashboardTitle">ร้านของฉัน</h2></div><button id="signOutBtn" class="danger">ออกจากระบบ</button></div>
-    <div id="adminPanel" class="hidden"><section class="analytics-panel"><div class="analytics-head"><div><h3>📊 สถิติการใช้งานเว็บไซต์</h3><p class="muted">นับแบบไม่เก็บ IP หรือข้อมูลส่วนบุคคล • ผู้เข้าชมเป็นค่าประมาณจาก anonymous session</p></div><div class="analytics-range"><button type="button" data-analytics-days="1">วันนี้</button><button type="button" data-analytics-days="7" class="active">7 วัน</button><button type="button" data-analytics-days="30">30 วัน</button></div></div><div id="analyticsCards" class="analytics-cards"><div class="analytics-loading">กำลังโหลดสถิติ...</div></div><div class="analytics-shop-section"><h4>ร้านที่ถูกเปิดดูมากที่สุด</h4><div id="analyticsTopShops" class="analytics-top-shops"></div></div></section><h3>ร้านที่รออนุมัติ</h3><div id="pendingGrid" class="grid compact"></div><h3>ร้านค้าทั้งหมด (Admin)</h3><p class="muted">แอดมินสามารถแก้ไขข้อมูลร้าน หมวดหมู่ จุดสังเกต พิกัด และช่องทางติดต่อได้ โดยเจ้าของร้านเดิมยังคงเป็นเจ้าของร้าน</p><div id="adminAllGrid" class="grid compact"></div></div>
+    <div id="adminPanel" class="hidden"><section class="admin-mission-reward"><div class="section-head"><div><span class="eyebrow red">Mission</span><h3>🎁 ตั้งค่ารางวัล Mission</h3></div><span id="missionRewardAdminStatus" class="muted"></span></div><p class="muted">กำหนดรางวัลที่ผู้ใช้จะเห็นในหน้า Mission เมื่อทำภารกิจครบ โดยไม่เปลี่ยนเงื่อนไข Mission เดิม</p><form id="missionRewardForm" class="mission-reward-form"><label>ชื่อรางวัล<input name="reward_title" maxlength="120" placeholder="เช่น รับไอศกรีมฟรี 1 โคน"></label><label>รายละเอียดรางวัล<textarea name="reward_detail" rows="3" maxlength="500" placeholder="เช่น รับได้ที่ร้านที่ร่วมรายการ ภายในวันที่..."></textarea></label><label>วิธีรับรางวัล / หมายเหตุ<textarea name="claim_note" rows="2" maxlength="500" placeholder="เช่น แสดงหน้า Mission ที่สำเร็จต่อพนักงาน"></textarea></label><label class="check"><input name="reward_active" type="checkbox"> เปิดแสดงรางวัลนี้ให้ผู้ใช้</label><button type="submit" class="primary">💾 บันทึกรางวัล Mission</button></form></section><section class="analytics-panel"><div class="analytics-head"><div><h3>📊 สถิติการใช้งานเว็บไซต์</h3><p class="muted">นับแบบไม่เก็บ IP หรือข้อมูลส่วนบุคคล • ผู้เข้าชมเป็นค่าประมาณจาก anonymous session</p></div><div class="analytics-range"><button type="button" data-analytics-days="1">วันนี้</button><button type="button" data-analytics-days="7" class="active">7 วัน</button><button type="button" data-analytics-days="30">30 วัน</button></div></div><div id="analyticsCards" class="analytics-cards"><div class="analytics-loading">กำลังโหลดสถิติ...</div></div><div class="analytics-shop-section"><h4>ร้านที่ถูกเปิดดูมากที่สุด</h4><div id="analyticsTopShops" class="analytics-top-shops"></div></div></section><h3>ร้านที่รออนุมัติ</h3><div id="pendingGrid" class="grid compact"></div><h3>ร้านค้าทั้งหมด (Admin)</h3><p class="muted">แอดมินสามารถแก้ไขข้อมูลร้าน หมวดหมู่ จุดสังเกต พิกัด และช่องทางติดต่อได้ โดยเจ้าของร้านเดิมยังคงเป็นเจ้าของร้าน</p><div id="adminAllGrid" class="grid compact"></div></div>
     <h3>ร้านที่ฉันดูแล</h3><div id="myShopGrid" class="grid compact"></div>
   </section>
 </main>
 
-<footer><div class="container support-footer"><div>ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ <span class="version-badge">V0.5.21.4</span></div><a class="support-openchat-link" href="https://line.me/ti/g2/26r6PGveA0bN-PKo8YNyw7dd2lF_ejymNdCNKw?utm_source=invitation&utm_medium=link_copy&utm_campaign=default" target="_blank" rel="noopener noreferrer">💬 สอบถาม / แจ้งปัญหาการใช้งาน</a></div></footer>
+<footer><div class="container support-footer"><div>ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ <span class="version-badge">V0.5.21.5</span></div><a class="support-openchat-link" href="https://line.me/ti/g2/26r6PGveA0bN-PKo8YNyw7dd2lF_ejymNdCNKw?utm_source=invitation&utm_medium=link_copy&utm_campaign=default" target="_blank" rel="noopener noreferrer">💬 สอบถาม / แจ้งปัญหาการใช้งาน</a></div></footer>
 
 <nav class="floating-navigation" aria-label="ทางลัดหน้าเว็บ">
   <button id="floatingBackBtn" type="button" class="floating-nav-button" aria-label="ย้อนกลับ">← <span>กลับ</span></button>
@@ -133,6 +133,23 @@
 <div id="promotionDetailModal" class="modal hidden"><div class="backdrop" data-close="promotionDetailModal"></div><div class="modal-card small promotion-detail-card"><button class="close" data-close="promotionDetailModal">×</button><h2 id="promotionDetailTitle">รายละเอียดโปรโมชั่น</h2><div id="promotionDetailBody"></div></div></div>
 
 <div id="resetPasswordModal" class="modal hidden"><div class="backdrop" data-close="resetPasswordModal"></div><div class="modal-card small"><button class="close" data-close="resetPasswordModal">×</button><h2>ตั้งรหัสผ่านใหม่</h2><p>กรอกรหัสผ่านใหม่อย่างน้อย 6 ตัว แล้วกดบันทึกเพียงครั้งเดียว</p><form id="resetPasswordForm"><label>รหัสผ่านใหม่<span class="password-field"><input name="new_password" type="password" minlength="6" required><button type="button" class="password-toggle" data-password-toggle aria-label="แสดงรหัสผ่าน" title="แสดงรหัสผ่าน">👁️</button></span></label><label>ยืนยันรหัสผ่านใหม่<span class="password-field"><input name="confirm_password" type="password" minlength="6" required><button type="button" class="password-toggle" data-password-toggle aria-label="แสดงรหัสผ่าน" title="แสดงรหัสผ่าน">👁️</button></span></label><button type="submit" class="primary submit">บันทึกรหัสผ่านใหม่</button></form></div></div>
+
+<div id="missionWelcomeModal" class="modal hidden" aria-hidden="true">
+  <div class="backdrop" data-close="missionWelcomeModal"></div>
+  <div class="modal-card small mission-welcome-card">
+    <button class="close" data-close="missionWelcomeModal" aria-label="ปิด">×</button>
+    <div class="mission-welcome-icon">🎯</div>
+    <span class="eyebrow red">MISSION กระทุ่มแบน</span>
+    <h2>ร่วมสนุก ทำ Mission รับของรางวัล 🎁</h2>
+    <p>ลองใช้ฟังก์ชันต่าง ๆ ในตลาดกระทุ่มแบน ทำภารกิจให้สำเร็จ แล้วติดตามของรางวัลจากกิจกรรมได้เลย</p>
+    <div class="mission-welcome-actions">
+      <button id="missionWelcomeStartBtn" class="primary" type="button">🎯 ดู Mission &amp; เริ่มเลย</button>
+      <button class="ghost" type="button" data-close="missionWelcomeModal">ไว้ทีหลัง</button>
+    </div>
+    <small class="mission-welcome-note">ป๊อปอัปนี้จะแสดงเพียงวันละครั้งบนอุปกรณ์นี้</small>
+  </div>
+</div>
+
 <div id="missionModal" class="modal hidden" aria-hidden="true">
   <div class="backdrop" data-close="missionModal"></div>
   <div class="modal-card mission-modal-card">
@@ -145,7 +162,7 @@
 <script src="config.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-<script src="app.js?v=5.7.9.96"></script>
+<script src="app.js?v=5.7.9.97"></script>
 <script src="order.js?v=0.5.21.4"></script>
 
 </body>
