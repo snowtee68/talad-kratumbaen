@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.21.9 Mission Fulfillment Fix + Mission Toggle loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.2 Safe Coupon Module loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -761,10 +761,15 @@
     if(!db)return null;
     if(missionRewardCache&&!force)return missionRewardCache;
     try{
-      const {data,error}=await db.from('market_mission_settings').select('mission_active,reward_title,reward_detail,claim_note,reward_active,updated_at').eq('mission_key','mission_v1').maybeSingle();
+      const {data,error}=await db.from('market_mission_settings').select('mission_active,reward_title,reward_detail,claim_note,reward_active,updated_at,coupon_id').eq('mission_key','mission_v1').maybeSingle();
       if(error)throw error;
-      return missionRewardCache=data||{mission_active:true,reward_title:'',reward_detail:'',claim_note:'',reward_active:false};
-    }catch(_e){return missionRewardCache={mission_active:true,reward_title:'',reward_detail:'',claim_note:'',reward_active:false};}
+      const result=data||{mission_active:true,reward_title:'',reward_detail:'',claim_note:'',reward_active:false,coupon_id:null};
+      if(result.coupon_id){
+        const {data:coupon}=await db.rpc('market_coupon_get',{p_coupon_id:result.coupon_id});
+        result.coupon=coupon&&typeof coupon==='object'?coupon:null;
+      }
+      return missionRewardCache=result;
+    }catch(_e){return missionRewardCache={mission_active:true,reward_title:'',reward_detail:'',claim_note:'',reward_active:false,coupon_id:null,coupon:null};}
   }
   function missionRewardHtml(reward,allDone=false){
     if(!reward?.reward_active||!reward?.reward_title)return '';
@@ -773,19 +778,32 @@
   async function loadMissionRewardAdmin(){
     if(profile?.role!=='admin')return;
     const form=$('missionRewardForm');if(!form)return;
+    ensureMissionCouponAdminUI();
     const r=await loadMissionReward(true);
     form.elements.mission_active.checked=r?.mission_active!==false;
     form.elements.reward_title.value=r?.reward_title||'';
     form.elements.reward_detail.value=r?.reward_detail||'';
     form.elements.claim_note.value=r?.claim_note||'';
     form.elements.reward_active.checked=Boolean(r?.reward_active);
+    await fillMissionCouponShopOptions(r?.coupon?.shop_id||'');
+    if(form.elements.mission_coupon_active)form.elements.mission_coupon_active.checked=Boolean(r?.coupon?.active);
+    if(form.elements.mission_coupon_discount_type)form.elements.mission_coupon_discount_type.value=r?.coupon?.discount_type||'fixed';
+    if(form.elements.mission_coupon_discount_value)form.elements.mission_coupon_discount_value.value=r?.coupon?.discount_value??'';
+    if(form.elements.mission_coupon_min_spend)form.elements.mission_coupon_min_spend.value=r?.coupon?.min_spend??0;
+    if(form.elements.mission_coupon_max_discount)form.elements.mission_coupon_max_discount.value=r?.coupon?.max_discount??'';
+    if(form.elements.mission_coupon_channel)form.elements.mission_coupon_channel.value=r?.coupon?.channel||'both';
+    if(form.elements.mission_coupon_ends_at)form.elements.mission_coupon_ends_at.value=toLocalDateTimeInput(r?.coupon?.ends_at);
     const st=$('missionRewardAdminStatus');if(st)st.textContent=r?.updated_at?`อัปเดตล่าสุด ${new Date(r.updated_at).toLocaleString('th-TH')}`:'ยังไม่ได้ตั้งรางวัล';
   }
   async function saveMissionReward(ev){
     ev.preventDefault();if(!db||profile?.role!=='admin')return alert('เฉพาะ Admin เท่านั้น');
     const f=ev.currentTarget,btn=f.querySelector('button[type="submit"]');
-    const payload={p_mission_active:f.elements.mission_active.checked,p_reward_title:f.elements.reward_title.value.trim(),p_reward_detail:f.elements.reward_detail.value.trim(),p_claim_note:f.elements.claim_note.value.trim(),p_reward_active:f.elements.reward_active.checked};
+    const couponActive=Boolean(f.elements.mission_coupon_active?.checked);
+    const payload={p_mission_active:f.elements.mission_active.checked,p_reward_title:f.elements.reward_title.value.trim(),p_reward_detail:f.elements.reward_detail.value.trim(),p_claim_note:f.elements.claim_note.value.trim(),p_reward_active:f.elements.reward_active.checked,
+      p_coupon_active:couponActive,p_coupon_shop_id:f.elements.mission_coupon_shop_id?.value||null,p_coupon_discount_type:f.elements.mission_coupon_discount_type?.value||'fixed',p_coupon_discount_value:Number(f.elements.mission_coupon_discount_value?.value||0),p_coupon_min_spend:Number(f.elements.mission_coupon_min_spend?.value||0),p_coupon_max_discount:f.elements.mission_coupon_max_discount?.value?Number(f.elements.mission_coupon_max_discount.value):null,p_coupon_channel:f.elements.mission_coupon_channel?.value||'both',p_coupon_ends_at:f.elements.mission_coupon_ends_at?.value?new Date(f.elements.mission_coupon_ends_at.value).toISOString():null};
     if(payload.p_reward_active&&!payload.p_reward_title)return alert('กรุณาระบุชื่อรางวัลก่อนเปิดใช้งาน');
+    if(couponActive&&!payload.p_coupon_shop_id)return alert('กรุณาเลือกร้านสำหรับคูปอง Mission');
+    if(couponActive&&(!Number.isFinite(payload.p_coupon_discount_value)||payload.p_coupon_discount_value<=0))return alert('กรุณาระบุส่วนลดคูปองให้มากกว่า 0');
     if(btn){btn.disabled=true;btn.textContent='กำลังบันทึก...';}
     try{const {error}=await db.rpc('market_admin_set_mission_reward',payload);if(error)throw error;missionRewardCache=null;missionProgressCache=null;await loadMissionRewardAdmin();await refreshMissionNav();if(!f.elements.mission_active.checked){closeModal('missionModal');closeModal('missionWelcomeModal');}alert('บันทึกการตั้งค่า Mission แล้ว');}
     catch(err){alert('บันทึกรางวัลไม่สำเร็จ: '+(err.message||err));}
@@ -1055,7 +1073,8 @@
     $('managePromotionShopName').textContent=shop?.name||'ร้านของฉัน';
     $('managePromotionShopId').value=shopId;
     openModal('managePromotionsModal');
-    await loadOwnerPromotions(shopId);
+    ensureShopCouponManagerUI();
+    await Promise.all([loadOwnerPromotions(shopId),loadShopCoupons(shopId)]);
   }
 
   async function loadOwnerPromotions(shopId){
@@ -1505,6 +1524,72 @@
       await Promise.all([loadDashboard(),loadPublicShops({reset:true})]);
   }
 
+
+  // v0.5.22.2 SAFE COUPON MODULE
+  // UI is injected only inside existing admin/promotion modals. No home-page markup or global CSS is changed.
+  let shopCouponCache=[];
+  function toLocalDateTimeInput(value){if(!value)return '';const d=new Date(value);if(Number.isNaN(d.getTime()))return '';const off=d.getTimezoneOffset()*60000;return new Date(d.getTime()-off).toISOString().slice(0,16);}
+  function couponDiscountLabel(c){return c?.discount_type==='percent'?`ลด ${Number(c.discount_value||0)}%${Number(c.max_discount||0)>0?` สูงสุด ${Number(c.max_discount)} บาท`:''}`:`ลด ${Number(c?.discount_value||0)} บาท`;}
+  function couponChannelLabel(v){return v==='delivery'?'Delivery เท่านั้น':v==='pickup'?'รับเองเท่านั้น':'รับเอง + Delivery';}
+
+  function ensureMissionCouponAdminUI(){
+    const f=$('missionRewardForm');if(!f||$('missionCouponAdminBlock'))return;
+    const save=f.querySelector('button[type="submit"]');if(!save)return;
+    const wrap=document.createElement('div');wrap.id='missionCouponAdminBlock';wrap.style.cssText='border-top:1px solid #e5e5e5;margin-top:14px;padding-top:14px';
+    wrap.innerHTML=`<div style="font-weight:800;margin-bottom:8px">🎟️ คูปองเมื่อ Mission สำเร็จ (ไม่บังคับ)</div>
+      <label class="check"><input name="mission_coupon_active" type="checkbox"> เปิดให้รางวัล Mission เป็นคูปองด้วย</label>
+      <label>ร้านที่ใช้คูปอง<select name="mission_coupon_shop_id"><option value="">เลือกร้าน</option></select></label>
+      <div class="form-grid"><label>ประเภทส่วนลด<select name="mission_coupon_discount_type"><option value="fixed">ลดเป็นบาท</option><option value="percent">ลดเป็นเปอร์เซ็นต์</option></select></label><label>ส่วนลด<input name="mission_coupon_discount_value" type="number" min="0" step="0.01"></label></div>
+      <div class="form-grid"><label>ยอดซื้อขั้นต่ำ<input name="mission_coupon_min_spend" type="number" min="0" step="0.01" value="0"></label><label>ลดสูงสุด (ถ้ามี)<input name="mission_coupon_max_discount" type="number" min="0" step="0.01"></label></div>
+      <div class="form-grid"><label>ช่องทาง<select name="mission_coupon_channel"><option value="both">รับเอง + Delivery</option><option value="delivery">Delivery เท่านั้น</option><option value="pickup">รับเองเท่านั้น</option></select></label><label>หมดอายุ<input name="mission_coupon_ends_at" type="datetime-local"></label></div>
+      <small class="muted">คูปอง Mission ใช้ได้ 1 ครั้งต่อบัญชี และหักเฉพาะค่าสินค้า ไม่ลดค่าจัดส่ง</small>`;
+    save.insertAdjacentElement('beforebegin',wrap);
+  }
+  async function fillMissionCouponShopOptions(selected=''){
+    const sel=$('missionRewardForm')?.elements?.mission_coupon_shop_id;if(!sel||!db)return;
+    const {data}=await db.from('market_shops').select('id,name').eq('status','approved').order('name');
+    sel.innerHTML='<option value="">เลือกร้าน</option>'+((data||[]).map(s=>`<option value="${esc(s.id)}" ${String(s.id)===String(selected)?'selected':''}>${esc(s.name)}</option>`).join(''));
+  }
+
+  function ensureShopCouponManagerUI(){
+    if($('ownerCouponSection'))return;
+    const list=$('ownerPromotionList');if(!list)return;
+    const sec=document.createElement('section');sec.id='ownerCouponSection';sec.style.cssText='border-top:1px solid #e5e5e5;margin-top:18px;padding-top:16px';
+    sec.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><div><h3 style="margin:0">🎟️ คูปองของร้าน</h3><small class="muted">ใช้ได้กับรับเอง / Delivery ตามที่ร้านกำหนด · 1 ครั้งต่อบัญชี</small></div><button type="button" class="primary" data-coupon-action="new">+ สร้างคูปอง</button></div><div id="ownerCouponList" style="margin-top:12px"></div>`;
+    list.insertAdjacentElement('afterend',sec);
+    ensureShopCouponEditorModal();
+  }
+  function ensureShopCouponEditorModal(){
+    if($('shopCouponEditorModal'))return;
+    const modal=document.createElement('div');modal.id='shopCouponEditorModal';modal.className='modal hidden';
+    modal.innerHTML=`<div class="backdrop" data-coupon-action="close"></div><div class="modal-card small"><button class="close" type="button" data-coupon-action="close">×</button><h2 id="shopCouponEditorTitle">สร้างคูปอง</h2><form id="shopCouponForm"><input name="coupon_id" type="hidden"><input name="shop_id" type="hidden"><label>ชื่อคูปอง<input name="title" maxlength="120" required placeholder="เช่น ลด 15 บาท"></label><label>รายละเอียด<textarea name="description" rows="2" maxlength="500"></textarea></label><div class="form-grid"><label>ประเภทส่วนลด<select name="discount_type"><option value="fixed">ลดเป็นบาท</option><option value="percent">ลดเป็นเปอร์เซ็นต์</option></select></label><label>ส่วนลด<input name="discount_value" type="number" min="0.01" step="0.01" required></label></div><div class="form-grid"><label>ยอดขั้นต่ำ<input name="min_spend" type="number" min="0" step="0.01" value="0"></label><label>ลดสูงสุด (ถ้ามี)<input name="max_discount" type="number" min="0" step="0.01"></label></div><div class="form-grid"><label>ช่องทาง<select name="channel"><option value="both">รับเอง + Delivery</option><option value="delivery">Delivery เท่านั้น</option><option value="pickup">รับเองเท่านั้น</option></select></label><label>จำนวนสิทธิ์รวม<input name="total_limit" type="number" min="1" step="1" placeholder="เว้นว่าง = ไม่จำกัด"></label></div><div class="form-grid"><label>เริ่มใช้<input name="starts_at" type="datetime-local"></label><label>หมดอายุ<input name="ends_at" type="datetime-local"></label></div><label class="check"><input name="active" type="checkbox" checked> เปิดใช้งานคูปอง</label><small class="muted">ลูกค้าแต่ละบัญชีใช้คูปองนี้ได้ 1 ครั้ง ส่วนลดจะหักเฉพาะค่าสินค้าของร้าน</small><button type="submit" class="primary" style="margin-top:12px">💾 บันทึกคูปอง</button></form></div>`;
+    document.body.appendChild(modal);
+    $('shopCouponForm')?.addEventListener('submit',saveShopCoupon);
+  }
+  async function loadShopCoupons(shopId){
+    const box=$('ownerCouponList');if(!box||!shopId||!db)return;
+    box.innerHTML='<p>กำลังโหลดคูปอง...</p>';
+    const {data,error}=await db.rpc('market_shop_coupon_list',{p_shop_id:shopId});
+    if(error){box.innerHTML=`<p class="form-message">${esc(error.message)}</p>`;return;}
+    shopCouponCache=Array.isArray(data)?data:[];
+    box.innerHTML=shopCouponCache.length?shopCouponCache.map(c=>`<article class="owner-promo-item"><div><div class="owner-promo-title"><b>${esc(c.title)}</b><span class="owner-promo-state ${c.active?'active':'inactive'}">${c.active?'เปิด':'ปิด'}</span></div><p>${esc(couponDiscountLabel(c))} · ขั้นต่ำ ${Number(c.min_spend||0)} บาท · ${esc(couponChannelLabel(c.channel))}</p><small>${c.ends_at?'หมดอายุ '+new Date(c.ends_at).toLocaleString('th-TH'):'ไม่กำหนดวันหมดอายุ'}${c.total_limit?` · ${Number(c.redeemed_count||0)}/${Number(c.total_limit)} สิทธิ์`:` · ใช้แล้ว ${Number(c.redeemed_count||0)} ครั้ง`}</small></div><div class="owner-promo-actions"><button type="button" class="ghost" data-coupon-action="edit" data-coupon-id="${esc(c.id)}">แก้ไข</button><button type="button" class="danger" data-coupon-action="delete" data-coupon-id="${esc(c.id)}">ลบ</button></div></article>`).join(''):'<div class="empty-inline">ร้านนี้ยังไม่มีคูปอง</div>';
+  }
+  function openShopCouponEditor(couponId=''){
+    ensureShopCouponEditorModal();const f=$('shopCouponForm');if(!f)return;
+    const shopId=$('managePromotionShopId')?.value||'';const c=shopCouponCache.find(x=>String(x.id)===String(couponId));f.reset();f.elements.shop_id.value=shopId;f.elements.coupon_id.value=c?.id||'';f.elements.title.value=c?.title||'';f.elements.description.value=c?.description||'';f.elements.discount_type.value=c?.discount_type||'fixed';f.elements.discount_value.value=c?.discount_value??'';f.elements.min_spend.value=c?.min_spend??0;f.elements.max_discount.value=c?.max_discount??'';f.elements.channel.value=c?.channel||'both';f.elements.total_limit.value=c?.total_limit??'';f.elements.starts_at.value=toLocalDateTimeInput(c?.starts_at);f.elements.ends_at.value=toLocalDateTimeInput(c?.ends_at);f.elements.active.checked=c?Boolean(c.active):true;$('shopCouponEditorTitle').textContent=c?'แก้ไขคูปอง':'สร้างคูปอง';$('shopCouponEditorModal').classList.remove('hidden');
+  }
+  async function saveShopCoupon(ev){
+    ev.preventDefault();const f=ev.currentTarget,btn=f.querySelector('button[type="submit"]');const p={p_coupon_id:f.elements.coupon_id.value||null,p_shop_id:f.elements.shop_id.value,p_title:f.elements.title.value.trim(),p_description:f.elements.description.value.trim(),p_discount_type:f.elements.discount_type.value,p_discount_value:Number(f.elements.discount_value.value||0),p_min_spend:Number(f.elements.min_spend.value||0),p_max_discount:f.elements.max_discount.value?Number(f.elements.max_discount.value):null,p_channel:f.elements.channel.value,p_starts_at:f.elements.starts_at.value?new Date(f.elements.starts_at.value).toISOString():null,p_ends_at:f.elements.ends_at.value?new Date(f.elements.ends_at.value).toISOString():null,p_total_limit:f.elements.total_limit.value?Number(f.elements.total_limit.value):null,p_active:f.elements.active.checked};
+    if(!p.p_title)return alert('กรุณาระบุชื่อคูปอง');if(!Number.isFinite(p.p_discount_value)||p.p_discount_value<=0)return alert('ส่วนลดต้องมากกว่า 0');if(p.p_discount_type==='percent'&&p.p_discount_value>100)return alert('ส่วนลดเปอร์เซ็นต์ต้องไม่เกิน 100%');
+    if(btn){btn.disabled=true;btn.textContent='กำลังบันทึก...'}const {error}=await db.rpc('market_shop_coupon_upsert',p);if(btn){btn.disabled=false;btn.textContent='💾 บันทึกคูปอง'}if(error)return alert('บันทึกคูปองไม่สำเร็จ: '+error.message);$('shopCouponEditorModal').classList.add('hidden');await loadShopCoupons(p.p_shop_id);
+  }
+  async function deleteShopCoupon(id){
+    const shopId=$('managePromotionShopId')?.value;if(!shopId||!id||!confirm('ยืนยันลบคูปองนี้?'))return;const {error}=await db.rpc('market_shop_coupon_delete',{p_coupon_id:id,p_shop_id:shopId});if(error)return alert('ลบคูปองไม่สำเร็จ: '+error.message);await loadShopCoupons(shopId);
+  }
+  document.addEventListener('click',ev=>{
+    const b=ev.target.closest('[data-coupon-action]');if(!b)return;const a=b.dataset.couponAction;if(a==='new')openShopCouponEditor();else if(a==='edit')openShopCouponEditor(b.dataset.couponId);else if(a==='delete')deleteShopCoupon(b.dataset.couponId);else if(a==='close')$('shopCouponEditorModal')?.classList.add('hidden');
+  });
+
   function isRecoveryLink(){
     const hash=new URLSearchParams(window.location.hash.replace(/^#/,''));
     const query=new URLSearchParams(window.location.search);
@@ -1895,7 +1980,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.21.9', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.22.2', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
