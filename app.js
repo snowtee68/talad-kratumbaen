@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.11 Global Delivery Switch loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.12 Rider Admin Registry loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -63,6 +63,51 @@
     }catch(err){
       alert('บันทึกการตั้งค่า Delivery ไม่สำเร็จ: '+(err?.message||err));
     }
+  }
+
+
+  function riderJobStatusLabel(status){
+    return ({created:'รอวินรับงาน',accepted:'วินรับงานแล้ว',pickup_started:'กำลังไปรับสินค้า',picked_up:'รับสินค้าแล้ว',delivering:'กำลังจัดส่ง',completed:'ส่งสำเร็จ',cancelled:'ยกเลิก'})[status]||status||'-';
+  }
+  async function loadRiderAdminPanel(){
+    if(!db||profile?.role!=='admin')return;
+    const list=$('adminRiderList'),jobs=$('adminRiderJobs'),status=$('riderRegistryStatus');
+    if(list)list.innerHTML='<p class="muted">กำลังโหลดรายชื่อวิน...</p>';
+    if(jobs)jobs.innerHTML='<p class="muted">กำลังโหลดงาน Delivery...</p>';
+    try{
+      const [{data:riders,error:e1},{data:recent,error:e2}]=await Promise.all([
+        db.rpc('market_admin_rider_directory'),
+        db.rpc('market_admin_recent_rider_jobs',{p_limit:50})
+      ]);
+      if(e1)throw e1;if(e2)throw e2;
+      const rows=riders||[];
+      if(status)status.textContent=`${rows.length.toLocaleString('th-TH')} คนในทะเบียน`;
+      if(list)list.innerHTML=rows.length?rows.map(r=>`<div style="display:grid;grid-template-columns:minmax(150px,1.5fr) minmax(125px,1fr) minmax(90px,.7fr) minmax(110px,.8fr) auto;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid #eee"><div><b>${esc(r.display_name||'ไม่ระบุชื่อ')}</b><small class="muted" style="display:block">${r.enabled?'🟢 เปิดใช้งาน':'⚫ ปิดใช้งาน'}${r.source==='admin'?' · Admin เพิ่ม':' · พบจากงาน Delivery'}</small></div><div><a href="tel:${esc(r.phone||'')}">${esc(r.phone||'-')}</a></div><div><b>${Number(r.active_jobs||0)}</b><small class="muted" style="display:block">งานกำลังทำ</small></div><div><b>${Number(r.completed_jobs||0)}</b><small class="muted" style="display:block">ส่งสำเร็จ</small></div><button type="button" class="${r.enabled?'danger':'secondary'}" data-rider-toggle="${r.id}" data-rider-enabled="${r.enabled?'true':'false'}">${r.enabled?'ปิดใช้งาน':'เปิดใช้งาน'}</button></div>`).join(''):'<p class="muted">ยังไม่มีวินในทะเบียน เมื่อมีวินรับงาน ระบบจะบันทึกชื่อและเบอร์ให้อัตโนมัติ หรือ Admin เพิ่มไว้ล่วงหน้าได้</p>';
+      const jr=recent||[];
+      if(jobs)jobs.innerHTML=jr.length?jr.map(j=>`<div style="display:grid;grid-template-columns:minmax(130px,1fr) minmax(150px,1.4fr) minmax(120px,1fr) minmax(120px,1fr);gap:10px;padding:9px 0;border-bottom:1px solid #eee"><div><b>${esc(String(j.batch_id||'').slice(0,8).toUpperCase())}</b><small class="muted" style="display:block">${j.rider_job_id?esc(String(j.rider_job_id).slice(0,10)):'-'}</small></div><div><b>${esc(j.rider_name||'รอวินรับงาน')}</b><small style="display:block">${j.rider_phone?`<a href="tel:${esc(j.rider_phone)}">${esc(j.rider_phone)}</a>`:'ยังไม่มีเบอร์'}</small></div><div><b>${esc(riderJobStatusLabel(j.status))}</b><small class="muted" style="display:block">${j.accepted_at?new Date(j.accepted_at).toLocaleString('th-TH'):'-'}</small></div><div><b>${j.delivery_fee?Number(j.delivery_fee).toLocaleString('th-TH')+' บาท':'-'}</b><small class="muted" style="display:block">${j.distance_km?Number(j.distance_km).toFixed(1)+' กม.':''}</small></div></div>`).join(''):'<p class="muted">ยังไม่มีงาน Delivery</p>';
+    }catch(err){
+      const msg='ยังโหลดทะเบียนวินไม่ได้: '+(err?.message||'กรุณารัน SQL V0.5.22.12');
+      if(list)list.innerHTML=`<p class="muted">${esc(msg)}</p>`;
+      if(jobs)jobs.innerHTML='';
+    }
+  }
+  async function saveAdminRider(ev){
+    ev.preventDefault();
+    if(!db||profile?.role!=='admin')return alert('เฉพาะ Admin เท่านั้น');
+    const f=ev.currentTarget,name=f.elements.rider_name.value.trim(),phone=f.elements.rider_phone.value.trim();
+    if(!name||!phone)return alert('กรอกชื่อและเบอร์โทรวินให้ครบ');
+    try{
+      const {error}=await db.rpc('market_admin_upsert_rider',{p_name:name,p_phone:phone});
+      if(error)throw error;
+      f.reset();await loadRiderAdminPanel();showNotice('บันทึกวินในทะเบียนแล้ว');
+    }catch(err){alert('เพิ่มวินไม่สำเร็จ: '+(err?.message||err));}
+  }
+  async function toggleAdminRider(id,enabled){
+    if(!db||profile?.role!=='admin')return;
+    try{
+      const {error}=await db.rpc('market_admin_set_rider_enabled',{p_rider_id:id,p_enabled:!enabled});
+      if(error)throw error;await loadRiderAdminPanel();
+    }catch(err){alert('เปลี่ยนสถานะวินไม่สำเร็จ: '+(err?.message||err));}
   }
 
   async function loadAnalyticsDashboard(period=analyticsPeriod){
@@ -1468,6 +1513,7 @@
     $('adminPanel').classList.toggle('hidden',profile?.role!=='admin');
     if(profile?.role==='admin'){
       loadAnalyticsDashboard(analyticsPeriod);
+      loadRiderAdminPanel();
       const [{data:pending,error:pendingError},{data:allShops,error:allShopsError},{data:deliveryAccess,error:deliveryAccessError}]=await Promise.all([
         db.from('market_shops').select('*, category:market_categories(id,name,icon)').eq('status','pending').order('created_at'),
         db.from('market_shops').select('*, category:market_categories(id,name,icon)').order('created_at',{ascending:false}),
@@ -1861,6 +1907,9 @@
     $('favoritesBtn')?.addEventListener('click',openFavorites);
     $('missionRewardForm')?.addEventListener('submit',saveMissionReward);
     $('deliverySystemForm')?.addEventListener('submit',saveDeliverySystemSetting);
+    $('adminRiderForm')?.addEventListener('submit',saveAdminRider);
+    $('adminRiderRefreshBtn')?.addEventListener('click',loadRiderAdminPanel);
+    $('adminRiderList')?.addEventListener('click',ev=>{const b=ev.target.closest('[data-rider-toggle]');if(b)toggleAdminRider(b.dataset.riderToggle,b.dataset.riderEnabled==='true');});
     $('missionBtn')?.addEventListener('click',openMission);
     $('missionWelcomeStartBtn')?.addEventListener('click',()=>{closeModal('missionWelcomeModal');openMission();});
     const locateMapBtn=$('locateMapBtn');
