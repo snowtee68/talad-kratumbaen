@@ -412,7 +412,7 @@
       if(e.target.closest('#customQtyPlus'))return changeCustomQty(1);
       const qty=e.target.closest('[data-cart-qty]');if(qty)return changeQty(qty.dataset.cartQty,Number(qty.dataset.delta));
       const rm=e.target.closest('[data-cart-remove]');if(rm)return removeLine(rm.dataset.cartRemove);
-      if(e.target.closest('#goCheckoutBtn')){e.preventDefault();Promise.resolve(openCheckout()).then(()=>{if(document.getElementById('submitCheckoutBtn')){const method=document.querySelector('input[name="fulfillmentMethod"]:checked')?.value||'delivery';loadCheckoutCoupons(groupedCart(),method).catch(err=>console.warn('coupon checkout',err));}}).catch(err=>{console.error('openCheckout',err);alert('เปิดหน้าสั่งซื้อไม่สำเร็จ: '+(err?.message||err));});return;}
+      if(e.target.closest('#goCheckoutBtn'))return openCheckout();
       if(e.target.closest('#useDeliveryLocationBtn'))return captureDeliveryLocation();
       if(e.target.closest('#submitCheckoutBtn'))return submitCheckout();
       const accept=e.target.closest('[data-accept-order]');if(accept)return sellerAcceptOrder(accept.dataset.acceptOrder);
@@ -746,7 +746,7 @@
 
 
 
-  // v0.5.22.4 COUPON WALLET CHECKOUT MODULE
+  // v0.5.22.5 COUPON WALLET CHECKOUT MODULE
   // Coupon UI is injected into the existing checkout modal; the original checkout markup/CSS stays untouched.
   let checkoutCouponOptions=[];
   function couponEstimate(c,subtotal){let d=c.discount_type==='percent'?subtotal*Number(c.discount_value||0)/100:Number(c.discount_value||0);if(Number(c.max_discount||0)>0)d=Math.min(d,Number(c.max_discount));return Math.max(0,Math.min(subtotal,d));}
@@ -1660,6 +1660,16 @@
     }
   }
   init();
+
+  // v0.5.22.5: keep original checkout click flow untouched; coupon UI attaches after checkout opens.
+  document.addEventListener('click',e=>{
+    if(!e.target?.closest?.('#goCheckoutBtn'))return;
+    setTimeout(()=>{
+      if(!document.getElementById('submitCheckoutBtn'))return;
+      const method=document.querySelector('input[name="fulfillmentMethod"]:checked')?.value||'delivery';
+      loadCheckoutCoupons(groupedCart(),method).catch(err=>console.warn('coupon checkout attach',err));
+    },80);
+  });
 
   document.addEventListener('change',e=>{if(e.target?.matches('input[name="fulfillmentMethod"]')){updateFulfillmentUI();if(document.getElementById('checkoutCouponPanel'))loadCheckoutCoupons(groupedCart(),e.target.value||'delivery').catch(err=>console.warn('coupon checkout',err));}if(e.target?.id==='pickupTimeChoice')updatePickupCustomUI();});
 })();
