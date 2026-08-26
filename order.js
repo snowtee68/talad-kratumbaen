@@ -81,7 +81,7 @@
     if(!document.querySelector('link[href*="order.css"]')){const css=document.createElement('link');css.rel='stylesheet';css.href='order.css?v=0.4.2';document.head.appendChild(css);}
     const nav=document.querySelector('.nav-actions');
     if(nav&&!document.getElementById('marketOrdersBtn')){
-      const b=document.createElement('button');b.id='marketOrdersBtn';b.className='ghost market-order-nav';b.textContent='🛍️ ออเดอร์';nav.insertBefore(b,document.getElementById('accountBtn')||null);
+      const b=document.createElement('button');b.id='marketOrdersBtn';b.className='ghost market-order-nav header-shortcut';b.type='button';b.innerHTML='<span class="nav-ico">🛍️</span><span class="nav-label">ออเดอร์</span>';nav.insertBefore(b,document.getElementById('accountBtn')||null);
     }
     const f=document.createElement('button');f.type='button';f.id='marketCartBtn';f.className='order-floating-cart';f.innerHTML='<span class="cart-icon">🛒</span><span class="cart-label">ตะกร้า</span><span class="count">0</span>';document.body.appendChild(f);
     injectBottomNavStyles();attachCartToBottomNav();injectOrderNotificationUI();
@@ -117,7 +117,7 @@
       #orderNotifyBanner{position:fixed;top:max(12px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:100000;width:min(92vw,560px);background:#fff;border:1px solid rgba(120,70,55,.22);box-shadow:0 12px 34px rgba(38,24,20,.2);border-radius:18px;padding:13px 16px;display:none;cursor:pointer}
       #orderNotifyBanner.show{display:flex;gap:11px;align-items:center}
       #orderNotifyBanner .bell{font-size:24px}.order-notify-title{font-weight:900}.order-notify-detail{font-size:13px;opacity:.72;margin-top:2px}
-      #marketOrdersBtn{position:relative;overflow:visible!important}.order-notify-badge{display:none;position:static!important;flex:0 0 auto;min-width:20px;height:20px;padding:0 5px;margin-left:5px;border-radius:999px;background:#c70f17;color:#fff;border:1px solid rgba(255,255,255,.9);font-size:11px;font-weight:900;line-height:20px;text-align:center;box-sizing:border-box;vertical-align:middle}
+      #marketOrdersBtn{position:relative;overflow:visible!important}.order-notify-badge{display:none;position:absolute!important;top:8px;right:8px;min-width:20px;height:20px;padding:0 5px;margin:0;border-radius:999px;background:#c70f17;color:#fff;border:1px solid rgba(255,255,255,.9);font-size:11px;font-weight:900;line-height:20px;text-align:center;box-sizing:border-box;vertical-align:middle}
       #marketOrdersBtn.has-order-notify .order-notify-badge{display:inline-block!important}
       @media(max-width:520px){#marketOrdersBtn .order-notify-badge{min-width:19px;height:19px;line-height:19px;padding:0 4px;margin-left:3px;font-size:10px}}
       .order-group-section{margin:14px 0 20px;padding:12px;border:1px solid rgba(120,70,55,.13);border-radius:18px;background:rgba(255,255,255,.62)}
@@ -942,7 +942,7 @@
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=0.5.22.8',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=0.5.22.9',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;

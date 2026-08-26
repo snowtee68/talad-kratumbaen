@@ -768,3 +768,124 @@ fieldset{border:1px solid var(--line);border-radius:14px;padding:14px}legend{fon
 
 /* v0.5.21.9 Mission master toggle */
 .mission-master-toggle{padding:12px 14px;border:1px solid #e4d8d2;border-radius:14px;background:#faf7f5}.mission-master-toggle small{display:block;margin-left:27px;color:#756963;font-weight:400;line-height:1.4}
+
+
+/* V0.5.22.9 — organized header dashboard (layout only) */
+.site-header .header-dashboard-nav{
+  display:grid;
+  grid-template-columns:minmax(250px,1fr) minmax(520px,1.45fr);
+  grid-template-areas:"brand actions";
+  gap:18px 28px;
+  align-items:center;
+  padding:16px 0;
+  min-height:0;
+}
+.site-header .brand{grid-area:brand;min-width:0;gap:14px}
+.site-header .brand-copy{min-width:0;display:grid!important;gap:2px}
+.site-header .brand-copy b{font-size:clamp(20px,2.2vw,28px);line-height:1.15;white-space:nowrap}
+.site-header .brand-copy small{display:block;color:var(--muted);font-size:13px;white-space:nowrap}
+.site-header .logo{width:58px;height:58px;border-radius:19px;font-size:31px;flex:0 0 auto;box-shadow:0 7px 18px rgba(179,18,23,.16)}
+.site-header .nav-actions{
+  grid-area:actions;
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  grid-template-areas:
+    "mission mission username addshop"
+    "orders coupons favorites account"
+    "near near near near";
+  gap:9px;
+  align-items:stretch;
+  min-width:0;
+}
+.site-header .header-shortcut,
+.site-header .header-add-shop,
+.site-header .header-user-pill{
+  min-width:0;
+  min-height:58px;
+  border-radius:17px;
+}
+.site-header .header-shortcut{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  padding:10px 12px;
+  background:#fff;
+  border:1px solid #eadfdb;
+  color:#1877d6;
+  box-shadow:0 4px 14px rgba(54,31,27,.055);
+  font-weight:800;
+  line-height:1.15;
+}
+.site-header .header-shortcut .nav-ico{font-size:22px;line-height:1;flex:0 0 auto}
+.site-header .header-shortcut .nav-label{min-width:0;text-align:center}
+.site-header #missionBtn{grid-area:mission;position:relative;font-size:18px}
+.site-header #missionBtn #missionNavCount{position:absolute;right:10px;top:50%;transform:translateY(-50%);margin:0}
+.site-header #marketOrdersBtn{grid-area:orders}
+.site-header #couponWalletBtn{grid-area:coupons}
+.site-header #favoritesBtn{grid-area:favorites}
+.site-header #accountBtn{grid-area:account}
+.site-header #nearBtn{grid-area:near;min-height:42px;padding:8px 12px;color:#645653;background:#fffaf7;box-shadow:none}
+.site-header #nearBtn .nav-ico{font-size:17px}
+.site-header #addShopBtn{grid-area:addshop;display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 14px;font-size:17px;font-weight:800;box-shadow:0 5px 14px rgba(179,18,23,.13)}
+.site-header #addShopBtn .nav-ico{font-size:23px;line-height:1}
+.site-header .header-user-pill{grid-area:username;display:flex;align-items:center;justify-content:center;padding:10px 12px;border:1px solid #eadfdb;background:#fff;color:#1877d6;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.site-header .header-user-pill::before{content:"👤";margin-right:7px;font-size:17px}
+
+@media(max-width:900px){
+  .site-header{position:relative;backdrop-filter:none}
+  .site-header .header-dashboard-nav{
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    grid-template-areas:"brand brand mission mission" "actions actions actions actions";
+    gap:12px 10px;
+    padding:14px 0 12px;
+  }
+  .site-header .brand{grid-area:brand}
+  .site-header .nav-actions{display:contents}
+  .site-header #missionBtn{grid-area:mission;min-height:64px}
+  .site-header #marketOrdersBtn{grid-area:auto}
+  .site-header #couponWalletBtn{grid-area:auto}
+  .site-header #favoritesBtn{grid-area:auto}
+  .site-header #accountBtn{grid-area:auto}
+  .site-header #marketOrdersBtn{grid-column:1;grid-row:2}
+  .site-header #couponWalletBtn{grid-column:2;grid-row:2}
+  .site-header #favoritesBtn{grid-column:3;grid-row:2}
+  .site-header #accountBtn{grid-column:4;grid-row:2}
+  .site-header .header-user-pill{grid-column:1/3;grid-row:3}
+  .site-header #addShopBtn{grid-column:3/5;grid-row:3}
+  .site-header #nearBtn{grid-column:1/5;grid-row:4}
+  .site-header .header-shortcut{min-height:82px;flex-direction:column;gap:6px;padding:9px 5px;font-size:13px;border-radius:16px}
+  .site-header .header-shortcut .nav-ico{font-size:26px}
+  .site-header .header-shortcut .nav-label{white-space:normal;line-height:1.18}
+  .site-header #missionBtn{flex-direction:row;font-size:17px;gap:10px;padding:10px 42px 10px 10px}
+  .site-header #missionBtn .nav-ico{font-size:29px}
+  .site-header #missionBtn #missionNavCount{right:9px;top:50%}
+  .site-header #nearBtn{min-height:40px;flex-direction:row;font-size:12px;padding:7px 10px}
+  .site-header #nearBtn .nav-ico{font-size:16px}
+}
+
+@media(max-width:600px){
+  .site-header .container{width:min(100% - 20px,1120px)}
+  .site-header .header-dashboard-nav{gap:10px 8px;padding:12px 0 10px}
+  .site-header .brand{gap:10px}
+  .site-header .logo{width:48px;height:48px;border-radius:16px;font-size:26px}
+  .site-header .brand-copy b{font-size:19px;white-space:normal}
+  .site-header .brand-copy small{display:block;font-size:10px;white-space:normal}
+  .site-header .header-shortcut{min-height:76px;border-radius:15px;font-size:12px}
+  .site-header .header-shortcut .nav-ico{font-size:24px}
+  .site-header #missionBtn{min-height:58px;font-size:16px;border-radius:16px}
+  .site-header #missionBtn .nav-ico{font-size:25px}
+  .site-header #addShopBtn,.site-header .header-user-pill{min-height:48px;border-radius:15px;font-size:14px}
+  .site-header #addShopBtn{font-size:15px}
+  .site-header .nav-actions button{padding-left:5px;padding-right:5px}
+}
+
+@media(max-width:390px){
+  .site-header .brand-copy b{font-size:17px}
+  .site-header .brand-copy small{font-size:9px}
+  .site-header .logo{width:44px;height:44px;font-size:24px}
+  .site-header .header-shortcut{min-height:72px;font-size:11px}
+  .site-header .header-shortcut .nav-ico{font-size:22px}
+  .site-header #missionBtn{font-size:15px}
+  .site-header .header-user-pill{font-size:12px}
+}

@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.8 Coupon Checkout loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.9 Header Layout loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -1401,7 +1401,17 @@
   }
 
   function updateAccountUI(){
-    $('accountBtn').textContent=session?(profile?.display_name||session.user.email):'เข้าสู่ระบบ';
+    const accountBtn=$('accountBtn');
+    const headerUserName=$('headerUserName');
+    if(accountBtn){
+      accountBtn.innerHTML=session
+        ? '<span class="nav-ico">🏪</span><span class="nav-label">ร้านของฉัน</span>'
+        : '<span class="nav-ico">👤</span><span class="nav-label">เข้าสู่ระบบ</span>';
+    }
+    if(headerUserName){
+      headerUserName.textContent=session?(profile?.display_name||session.user.email||'บัญชีของฉัน'):'';
+      headerUserName.classList.toggle('hidden',!session);
+    }
     $('dashboard').classList.toggle('hidden',!session);
     const favBtn=$('favoritesBtn'); if(favBtn)favBtn.classList.toggle('hidden',!session);
     const missionBtn=$('missionBtn'); if(missionBtn)missionBtn.classList.add('hidden');
@@ -1542,7 +1552,7 @@
     const box=$('shopPublicCouponBox'),shopId=box?.dataset?.shopCoupons;if(shopId)await loadPublicShopCoupons(shopId);showNotice('เก็บคูปองไว้ในคูปองของฉันแล้ว');
   }
   function ensureCouponWalletUI(){
-    if(!$('couponWalletBtn')){const b=document.createElement('button');b.id='couponWalletBtn';b.className='ghost hidden';b.textContent='🎟️ คูปองของฉัน';const account=$('accountBtn');account?.parentNode?.insertBefore(b,account);b.addEventListener('click',openCouponWallet);}
+    if(!$('couponWalletBtn')){const b=document.createElement('button');b.id='couponWalletBtn';b.className='ghost hidden header-shortcut';b.type='button';b.innerHTML='<span class="nav-ico">🎟️</span><span class="nav-label">คูปองของฉัน</span>';const account=$('accountBtn');account?.parentNode?.insertBefore(b,account);b.addEventListener('click',openCouponWallet);}
     if(!$('couponWalletModal')){const m=document.createElement('div');m.id='couponWalletModal';m.className='modal hidden';m.innerHTML=`<div class="backdrop" data-close="couponWalletModal"></div><div class="modal-card"><button class="close" data-close="couponWalletModal">×</button><div class="section-head"><div><span class="eyebrow red">บัญชีของฉัน</span><h2>🎟️ คูปองของฉัน</h2></div></div><div id="couponWalletTabs" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><button type="button" class="ghost" data-wallet-filter="available">พร้อมใช้</button><button type="button" class="ghost" data-wallet-filter="locked">กำลังใช้</button><button type="button" class="ghost" data-wallet-filter="used">ใช้แล้ว</button><button type="button" class="ghost" data-wallet-filter="expired">หมดอายุ</button></div><div id="couponWalletList"></div></div>`;document.body.appendChild(m);}
     $('couponWalletBtn')?.classList.toggle('hidden',!session);
   }
@@ -2005,7 +2015,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.22.8', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.22.9', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
