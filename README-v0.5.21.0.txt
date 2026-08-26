@@ -1,0 +1,1 @@
+V0.5.21.0 Mission V1: ดูร้าน 5 / ชื่นชอบ 3 / รีวิว 1 / completed order 1. ยังไม่มีรางวัล. ต้องรัน upgrade-v0.5.21.0-mission-v1.sql ก่อน Deploy. ไม่แก้ Order/Delivery/Payment/Rider logic.

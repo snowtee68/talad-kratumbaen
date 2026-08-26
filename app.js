@@ -711,6 +711,7 @@
       favorites.add(id);
     }
     favoriteShops=[...favorites].length?await fetchFullShopsByIds([...favorites]):[];
+    missionProgressCache=null;refreshMissionNav().catch(()=>{});
     renderShops(); renderRecommended(); renderFavoriteList();
     const detailShopId=$('reviewShopId')?.value;
     if(detailShopId===id){ const holder=$('detailFavoriteHolder'); if(holder)holder.innerHTML=favoriteButton(id,'detail-favorite'); }
@@ -754,11 +755,48 @@
     box.innerHTML=list.length?list.map(s=>recommendedCompactCard(s)).join(''):'<div class="empty-inline">ยังไม่มีร้านแนะนำ</div>';
   }
 
+
+  const MISSION_V1=[
+    {id:'explorer',icon:'🔍',title:'นักสำรวจตลาด',detail:'เปิดดูรายละเอียดร้านไม่ซ้ำกัน 5 ร้าน',goal:5},
+    {id:'favorite',icon:'❤️',title:'ร้านที่ถูกใจ',detail:'เพิ่มร้านชื่นชอบ 3 ร้าน',goal:3},
+    {id:'review',icon:'⭐',title:'เสียงจากลูกค้า',detail:'รีวิวร้านค้า 1 ร้าน',goal:1},
+    {id:'buyer',icon:'🛍️',title:'อุดหนุนร้านในชุมชน',detail:'มีออเดอร์สำเร็จ 1 ออเดอร์',goal:1}
+  ];
+  let missionProgressCache=null;
+  async function recordMissionShopView(shopId){
+    if(!db||!session||!shopId)return;
+    try{await db.from('market_mission_shop_views').upsert({user_id:session.user.id,shop_id:shopId,last_viewed_at:new Date().toISOString()},{onConflict:'user_id,shop_id'});missionProgressCache=null;refreshMissionNav().catch(()=>{});}catch(_e){}
+  }
+  async function loadMissionProgress(force=false){
+    if(!session||!db)return null;if(missionProgressCache&&!force)return missionProgressCache;const uid=session.user.id;
+    const [{count:viewCount},{count:favCount},{count:reviewCount},{count:orderCount}]=await Promise.all([
+      db.from('market_mission_shop_views').select('shop_id',{count:'exact',head:true}).eq('user_id',uid),
+      db.from('market_favorites').select('shop_id',{count:'exact',head:true}).eq('user_id',uid),
+      db.from('market_reviews').select('id',{count:'exact',head:true}).eq('user_id',uid).eq('status','approved'),
+      db.from('market_orders').select('id',{count:'exact',head:true}).eq('customer_id',uid).eq('status','completed')
+    ]);
+    const values={explorer:Number(viewCount||0),favorite:Number(favCount||0),review:Number(reviewCount||0),buyer:Number(orderCount||0)};
+    const items=MISSION_V1.map(m=>({...m,value:Math.min(values[m.id]||0,m.goal),done:(values[m.id]||0)>=m.goal}));
+    return missionProgressCache={items,done:items.filter(x=>x.done).length,total:items.length,allDone:items.every(x=>x.done)};
+  }
+  async function refreshMissionNav(){
+    const btn=$('missionBtn'),count=$('missionNavCount');if(!btn)return;btn.classList.toggle('hidden',!session);if(!session){if(count)count.textContent='';return;}
+    try{const p=await loadMissionProgress(true);if(count)count.textContent=p?`${p.done}/${p.total}`:'';}catch(_e){if(count)count.textContent='';}
+  }
+  async function openMission(){
+    if(!session){openModal('authModal');return alert('กรุณาเข้าสู่ระบบก่อนทำ Mission');}
+    const box=$('missionContent');openModal('missionModal');if(box)box.innerHTML='<h2>🎯 Mission กระทุ่มแบน</h2><p>กำลังตรวจสอบความคืบหน้า...</p>';
+    try{const p=await loadMissionProgress(true),percent=Math.round(p.done/p.total*100);
+      box.innerHTML=`<div class="mission-head"><div><span class="eyebrow red">ภารกิจเริ่มต้น</span><h2>🎯 Mission กระทุ่มแบน</h2><p>ลองใช้ฟังก์ชันต่าง ๆ ของตลาดให้ครบ ${p.total} ภารกิจ</p></div><strong class="mission-score">${p.done}/${p.total}</strong></div><div class="mission-progress"><span style="width:${percent}%"></span></div><div class="mission-list">${p.items.map(m=>`<article class="mission-item ${m.done?'done':''}"><div class="mission-icon">${m.done?'✅':m.icon}</div><div class="mission-copy"><b>${esc(m.title)}</b><small>${esc(m.detail)}</small><div class="mission-mini-progress"><span style="width:${Math.min(100,Math.round(m.value/m.goal*100))}%"></span></div></div><strong>${m.value}/${m.goal}</strong></article>`).join('')}</div>${p.allDone?'<div class="mission-complete">🎉 Mission สำเร็จครบแล้ว!<small>รางวัลจะเพิ่มเข้ามาในระบบภายหลัง โดยความสำเร็จของคุณจะยังถูกเก็บไว้</small></div>':'<div class="mission-note">ระบบตรวจ Mission ให้อัตโนมัติ ไม่ต้องกดยืนยันว่าทำแล้ว</div>'}`;
+    }catch(err){box.innerHTML='<h2>🎯 Mission กระทุ่มแบน</h2><div class="mission-note">ยังโหลด Mission ไม่สำเร็จ กรุณารัน SQL Mission V1 ก่อน</div>';console.error(err);}
+  }
+
   async function openShopDetails(shopId){
     trackAnalytics('shop_view',shopId);
     let shop=null;
     try{shop=await getFullShop(shopId);}catch(err){console.error(err);}
     if(!shop)return alert('ไม่พบข้อมูลร้านค้านี้');
+    recordMissionShopView(shopId);
     const promo=visiblePromotionForShop(shopId);
     const rating=ratingForShop(shopId);
     const mapsTarget=googleMapsTarget(shop);
@@ -1073,7 +1111,7 @@
       showNotice('บันทึกรีวิวของคุณแล้ว ขอบคุณที่ช่วยแนะนำร้านในชุมชน');
       await loadReviewStats();
       await loadShopReviews(shopId);
-      renderShops();renderRecommended();
+      renderShops();renderRecommended();missionProgressCache=null;refreshMissionNav().catch(()=>{});
     }catch(err){alert('ส่งรีวิวไม่สำเร็จ: '+friendlyAuthError(err.message));}
     finally{btn.disabled=false;btn.textContent='ส่งรีวิว';}
   }
@@ -1279,6 +1317,7 @@
     $('accountBtn').textContent=session?(profile?.display_name||session.user.email):'เข้าสู่ระบบ';
     $('dashboard').classList.toggle('hidden',!session);
     const favBtn=$('favoritesBtn'); if(favBtn)favBtn.classList.toggle('hidden',!session);
+    const missionBtn=$('missionBtn'); if(missionBtn)missionBtn.classList.toggle('hidden',!session);
   }
 
   async function loadDashboard(){
@@ -1571,6 +1610,7 @@
     });
     $('nearBtn').addEventListener('click',()=>requestUserLocation({sortNearby:true}));
     $('favoritesBtn')?.addEventListener('click',openFavorites);
+    $('missionBtn')?.addEventListener('click',openMission);
     const locateMapBtn=$('locateMapBtn');
     if(locateMapBtn)locateMapBtn.addEventListener('click',()=>userLocation?showUserLocation({coords:{latitude:userLocation.lat,longitude:userLocation.lng,accuracy:userLocation.accuracy}}):requestUserLocation());
     const useCurrentShopLocationBtn=$('useCurrentShopLocationBtn');if(useCurrentShopLocationBtn)useCurrentShopLocationBtn.addEventListener('click',useCurrentLocationForShop);
@@ -1765,7 +1805,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=5.7.9.92', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=5.7.9.93', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
