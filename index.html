@@ -17,8 +17,28 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
-  <link rel="stylesheet" href="styles.css?v=0.5.22.12">
+  <link rel="stylesheet" href="styles.css?v=0.5.22.13">
 <link rel="stylesheet" href="order.css?v=0.5.20.42-restore">
+<style>
+#adminPanel .admin-control-center{margin-bottom:18px}
+#adminPanel .admin-control-title{display:flex;justify-content:space-between;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px}
+#adminPanel .admin-control-title h3{margin:0}
+#adminPanel .admin-control-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+#adminPanel .admin-control-btn{min-height:88px;border:1px solid #e4e4e7;background:#fff;border-radius:16px;padding:12px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:4px;text-align:left;font:inherit;cursor:pointer}
+#adminPanel .admin-control-btn .ico{font-size:24px;line-height:1}
+#adminPanel .admin-control-btn b{font-size:14px}
+#adminPanel .admin-control-btn small{font-size:11px;color:#71717a;line-height:1.35}
+#adminPanel .admin-control-btn.active{border-color:#111827;background:#f8fafc;box-shadow:0 0 0 2px rgba(17,24,39,.05)}
+#adminPanel .admin-view-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:4px 0 12px}
+#adminPanel .admin-view-head h3{margin:0}
+#adminPanel .admin-back-home{white-space:nowrap}
+#adminPanel [data-admin-view].hidden{display:none!important}
+#adminPanel .admin-home-note{padding:18px;border:1px solid #e5e7eb;border-radius:16px;background:#fafafa}
+#adminPanel .admin-coupon-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
+#adminPanel .admin-coupon-links button{min-height:72px}
+@media(max-width:760px){#adminPanel .admin-control-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#adminPanel .admin-control-btn{min-height:82px}#adminPanel .admin-coupon-links{grid-template-columns:1fr}}
+</style>
+
 </head>
 <body>
 <header class="site-header">
@@ -98,7 +118,7 @@
   </section>
 </main>
 
-<footer><div class="container support-footer"><div>ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ <span class="version-badge">V0.5.22.12</span></div><a class="support-openchat-link" href="https://line.me/ti/g2/26r6PGveA0bN-PKo8YNyw7dd2lF_ejymNdCNKw?utm_source=invitation&utm_medium=link_copy&utm_campaign=default" target="_blank" rel="noopener noreferrer">💬 สอบถาม / แจ้งปัญหาการใช้งาน</a></div></footer>
+<footer><div class="container support-footer"><div>ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ <span class="version-badge">V0.5.22.13</span></div><a class="support-openchat-link" href="https://line.me/ti/g2/26r6PGveA0bN-PKo8YNyw7dd2lF_ejymNdCNKw?utm_source=invitation&utm_medium=link_copy&utm_campaign=default" target="_blank" rel="noopener noreferrer">💬 สอบถาม / แจ้งปัญหาการใช้งาน</a></div></footer>
 
 <nav class="floating-navigation" aria-label="ทางลัดหน้าเว็บ">
   <button id="floatingBackBtn" type="button" class="floating-nav-button" aria-label="ย้อนกลับ">← <span>กลับ</span></button>
@@ -177,8 +197,8 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
-<script src="app.js?v=0.5.22.12"></script>
-<script src="order.js?v=0.5.22.12"></script>
+<script src="app.js?v=0.5.22.13"></script>
+<script src="order.js?v=0.5.22.13"></script>
 
 </body>
 </html>

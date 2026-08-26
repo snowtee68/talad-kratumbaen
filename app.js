@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.12 Rider Admin Registry loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.13 Admin Control Pages loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -1505,6 +1505,60 @@
     if(session)refreshMissionNav().catch(()=>{});
   }
 
+
+
+  let adminActiveView='home';
+  function adminViewHeader(title,subtitle=''){
+    return `<div class="admin-view-head"><div><h3>${title}</h3>${subtitle?`<small class="muted">${subtitle}</small>`:''}</div><button type="button" class="ghost admin-back-home" data-admin-nav="home">← เมนู Admin</button></div>`;
+  }
+  function showAdminView(view='home'){
+    const panel=$('adminPanel'); if(!panel)return;
+    adminActiveView=view;
+    panel.querySelectorAll('[data-admin-view]').forEach(el=>el.classList.toggle('hidden',el.dataset.adminView!==view));
+    panel.querySelectorAll('[data-admin-nav]').forEach(btn=>btn.classList.toggle('active',btn.dataset.adminNav===view));
+    const titles={home:'ศูนย์ควบคุม Admin',shops:'จัดการร้านค้า',mission:'Mission',coupons:'คูปอง',delivery:'Delivery',riders:'วิน / ไรเดอร์',analytics:'สถิติ'};
+    const t=$('dashboardTitle');if(t&&profile?.role==='admin')t.textContent=titles[view]||'ศูนย์ควบคุม Admin';
+    panel.scrollIntoView({behavior:'smooth',block:'start'});
+  }
+  function ensureAdminControlCenter(){
+    const panel=$('adminPanel');if(!panel||profile?.role!=='admin')return;
+    if($('adminControlCenter'))return;
+
+    const nav=document.createElement('div');nav.id='adminControlCenter';nav.className='admin-control-center';
+    nav.innerHTML=`<div class="admin-control-title"><div><span class="eyebrow red">Admin</span><h3>ศูนย์ควบคุมระบบ</h3><small class="muted">เลือกเมนูที่ต้องการจัดการ ไม่ต้องเลื่อนหาทุกระบบในหน้าเดียว</small></div></div><div class="admin-control-grid">
+      <button type="button" class="admin-control-btn active" data-admin-nav="home"><span class="ico">🏠</span><b>Dashboard</b><small>หน้าเมนูหลัก</small></button>
+      <button type="button" class="admin-control-btn" data-admin-nav="shops"><span class="ico">🏪</span><b>ร้านค้า</b><small>อนุมัติและจัดการร้าน</small></button>
+      <button type="button" class="admin-control-btn" data-admin-nav="mission"><span class="ico">🎯</span><b>Mission</b><small>เปิดปิดและตั้งรางวัล</small></button>
+      <button type="button" class="admin-control-btn" data-admin-nav="coupons"><span class="ico">🎟️</span><b>คูปอง</b><small>ทางลัดจัดการคูปอง</small></button>
+      <button type="button" class="admin-control-btn" data-admin-nav="delivery"><span class="ico">🛵</span><b>Delivery</b><small>ควบคุมระบบจัดส่ง</small></button>
+      <button type="button" class="admin-control-btn" data-admin-nav="riders"><span class="ico">👤</span><b>วิน / ไรเดอร์</b><small>รายชื่อและงานล่าสุด</small></button>
+      <button type="button" class="admin-control-btn" data-admin-nav="analytics"><span class="ico">📊</span><b>สถิติ</b><small>ผู้เข้าชมและร้านยอดนิยม</small></button>
+    </div>`;
+    panel.prepend(nav);
+
+    const delivery=$('deliverySystemForm')?.closest('section');
+    const riders=$('adminRiderForm')?.closest('section');
+    const mission=$('missionRewardForm')?.closest('section');
+    const analytics=panel.querySelector('.analytics-panel');
+    if(delivery){delivery.dataset.adminView='delivery';delivery.insertAdjacentHTML('afterbegin',adminViewHeader('🛵 Delivery','สวิตช์ควบคุม Delivery ทั้งระบบ'));}
+    if(riders){riders.dataset.adminView='riders';riders.insertAdjacentHTML('afterbegin',adminViewHeader('👤 วิน / ไรเดอร์','ทะเบียนวิน เบอร์ติดต่อ และงานล่าสุด'));}
+    if(mission){mission.dataset.adminView='mission';mission.insertAdjacentHTML('afterbegin',adminViewHeader('🎯 Mission','ตั้งค่ากิจกรรมและรางวัล Mission'));}
+    if(analytics){analytics.dataset.adminView='analytics';analytics.insertAdjacentHTML('afterbegin',adminViewHeader('📊 สถิติ','เลือกดูวันนี้ 7 วัน 30 วัน หรือทั้งหมด'));}
+
+    const pending=$('pendingGrid'),all=$('adminAllGrid');
+    if(pending&&all){
+      const children=Array.from(panel.children);const start=children.indexOf(pending.previousElementSibling);const end=children.indexOf(all);
+      if(start>=0&&end>=start){const wrap=document.createElement('section');wrap.dataset.adminView='shops';wrap.className='admin-shops-view';wrap.innerHTML=adminViewHeader('🏪 ร้านค้า','อนุมัติ แก้ไข และกำหนดสิทธิ์ Delivery รายร้าน');panel.insertBefore(wrap,children[start]);for(let i=start;i<=end;i++)wrap.appendChild(children[i]);}
+    }
+
+    const coupon=document.createElement('section');coupon.dataset.adminView='coupons';coupon.className='admin-coupon-view';coupon.innerHTML=adminViewHeader('🎟️ คูปอง','ระบบคูปองใช้จุดจัดการเดิมเพื่อไม่เปลี่ยน logic ที่ใช้งานอยู่')+`<div class="admin-home-note"><b>จัดการคูปองจากจุดเดิมได้เหมือนเดิม</b><p class="muted">คูปอง Mission ตั้งจากหน้า Mission ส่วนคูปองร้านค้าสร้างจาก “จัดการโปรโมชั่น” ของร้านนั้น</p><div class="admin-coupon-links"><button type="button" class="secondary" data-admin-nav="mission">🎯 ไปตั้งคูปอง Mission</button><button type="button" class="secondary" data-admin-nav="shops">🏪 ไปเลือกร้านและจัดการโปรโมชั่น</button></div></div>`;panel.appendChild(coupon);
+
+    const home=document.createElement('section');home.dataset.adminView='home';home.className='admin-home-view';home.innerHTML=`<div class="admin-home-note"><b>เลือกเมนูด้านบนเพื่อจัดการระบบ</b><p class="muted" style="margin-bottom:0">แต่ละฟังก์ชันถูกแยกเป็นหน้าควบคุมภายใน Admin เดียวกัน ข้อมูลและฟังก์ชันเดิมยังใช้ชุดเดิมทั้งหมด</p></div>`;nav.insertAdjacentElement('afterend',home);
+
+    panel.addEventListener('click',ev=>{const b=ev.target.closest('[data-admin-nav]');if(b){ev.preventDefault();showAdminView(b.dataset.adminNav||'home');}});
+    showAdminView('home');
+  }
+
   async function loadDashboard(){
     if(!db||!session)return;
     const {data:mine,error}=await db.from('market_shops').select('*, category:market_categories(id,name,icon)').eq('owner_id',session.user.id).order('created_at',{ascending:false});
@@ -1512,6 +1566,7 @@
     $('myShopGrid').innerHTML=(mine||[]).length?(mine||[]).map(s=>shopCard(s,true)).join(''):'<p>ยังไม่มีร้านในบัญชีนี้</p>';
     $('adminPanel').classList.toggle('hidden',profile?.role!=='admin');
     if(profile?.role==='admin'){
+      ensureAdminControlCenter();
       loadAnalyticsDashboard(analyticsPeriod);
       loadRiderAdminPanel();
       const [{data:pending,error:pendingError},{data:allShops,error:allShopsError},{data:deliveryAccess,error:deliveryAccessError}]=await Promise.all([
