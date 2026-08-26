@@ -1486,6 +1486,7 @@
 
   function bindEvents(){
     document.querySelectorAll('[data-close]').forEach(x=>x.addEventListener('click',()=>closeModal(x.dataset.close)));
+    document.addEventListener('click',ev=>{const closer=ev.target.closest?.('[data-close]');if(closer?.dataset?.close)closeModal(closer.dataset.close);});
     $('floatingHomeBtn')?.addEventListener('click',goHome);
     $('floatingBackBtn')?.addEventListener('click',goBack);
     document.querySelectorAll('[data-analytics-days]').forEach(btn=>btn.addEventListener('click',()=>loadAnalyticsDashboard(Number(btn.dataset.analyticsDays)||7)));
@@ -1823,7 +1824,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=5.7.9.95', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=5.7.9.96', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
