@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.10 Analytics Periods loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.11 Global Delivery Switch loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -27,6 +27,44 @@
     catch(err){console.debug('Analytics skipped',err?.message||err);}
   }
   function analyticsMetricLabel(type){return ({page_view:'เปิดเว็บ',shop_view:'เปิดดูร้าน',navigate_click:'กดนำทาง',phone_click:'กดโทร',order_click:'คลิกช่องทางสั่งซื้อ',order_lineman_click:'LINE MAN',order_grab_click:'Grab',order_shopee_click:'ShopeeFood'})[type]||type;}
+  let globalDeliveryEnabled=true;
+  async function loadGlobalDeliverySetting(){
+    if(!db)return true;
+    try{
+      const {data,error}=await db.rpc('market_get_system_settings');
+      if(error)throw error;
+      const row=Array.isArray(data)?data[0]:data;
+      globalDeliveryEnabled=row?.delivery_enabled!==false;
+      return globalDeliveryEnabled;
+    }catch(err){
+      console.warn('Global delivery setting:',err?.message||err);
+      return true;
+    }
+  }
+  async function loadDeliverySystemAdmin(){
+    if(!db||profile?.role!=='admin')return;
+    const enabled=await loadGlobalDeliverySetting();
+    const form=$('deliverySystemForm'),status=$('deliverySystemAdminStatus');
+    if(form?.elements?.delivery_enabled)form.elements.delivery_enabled.checked=enabled;
+    if(status)status.textContent=enabled?'🟢 Delivery เปิดทั้งระบบ':'⚪ Delivery ปิด — รับเองเท่านั้น';
+  }
+  async function saveDeliverySystemSetting(ev){
+    ev.preventDefault();
+    if(!db||profile?.role!=='admin')return alert('เฉพาะ Admin เท่านั้น');
+    const enabled=Boolean(ev.currentTarget?.elements?.delivery_enabled?.checked);
+    const msg=enabled?'เปิดระบบ Delivery ทั้งระบบใช่หรือไม่?':'ปิด Delivery สำหรับออเดอร์ใหม่ทั้งหมด และให้ลูกค้าเลือกรับเองที่ร้านเท่านั้นใช่หรือไม่?';
+    if(!confirm(msg))return;
+    try{
+      const {data,error}=await db.rpc('market_admin_set_delivery_enabled',{p_enabled:enabled});
+      if(error)throw error;
+      globalDeliveryEnabled=data!==false;
+      await loadDeliverySystemAdmin();
+      showNotice(globalDeliveryEnabled?'เปิดระบบ Delivery แล้ว':'ปิดระบบ Delivery แล้ว — ออเดอร์ใหม่จะเป็นรับเองเท่านั้น');
+    }catch(err){
+      alert('บันทึกการตั้งค่า Delivery ไม่สำเร็จ: '+(err?.message||err));
+    }
+  }
+
   async function loadAnalyticsDashboard(period=analyticsPeriod){
     if(!db||profile?.role!=='admin')return;
     const allowed=new Set(['today','7d','30d','all']);
@@ -1442,6 +1480,7 @@
       const withAccess=(allShops||[]).map(s=>({...s,delivery_access_known:true,delivery_access_enabled:accessMap.get(String(s.id))===true}));
       $('pendingGrid').innerHTML=(pending||[]).length?(pending||[]).map(s=>shopCard({...s,delivery_access_known:true,delivery_access_enabled:false},true)).join(''):'<p>ไม่มีร้านรออนุมัติ</p>';
       loadMissionRewardAdmin().catch(()=>{});
+      loadDeliverySystemAdmin().catch(()=>{});
       const adminAllGrid=$('adminAllGrid');
       if(adminAllGrid)adminAllGrid.innerHTML=withAccess.length?withAccess.map(s=>shopCard(s,true)).join(''):'<p>ยังไม่มีร้านค้า</p>';
     }
@@ -1821,6 +1860,7 @@
     $('nearBtn').addEventListener('click',()=>requestUserLocation({sortNearby:true}));
     $('favoritesBtn')?.addEventListener('click',openFavorites);
     $('missionRewardForm')?.addEventListener('submit',saveMissionReward);
+    $('deliverySystemForm')?.addEventListener('submit',saveDeliverySystemSetting);
     $('missionBtn')?.addEventListener('click',openMission);
     $('missionWelcomeStartBtn')?.addEventListener('click',()=>{closeModal('missionWelcomeModal');openMission();});
     const locateMapBtn=$('locateMapBtn');
@@ -2018,7 +2058,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.22.10', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.22.11', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
