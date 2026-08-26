@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.21.5 Mission Reward Admin loaded');
+  console.info('Talad Krathumbaen Main v0.5.21.7 Mission Popup + Reward Admin loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -823,15 +823,17 @@
     if(!modal)return;
     const now=new Date();
     const dayKey=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
-    const storageKey='market_mission_welcome_last_seen';
+    const storageKey='market_mission_welcome_last_seen_v0_5_21_7';
     try{
       if(localStorage.getItem(storageKey)===dayKey)return;
-      localStorage.setItem(storageKey,dayKey);
     }catch(_e){}
     setTimeout(()=>{
       // Do not interrupt another modal that is already open (e.g. password recovery/direct-link flow).
       const anotherOpen=[...document.querySelectorAll('.modal:not(.hidden)')].some(x=>x.id!=='missionWelcomeModal');
-      if(!anotherOpen)openModal('missionWelcomeModal');
+      if(anotherOpen)return;
+      openModal('missionWelcomeModal');
+      // Mark as seen only after the popup is actually opened.
+      try{localStorage.setItem(storageKey,dayKey);}catch(_e){}
     },1400);
   }
 
@@ -1879,7 +1881,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=5.7.9.96', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.21.7', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
