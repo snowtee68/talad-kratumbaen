@@ -412,7 +412,7 @@
       if(e.target.closest('#customQtyPlus'))return changeCustomQty(1);
       const qty=e.target.closest('[data-cart-qty]');if(qty)return changeQty(qty.dataset.cartQty,Number(qty.dataset.delta));
       const rm=e.target.closest('[data-cart-remove]');if(rm)return removeLine(rm.dataset.cartRemove);
-      if(e.target.closest('#goCheckoutBtn'))return openCheckout();
+      if(e.target.closest('#goCheckoutBtn')){e.preventDefault();return openCheckout().catch(err=>{console.error('openCheckout',err);alert('เปิดหน้าสั่งซื้อไม่สำเร็จ: '+(err?.message||err));});}
       if(e.target.closest('#useDeliveryLocationBtn'))return captureDeliveryLocation();
       if(e.target.closest('#submitCheckoutBtn'))return submitCheckout();
       const accept=e.target.closest('[data-accept-order]');if(accept)return sellerAcceptOrder(accept.dataset.acceptOrder);
@@ -746,7 +746,7 @@
 
 
 
-  // v0.5.22.5 COUPON WALLET CHECKOUT MODULE
+  // v0.5.22.6 COUPON WALLET CHECKOUT MODULE
   // Coupon UI is injected into the existing checkout modal; the original checkout markup/CSS stays untouched.
   let checkoutCouponOptions=[];
   function couponEstimate(c,subtotal){let d=c.discount_type==='percent'?subtotal*Number(c.discount_value||0)/100:Number(c.discount_value||0);if(Number(c.max_discount||0)>0)d=Math.min(d,Number(c.max_discount));return Math.max(0,Math.min(subtotal,d));}
@@ -765,9 +765,16 @@
 
   async function openCheckout(){
     if(!session)return requireLogin();const groups=groupedCart();if(!groups.length)return renderCart();if(groups.length>MAX_PICKUPS)return alert(`ระบบวินรองรับสูงสุด ${MAX_PICKUPS} ร้านต่อหนึ่งเที่ยว กรุณาแบ่งสั่งเป็น 2 รอบ`);
-    const ids=groups.map(g=>g.shop_id);const {data:settings,error}=await db.from('market_shop_order_settings').select('*').in('shop_id',ids);
+    const ids=groups.map(g=>g.shop_id);
+    const [{data:settings,error},{data:checkoutShops,error:shopErr}]=await Promise.all([
+      db.from('market_shop_order_settings').select('*').in('shop_id',ids),
+      db.from('market_shops').select('id,temporarily_closed,open_24_hours,opening_hours').in('id',ids)
+    ]);
     if(error)return alert('ยังไม่ได้ติดตั้งระบบสั่งซื้อใน Supabase หรือโหลดข้อมูลการชำระเงินไม่สำเร็จ');
-    const by=Object.fromEntries((settings||[]).map(s=>[s.shop_id,s]));const unavailable=groups.map(g=>({g,av:shopAvailability(by[g.shop_id],shopBy?.[g.shop_id]||null)})).filter(x=>!x.av.ok);
+    if(shopErr)console.warn('checkout shop state:',shopErr.message||shopErr);
+    const by=Object.fromEntries((settings||[]).map(s=>[String(s.shop_id),s]));
+    const checkoutShopBy=Object.fromEntries((checkoutShops||[]).map(s=>[String(s.id),s]));
+    const unavailable=groups.map(g=>({g,av:shopAvailability(by[String(g.shop_id)],checkoutShopBy[String(g.shop_id)]||null)})).filter(x=>!x.av.ok);
     if(unavailable.length)return alert('ยังสั่งซื้อไม่ได้:\n'+unavailable.map(x=>`• ${x.g.shop_name}: ${x.av.msg}`).join('\n'));
     const total=getCart().reduce((s,x)=>s+x.price*x.qty,0);
     openModal(`<h2 class="mo-title">ยืนยันคำสั่งซื้อ</h2><div class="checkout-summary">${groups.map(g=>`<div style="display:flex;justify-content:space-between;gap:10px;margin:5px 0"><span>${esc(g.shop_name)}</span><b>${money(g.items.reduce((s,x)=>s+x.price*x.qty,0))} บาท</b></div>`).join('')}<hr><div style="display:flex;justify-content:space-between"><b>รวมค่าสินค้า</b><b>${money(total)} บาท</b></div></div><fieldset class="payment-card" style="margin-top:14px"><legend><b>วิธีรับสินค้า</b></legend><label style="display:flex;gap:10px;align-items:flex-start;padding:10px 0"><input type="radio" name="fulfillmentMethod" value="delivery" checked style="width:22px;height:22px"><span><b>🛵 จัดส่งถึงบ้าน</b><br><span class="mo-muted">รอทุกร้านพร้อม แล้วเรียกวินรับรวมเที่ยวเดียว</span></span></label><label style="display:flex;gap:10px;align-items:flex-start;padding:10px 0"><input type="radio" name="fulfillmentMethod" value="pickup" style="width:22px;height:22px"><span><b>🏪 รับเองที่ร้าน</b><br><span class="mo-muted">ไม่มีค่าส่ง ไปรับสินค้าตามร้านในชุดคำสั่งซื้อ</span></span></label></fieldset><div id="deliveryCheckoutFields"><div id="deliveryFarePreview" class="delivery-fare-preview"><div class="fare-preview-icon">🛵</div><div><small>ค่าจัดส่งโดยประมาณ</small><strong id="deliveryFarePreviewAmount">ปักหมุดเพื่อคำนวณ</strong><span id="deliveryFarePreviewDetail">รองรับเส้นทางรวมไม่เกิน 10 กม.</span></div></div><div class="warning-banner">หลังสร้างออเดอร์ ระบบจะแสดง QR ของแต่ละร้านให้ชำระแยกกัน ส่วนค่าจัดส่งชำระให้วินเมื่อได้รับสินค้า</div><div class="mo-actions"><button type="button" id="showDeliveryFareInfoBtn" class="mo-secondary">ⓘ ดูวิธีคิดค่าจัดส่ง</button></div></div><div id="pickupCheckoutFields" class="hidden"><div class="ready-banner">🏪 เลือกรับเองที่ร้าน — ไม่มีค่าจัดส่ง</div><label style="display:block;margin:10px 0"><b>เวลาที่ต้องการรับ</b><select id="pickupTimeChoice" style="margin-top:6px"><option value="asap">รับเร็วที่สุดเมื่อร้านทำเสร็จ</option><option value="30">ประมาณ 30 นาทีจากนี้</option><option value="60">ประมาณ 1 ชั่วโมงจากนี้</option><option value="custom">เลือกเวลาเอง</option></select></label><label id="pickupCustomWrap" class="hidden"><b>วันและเวลาที่ต้องการรับ</b><input id="pickupCustomTime" type="datetime-local"></label><div class="mo-muted">หากสั่งหลายร้าน ลูกค้าต้องไปรับสินค้าที่แต่ละร้านด้วยตนเอง</div></div><div class="mo-form two"><label>ชื่อผู้รับ *<input id="coName" autocomplete="name" required></label><label>เบอร์โทร *<input id="coPhone" inputmode="tel" autocomplete="tel" required></label><div id="deliveryAddressFields" class="full delivery-address-box"><div class="delivery-address-title"><b>📍 ที่อยู่จัดส่ง</b><span class="mo-muted">กรอกเฉพาะช่องที่เกี่ยวข้อง</span></div><div class="mo-form two"><label class="full">บ้านเลขที่ / อาคาร / หมู่บ้าน *<input id="coHouse" autocomplete="street-address" placeholder="เช่น 123/45 หมู่บ้าน..."></label><label>หมู่<input id="coMoo" inputmode="numeric" placeholder="เช่น 5"></label><label>ซอย<input id="coSoi" placeholder="เช่น สุคนธวิท 12"></label><label>ถนน<input id="coRoad" placeholder="ชื่อถนน"></label><label>จังหวัด *<select id="coProvince"><option value="">เลือกจังหวัด</option></select></label><label>อำเภอ / เขต *<select id="coDistrict"><option value="">เลือกอำเภอ / เขต</option></select></label><label>ตำบล / แขวง *<select id="coSubdistrict"><option value="">เลือกตำบล / แขวง</option></select></label><label>รหัสไปรษณีย์<input id="coPostal" inputmode="numeric" maxlength="5" placeholder="ระบบเติมให้อัตโนมัติ" readonly></label><label class="full">จุดสังเกต / รายละเอียดเพิ่มเติม<input id="coLandmark" placeholder="เช่น บ้านประตูสีฟ้า ตรงข้ามร้าน..."></label></div><input id="coLat" type="hidden"><input id="coLng" type="hidden"><div id="deliveryLocationStatus" class="delivery-location-status">⚠️ ยังไม่ได้ปักหมุดตำแหน่งสำหรับวิน</div><div id="checkoutRouteStatus" class="delivery-location-status">ℹ️ ระบบจะตรวจสอบระยะทางรวมก่อนสร้างออเดอร์ · สูงสุด 10 กม.</div><label class="save-address-check"><input id="saveDeliveryAddress" type="checkbox" checked> บันทึกที่อยู่นี้ไว้ใช้ครั้งต่อไป</label></div></div><div class="mo-actions"><button id="useDeliveryLocationBtn" class="mo-secondary">📍 ปักหมุดจากตำแหน่งปัจจุบัน</button><button id="submitCheckoutBtn" class="mo-primary">สร้างออเดอร์</button></div>`);updateFulfillmentUI();fillSavedDeliveryAddress();refreshCheckoutFarePreview();maybeShowDeliveryFareInfo();
@@ -926,7 +933,7 @@
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=0.5.22.4',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=0.5.22.6',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
@@ -1661,7 +1668,7 @@
   }
   init();
 
-  // v0.5.22.5: keep original checkout click flow untouched; coupon UI attaches after checkout opens.
+  // v0.5.22.6: checkout errors are surfaced; coupon UI attaches after checkout opens.
   document.addEventListener('click',e=>{
     if(!e.target?.closest?.('#goCheckoutBtn'))return;
     setTimeout(()=>{
