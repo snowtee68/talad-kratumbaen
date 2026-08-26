@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.21.7 Mission Popup + Reward Admin loaded');
+  console.info('Talad Krathumbaen Main v0.5.21.8 Mission Fulfillment Fix + Mission Toggle loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -761,10 +761,10 @@
     if(!db)return null;
     if(missionRewardCache&&!force)return missionRewardCache;
     try{
-      const {data,error}=await db.from('market_mission_settings').select('reward_title,reward_detail,claim_note,reward_active,updated_at').eq('mission_key','mission_v1').maybeSingle();
+      const {data,error}=await db.from('market_mission_settings').select('mission_active,reward_title,reward_detail,claim_note,reward_active,updated_at').eq('mission_key','mission_v1').maybeSingle();
       if(error)throw error;
-      return missionRewardCache=data||{reward_title:'',reward_detail:'',claim_note:'',reward_active:false};
-    }catch(_e){return missionRewardCache={reward_title:'',reward_detail:'',claim_note:'',reward_active:false};}
+      return missionRewardCache=data||{mission_active:true,reward_title:'',reward_detail:'',claim_note:'',reward_active:false};
+    }catch(_e){return missionRewardCache={mission_active:true,reward_title:'',reward_detail:'',claim_note:'',reward_active:false};}
   }
   function missionRewardHtml(reward,allDone=false){
     if(!reward?.reward_active||!reward?.reward_title)return '';
@@ -774,6 +774,7 @@
     if(profile?.role!=='admin')return;
     const form=$('missionRewardForm');if(!form)return;
     const r=await loadMissionReward(true);
+    form.elements.mission_active.checked=r?.mission_active!==false;
     form.elements.reward_title.value=r?.reward_title||'';
     form.elements.reward_detail.value=r?.reward_detail||'';
     form.elements.claim_note.value=r?.claim_note||'';
@@ -783,12 +784,12 @@
   async function saveMissionReward(ev){
     ev.preventDefault();if(!db||profile?.role!=='admin')return alert('เฉพาะ Admin เท่านั้น');
     const f=ev.currentTarget,btn=f.querySelector('button[type="submit"]');
-    const payload={p_reward_title:f.elements.reward_title.value.trim(),p_reward_detail:f.elements.reward_detail.value.trim(),p_claim_note:f.elements.claim_note.value.trim(),p_reward_active:f.elements.reward_active.checked};
+    const payload={p_mission_active:f.elements.mission_active.checked,p_reward_title:f.elements.reward_title.value.trim(),p_reward_detail:f.elements.reward_detail.value.trim(),p_claim_note:f.elements.claim_note.value.trim(),p_reward_active:f.elements.reward_active.checked};
     if(payload.p_reward_active&&!payload.p_reward_title)return alert('กรุณาระบุชื่อรางวัลก่อนเปิดใช้งาน');
     if(btn){btn.disabled=true;btn.textContent='กำลังบันทึก...';}
-    try{const {error}=await db.rpc('market_admin_set_mission_reward',payload);if(error)throw error;missionRewardCache=null;await loadMissionRewardAdmin();alert('บันทึกรางวัล Mission แล้ว');}
+    try{const {error}=await db.rpc('market_admin_set_mission_reward',payload);if(error)throw error;missionRewardCache=null;missionProgressCache=null;await loadMissionRewardAdmin();await refreshMissionNav();if(!f.elements.mission_active.checked){closeModal('missionModal');closeModal('missionWelcomeModal');}alert('บันทึกการตั้งค่า Mission แล้ว');}
     catch(err){alert('บันทึกรางวัลไม่สำเร็จ: '+(err.message||err));}
-    finally{if(btn){btn.disabled=false;btn.textContent='💾 บันทึกรางวัล Mission';}}
+    finally{if(btn){btn.disabled=false;btn.textContent='💾 บันทึกการตั้งค่า Mission';}}
   }
 
   const MISSION_V1=[
@@ -804,26 +805,36 @@
   }
   async function loadMissionProgress(force=false){
     if(!session||!db)return null;if(missionProgressCache&&!force)return missionProgressCache;const uid=session.user.id;
-    const [{count:viewCount},{count:favCount},{count:reviewCount},{count:orderCount}]=await Promise.all([
+    const [{count:viewCount},{count:favCount},{count:reviewCount},{data:fulfilledCount,error:fulfilledError}]=await Promise.all([
       db.from('market_mission_shop_views').select('shop_id',{count:'exact',head:true}).eq('user_id',uid),
       db.from('market_favorites').select('shop_id',{count:'exact',head:true}).eq('user_id',uid),
       db.from('market_reviews').select('id',{count:'exact',head:true}).eq('user_id',uid).eq('status','approved'),
-      db.from('market_orders').select('id',{count:'exact',head:true}).eq('customer_id',uid).eq('status','completed')
+      db.rpc('market_mission_completed_order_count')
     ]);
-    const values={explorer:Number(viewCount||0),favorite:Number(favCount||0),review:Number(reviewCount||0),buyer:Number(orderCount||0)};
+    if(fulfilledError)throw fulfilledError;
+    const values={explorer:Number(viewCount||0),favorite:Number(favCount||0),review:Number(reviewCount||0),buyer:Number(fulfilledCount||0)};
     const items=MISSION_V1.map(m=>({...m,value:Math.min(values[m.id]||0,m.goal),done:(values[m.id]||0)>=m.goal}));
     return missionProgressCache={items,done:items.filter(x=>x.done).length,total:items.length,allDone:items.every(x=>x.done)};
   }
   async function refreshMissionNav(){
-    const btn=$('missionBtn'),count=$('missionNavCount');if(!btn)return;btn.classList.toggle('hidden',!session);if(!session){if(count)count.textContent='';return;}
-    try{const p=await loadMissionProgress(true);if(count)count.textContent=p?`${p.done}/${p.total}`:'';}catch(_e){if(count)count.textContent='';}
+    const btn=$('missionBtn'),count=$('missionNavCount');if(!btn)return;
+    if(!session){btn.classList.add('hidden');if(count)count.textContent='';return;}
+    try{
+      const settings=await loadMissionReward(true);
+      const active=settings?.mission_active!==false;
+      btn.classList.toggle('hidden',!active);
+      if(!active){if(count)count.textContent='';return;}
+      const p=await loadMissionProgress(true);if(count)count.textContent=p?`${p.done}/${p.total}`:'';
+    }catch(_e){btn.classList.add('hidden');if(count)count.textContent='';}
   }
-  function showMissionWelcomeOncePerDay(){
+  async function showMissionWelcomeOncePerDay(){
     const modal=$('missionWelcomeModal');
     if(!modal)return;
+    const settings=await loadMissionReward(true);
+    if(settings?.mission_active===false)return;
     const now=new Date();
     const dayKey=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
-    const storageKey='market_mission_welcome_last_seen_v0_5_21_7';
+    const storageKey='market_mission_welcome_last_seen_v0_5_21_8';
     try{
       if(localStorage.getItem(storageKey)===dayKey)return;
     }catch(_e){}
@@ -838,6 +849,8 @@
   }
 
   async function openMission(){
+    const settings=await loadMissionReward(true);
+    if(settings?.mission_active===false)return alert('ขณะนี้ Mission ยังไม่ได้เปิดใช้งาน');
     if(!session){openModal('authModal');return alert('กรุณาเข้าสู่ระบบก่อนทำ Mission');}
     const box=$('missionContent');openModal('missionModal');if(box)box.innerHTML='<h2>🎯 Mission กระทุ่มแบน</h2><p>กำลังตรวจสอบความคืบหน้า...</p>';
     try{const [p,reward]=await Promise.all([loadMissionProgress(true),loadMissionReward(true)]),percent=Math.round(p.done/p.total*100);
@@ -1371,7 +1384,8 @@
     $('accountBtn').textContent=session?(profile?.display_name||session.user.email):'เข้าสู่ระบบ';
     $('dashboard').classList.toggle('hidden',!session);
     const favBtn=$('favoritesBtn'); if(favBtn)favBtn.classList.toggle('hidden',!session);
-    const missionBtn=$('missionBtn'); if(missionBtn)missionBtn.classList.toggle('hidden',!session);
+    const missionBtn=$('missionBtn'); if(missionBtn)missionBtn.classList.add('hidden');
+    if(session)refreshMissionNav().catch(()=>{});
   }
 
   async function loadDashboard(){
@@ -1774,7 +1788,7 @@
   async function start(){
     renderHoursEditor();initMaps();bindEvents();
     trackAnalytics('page_view');
-    try{await loadCategories();await loadReviewStats();await loadPromotions();await loadShopIndex();await loadPublicShops({reset:true});renderShops();renderRecommended();await refreshAuth();await handleRecoveryLink();await handleShopDirectLink();showMissionWelcomeOncePerDay();}
+    try{await loadCategories();await loadReviewStats();await loadPromotions();await loadShopIndex();await loadPublicShops({reset:true});renderShops();renderRecommended();await refreshAuth();await handleRecoveryLink();await handleShopDirectLink();showMissionWelcomeOncePerDay().catch(()=>{});}
     catch(err){console.error(err);showNotice('เกิดข้อผิดพลาด: '+err.message,true);}
   }
   start();
@@ -1881,7 +1895,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.21.7', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.21.8', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
