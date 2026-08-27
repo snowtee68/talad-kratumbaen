@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.17 Guest Header 3-Column Fix loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.18 Guest Header 3-Column Fix loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(

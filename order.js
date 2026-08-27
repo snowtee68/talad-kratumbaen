@@ -552,7 +552,7 @@
     });
     const detail=document.getElementById('detailSummary');
     if(detail&&!detail.querySelector('[data-market-order-shop]')){
-      const id=document.getElementById('reviewShopId')?.value;if(id&&productShopIds.has(String(id))){const b=document.createElement('button');b.className='market-order-btn';b.dataset.marketOrderShop=id;b.textContent='🛒 ดูสินค้าและสั่งซื้อ';b.style.cssText='display:block;width:100%;max-width:none;margin:10px auto 14px;border:0;border-radius:12px;background:#8f0d12;color:#fff;padding:14px 12px;min-height:52px;text-align:center;white-space:nowrap;font:800 clamp(14px,3.8vw,17px) Prompt,sans-serif;box-shadow:0 5px 14px rgba(143,13,18,.28);cursor:pointer';const row=document.createElement('div');row.className='market-order-cta-row detail-order-cta-row';row.appendChild(b);const delivery=detail.querySelector('.delivery-links');const links=detail.querySelector('.links');if(delivery)delivery.insertAdjacentElement('afterend',row);else if(links)links.insertAdjacentElement('afterend',row);else detail.prepend(row);}
+      const id=document.getElementById('reviewShopId')?.value;if(id&&productShopIds.has(String(id))){const b=document.createElement('button');b.className='market-order-btn';b.dataset.marketOrderShop=id;b.textContent='🛒 ดูสินค้าและสั่งซื้อ';b.style.cssText='display:block;width:100%;max-width:none;margin:10px auto 14px;border:0;border-radius:12px;background:#8f0d12;color:#fff;padding:14px 12px;min-height:52px;text-align:center;white-space:nowrap;font:800 clamp(14px,3.8vw,17px) Prompt,sans-serif;box-shadow:0 5px 14px rgba(143,13,18,.28);cursor:pointer';const row=document.createElement('div');row.className='market-order-cta-row detail-order-cta-row';row.appendChild(b);const couponBox=detail.querySelector('#shopPublicCouponBox');const delivery=detail.querySelector('.delivery-links');const links=detail.querySelector('.links');if(couponBox)couponBox.insertAdjacentElement('afterend',row);else if(delivery)delivery.insertAdjacentElement('afterend',row);else if(links)links.insertAdjacentElement('afterend',row);else detail.prepend(row);}
     }
   }
 
@@ -959,7 +959,7 @@
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=0.5.22.17',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=0.5.22.18',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
