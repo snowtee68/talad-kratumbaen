@@ -17,7 +17,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
-  <link rel="stylesheet" href="styles.css?v=0.5.22.16">
+  <link rel="stylesheet" href="styles.css?v=0.5.22.17">
 <link rel="stylesheet" href="order.css?v=0.5.20.42-restore">
 <style>
 #adminPanel .admin-control-center{margin-bottom:18px}
@@ -38,7 +38,7 @@
 #adminPanel .admin-coupon-links button{min-height:72px}
 @media(max-width:760px){#adminPanel .admin-control-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#adminPanel .admin-control-btn{min-height:82px}#adminPanel .admin-coupon-links{grid-template-columns:1fr}}
 
-/* Guest header layout — V0.5.22.16: visual-only layout before login */
+/* Guest header layout — V0.5.22.17: fixed 3-column guest actions */
 body.guest-session .site-header .header-dashboard-nav{
   display:grid;grid-template-columns:minmax(0,1fr);gap:18px;align-items:start;padding-top:18px;padding-bottom:18px
 }
@@ -54,11 +54,11 @@ body.guest-session .site-header .nav-actions>.market-order-nav{
 body.guest-session .site-header .nav-actions .nav-ico{font-size:27px;line-height:1.1}
 body.guest-session .site-header .nav-actions .nav-label{font-size:15px;font-weight:800;line-height:1.25}
 body.guest-session .site-header .guest-signup-btn small{display:block;font-size:10px;color:#777;line-height:1.2}
-body.guest-session .site-header #accountBtn{order:1}
-body.guest-session .site-header #guestSignUpBtn{order:2}
-body.guest-session .site-header #marketOrdersBtn{order:3}
+body.guest-session .site-header #guestSignUpBtn{order:1;grid-column:1;grid-row:1}
+body.guest-session .site-header #marketOrdersBtn{order:2;grid-column:2;grid-row:1}
+body.guest-session .site-header #accountBtn{order:3;grid-column:3;grid-row:1}
 body.guest-session .site-header #addShopBtn{
-  order:4;grid-column:1/-1;min-height:58px!important;border-radius:18px!important;display:flex!important;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:800
+  order:4;grid-column:1/-1;grid-row:2;min-height:58px!important;border-radius:18px!important;display:flex!important;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:800
 }
 body.guest-session .site-header #addShopBtn .nav-ico{font-size:23px}
 body.guest-session .site-header #addShopBtn .nav-label::after{content:'ของคุณ';margin-left:.2em}
@@ -160,7 +160,7 @@ body:not(.guest-session) .site-header #guestSignUpBtn{display:none!important}
   </section>
 </main>
 
-<footer><div class="container support-footer"><div>ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ <span class="version-badge">V0.5.22.16</span></div><a class="support-openchat-link" href="https://line.me/ti/g2/26r6PGveA0bN-PKo8YNyw7dd2lF_ejymNdCNKw?utm_source=invitation&utm_medium=link_copy&utm_campaign=default" target="_blank" rel="noopener noreferrer">💬 สอบถาม / แจ้งปัญหาการใช้งาน</a></div></footer>
+<footer><div class="container support-footer"><div>ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ <span class="version-badge">V0.5.22.17</span></div><a class="support-openchat-link" href="https://line.me/ti/g2/26r6PGveA0bN-PKo8YNyw7dd2lF_ejymNdCNKw?utm_source=invitation&utm_medium=link_copy&utm_campaign=default" target="_blank" rel="noopener noreferrer">💬 สอบถาม / แจ้งปัญหาการใช้งาน</a></div></footer>
 
 <nav class="floating-navigation" aria-label="ทางลัดหน้าเว็บ">
   <button id="floatingBackBtn" type="button" class="floating-nav-button" aria-label="ย้อนกลับ">← <span>กลับ</span></button>
@@ -239,8 +239,8 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
-<script src="app.js?v=0.5.22.16"></script>
-<script src="order.js?v=0.5.22.16"></script>
+<script src="app.js?v=0.5.22.17"></script>
+<script src="order.js?v=0.5.22.17"></script>
 
 </body>
 </html>
