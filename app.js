@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.19 Guest Header 3-Column Fix loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.20 Guest Header 3-Column Fix loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -847,19 +847,28 @@
     if(!db)return null;
     if(missionRewardCache&&!force)return missionRewardCache;
     try{
-      const {data,error}=await db.from('market_mission_settings').select('mission_active,reward_title,reward_detail,claim_note,reward_active,updated_at,coupon_id').eq('mission_key','mission_v1').maybeSingle();
+      const {data,error}=await db.from('market_mission_settings').select('mission_active,reward_title,reward_detail,claim_note,reward_active,reward_claim_until,updated_at,coupon_id').eq('mission_key','mission_v1').maybeSingle();
       if(error)throw error;
-      const result=data||{mission_active:true,reward_title:'',reward_detail:'',claim_note:'',reward_active:false,coupon_id:null};
+      const result=data||{mission_active:true,reward_title:'',reward_detail:'',claim_note:'',reward_active:false,reward_claim_until:null,coupon_id:null};
       if(result.coupon_id){
         const {data:coupon}=await db.rpc('market_coupon_get',{p_coupon_id:result.coupon_id});
         result.coupon=coupon&&typeof coupon==='object'?coupon:null;
       }
       return missionRewardCache=result;
-    }catch(_e){return missionRewardCache={mission_active:true,reward_title:'',reward_detail:'',claim_note:'',reward_active:false,coupon_id:null,coupon:null};}
+    }catch(_e){return missionRewardCache={mission_active:true,reward_title:'',reward_detail:'',claim_note:'',reward_active:false,reward_claim_until:null,coupon_id:null,coupon:null};}
   }
   function missionRewardHtml(reward,allDone=false){
     if(!reward?.reward_active||!reward?.reward_title)return '';
     return `<div class="mission-reward ${allDone?'earned':''}"><div class="mission-reward-icon">🎁</div><div><small>${allDone?'รางวัลของคุณ':'รางวัลเมื่อทำครบ'}</small><b>${esc(reward.reward_title)}</b>${reward.reward_detail?`<p>${esc(reward.reward_detail)}</p>`:''}${allDone&&reward.claim_note?`<em>วิธีรับ: ${esc(reward.claim_note)}</em>`:''}</div></div>`;
+  }
+
+  function missionRewardClaimExpired(settings){
+    if(!settings?.reward_claim_until)return false;
+    const t=new Date(settings.reward_claim_until).getTime();
+    return Number.isFinite(t)&&Date.now()>t;
+  }
+  function missionAvailable(settings){
+    return settings?.mission_active!==false&&!missionRewardClaimExpired(settings);
   }
   async function loadMissionRewardAdmin(){
     if(profile?.role!=='admin')return;
@@ -871,6 +880,7 @@
     form.elements.reward_detail.value=r?.reward_detail||'';
     form.elements.claim_note.value=r?.claim_note||'';
     form.elements.reward_active.checked=Boolean(r?.reward_active);
+    if(form.elements.reward_claim_until)form.elements.reward_claim_until.value=toLocalDateTimeInput(r?.reward_claim_until);
     await fillMissionCouponShopOptions(r?.coupon?.shop_id||'');
     if(form.elements.mission_coupon_active)form.elements.mission_coupon_active.checked=Boolean(r?.coupon?.active);
     if(form.elements.mission_coupon_discount_type)form.elements.mission_coupon_discount_type.value=r?.coupon?.discount_type||'fixed';
@@ -885,7 +895,7 @@
     ev.preventDefault();if(!db||profile?.role!=='admin')return alert('เฉพาะ Admin เท่านั้น');
     const f=ev.currentTarget,btn=f.querySelector('button[type="submit"]');
     const couponActive=Boolean(f.elements.mission_coupon_active?.checked);
-    const payload={p_mission_active:f.elements.mission_active.checked,p_reward_title:f.elements.reward_title.value.trim(),p_reward_detail:f.elements.reward_detail.value.trim(),p_claim_note:f.elements.claim_note.value.trim(),p_reward_active:f.elements.reward_active.checked,
+    const payload={p_mission_active:f.elements.mission_active.checked,p_reward_title:f.elements.reward_title.value.trim(),p_reward_detail:f.elements.reward_detail.value.trim(),p_claim_note:f.elements.claim_note.value.trim(),p_reward_active:f.elements.reward_active.checked,p_reward_claim_until:f.elements.reward_claim_until?.value?new Date(f.elements.reward_claim_until.value).toISOString():null,
       p_coupon_active:couponActive,p_coupon_shop_id:f.elements.mission_coupon_shop_id?.value||null,p_coupon_discount_type:f.elements.mission_coupon_discount_type?.value||'fixed',p_coupon_discount_value:Number(f.elements.mission_coupon_discount_value?.value||0),p_coupon_min_spend:Number(f.elements.mission_coupon_min_spend?.value||0),p_coupon_max_discount:f.elements.mission_coupon_max_discount?.value?Number(f.elements.mission_coupon_max_discount.value):null,p_coupon_channel:f.elements.mission_coupon_channel?.value||'both',p_coupon_ends_at:f.elements.mission_coupon_ends_at?.value?new Date(f.elements.mission_coupon_ends_at.value).toISOString():null};
     if(payload.p_reward_active&&!payload.p_reward_title)return alert('กรุณาระบุชื่อรางวัลก่อนเปิดใช้งาน');
     if(couponActive&&!payload.p_coupon_shop_id)return alert('กรุณาเลือกร้านสำหรับคูปอง Mission');
@@ -925,7 +935,7 @@
     if(!session){btn.classList.add('hidden');if(count)count.textContent='';return;}
     try{
       const settings=await loadMissionReward(true);
-      const active=settings?.mission_active!==false;
+      const active=missionAvailable(settings);
       btn.classList.toggle('hidden',!active);
       if(!active){if(count)count.textContent='';return;}
       const p=await loadMissionProgress(true);if(count)count.textContent=p?`${p.done}/${p.total}`:'';
@@ -935,7 +945,7 @@
     const modal=$('missionWelcomeModal');
     if(!modal)return;
     const settings=await loadMissionReward(true);
-    if(settings?.mission_active===false)return;
+    if(!missionAvailable(settings))return;
     const now=new Date();
     const dayKey=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
     const storageKey='market_mission_welcome_last_seen_v0_5_21_8';
@@ -955,9 +965,10 @@
   async function openMission(){
     const settings=await loadMissionReward(true);
     if(settings?.mission_active===false)return alert('ขณะนี้ Mission ยังไม่ได้เปิดใช้งาน');
+    if(missionRewardClaimExpired(settings))return alert('Mission นี้สิ้นสุดระยะเวลารับรางวัลแล้ว');
     if(!session){openModal('authModal');return alert('กรุณาเข้าสู่ระบบก่อนทำ Mission');}
     const box=$('missionContent');openModal('missionModal');if(box)box.innerHTML='<h2>🎯 Mission กระทุ่มแบน</h2><p>กำลังตรวจสอบความคืบหน้า...</p>';
-    try{const [p,reward]=await Promise.all([loadMissionProgress(true),loadMissionReward(true)]);if(p.allDone&&db)await db.rpc('market_sync_mission_coupon_claim').catch(()=>{});const percent=Math.round(p.done/p.total*100);
+    try{const [p,reward]=await Promise.all([loadMissionProgress(true),loadMissionReward(true)]);if(p.allDone&&db){try{await db.rpc('market_sync_mission_coupon_claim');}catch(syncErr){console.warn('mission coupon sync skipped',syncErr);}}const percent=Math.round(p.done/p.total*100);
       box.innerHTML=`<div class="mission-head"><div><span class="eyebrow red">ภารกิจเริ่มต้น</span><h2>🎯 Mission กระทุ่มแบน</h2><p>ลองใช้ฟังก์ชันต่าง ๆ ของตลาดให้ครบ ${p.total} ภารกิจ</p></div><strong class="mission-score">${p.done}/${p.total}</strong></div>${missionRewardHtml(reward,p.allDone)}<div class="mission-progress"><span style="width:${percent}%"></span></div><div class="mission-list">${p.items.map(m=>`<article class="mission-item ${m.done?'done':''}"><div class="mission-icon">${m.done?'✅':m.icon}</div><div class="mission-copy"><b>${esc(m.title)}</b><small>${esc(m.detail)}</small><div class="mission-mini-progress"><span style="width:${Math.min(100,Math.round(m.value/m.goal*100))}%"></span></div></div><strong>${m.value}/${m.goal}</strong></article>`).join('')}</div>${p.allDone?`<div class="mission-complete">🎉 Mission สำเร็จครบแล้ว!<small>${reward?.reward_active&&reward?.reward_title?'คุณได้รับสิทธิ์รางวัลตามที่แสดงด้านบน':'ขณะนี้ Admin ยังไม่ได้เปิดรางวัลสำหรับ Mission นี้'}</small></div>`:'<div class="mission-note">ระบบตรวจ Mission ให้อัตโนมัติ ไม่ต้องกดยืนยันว่าทำแล้ว</div>'}`;
     }catch(err){const msg=err?.message||String(err||'ไม่ทราบสาเหตุ');box.innerHTML=`<h2>🎯 Mission กระทุ่มแบน</h2><div class="mission-note">โหลด Mission ไม่สำเร็จ<br><small>${esc(msg)}</small></div>`;console.error('Mission load failed',err);}
   }
@@ -1716,6 +1727,7 @@
     const save=f.querySelector('button[type="submit"]');if(!save)return;
     const wrap=document.createElement('div');wrap.id='missionCouponAdminBlock';wrap.style.cssText='border-top:1px solid #e5e5e5;margin-top:14px;padding-top:14px';
     wrap.innerHTML=`<div style="font-weight:800;margin-bottom:8px">🎟️ คูปองเมื่อ Mission สำเร็จ (ไม่บังคับ)</div>
+      <label>วัน/เวลาสิ้นสุดการรับรางวัล<input name="reward_claim_until" type="datetime-local"><small class="muted">เมื่อพ้นเวลานี้ Mission จะหายจากหน้าเว็บและจะไม่เด้ง Popup อีก</small></label>
       <label class="check"><input name="mission_coupon_active" type="checkbox"> เปิดให้รางวัล Mission เป็นคูปองด้วย</label>
       <label>ร้านที่ใช้คูปอง<select name="mission_coupon_shop_id"><option value="">เลือกร้าน</option></select></label>
       <div class="form-grid"><label>ประเภทส่วนลด<select name="mission_coupon_discount_type"><option value="fixed">ลดเป็นบาท</option><option value="percent">ลดเป็นเปอร์เซ็นต์</option></select></label><label>ส่วนลด<input name="mission_coupon_discount_value" type="number" min="0" step="0.01"></label></div>
