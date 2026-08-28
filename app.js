@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.20 Guest Header 3-Column Fix loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.21 Guest Header 3-Column Fix loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -2094,6 +2094,24 @@ function isAndroidDevice(){
   return /Android/i.test(navigator.userAgent);
 }
 
+function isLineOrSocialInApp(){
+  return /Line\//i.test(navigator.userAgent) || /FBAN|FBAV|Instagram/i.test(navigator.userAgent);
+}
+
+function openCurrentPageInChrome(){
+  if(!isAndroidDevice()) return false;
+  try{
+    const u=new URL(location.href);
+    const scheme=u.protocol.replace(':','');
+    const fallback=encodeURIComponent(u.href);
+    location.href=`intent://${u.host}${u.pathname}${u.search}${u.hash}#Intent;scheme=${scheme};package=com.android.chrome;S.browser_fallback_url=${fallback};end`;
+    return true;
+  }catch(err){
+    console.warn('Open Chrome failed:',err);
+    return false;
+  }
+}
+
 
 function refreshInstallButton(){
   const btn = document.getElementById('installAppBtn');
@@ -2131,52 +2149,93 @@ document.addEventListener('DOMContentLoaded', () => {
         refreshInstallButton();
         return;
       }
-      // Samsung Internet can install the site through a browser-generated Android package
-      // that may trigger Play Protect warnings on newer Android versions. Do not invoke it.
-      if(isAndroidDevice() && isSamsungInternet()){
+
+      // Android opened inside LINE / Facebook / Instagram:
+      // installation is unreliable there, so send the same page to Chrome.
+      if(isAndroidDevice() && isLineOrSocialInApp()){
         showInstallInstructions(`
-          <p><b>สำหรับ Samsung Internet</b></p>
-          <p>เพื่อหลีกเลี่ยงคำเตือนจาก Google Play Protect ให้เปิดเว็บไซต์นี้ด้วย <b>Google Chrome</b> ก่อนติดตั้ง</p>
-          <ol>
-            <li>คัดลอกลิงก์หน้านี้</li>
-            <li>เปิด <b>Google Chrome</b></li>
-            <li>วางลิงก์และเปิดเว็บไซต์</li>
-            <li>กด <b>📲 เพิ่มไปหน้าจอหลัก</b> อีกครั้ง แล้วกด <b>ติดตั้ง</b></li>
-          </ol>
-          <p class="install-note">ไม่จำเป็นต้องปิด Google Play Protect หรืออนุญาตแอปที่ถูกบล็อก</p>`);
+          <p><b>ติดตั้งผ่าน Google Chrome</b></p>
+          <p>LINE / Facebook / Instagram อาจบล็อกการติดตั้งจากเบราว์เซอร์ภายในแอป</p>
+          <button type="button" class="btn primary" id="openChromeInstallBtn">เปิดด้วย Chrome</button>
+          <p class="install-note">ระบบจะพยายามเปิด Chrome ให้อัตโนมัติ หาก Android ไม่อนุญาตให้แตะปุ่มด้านบน หรือเลือก “เปิดในเบราว์เซอร์ภายนอก” จากเมนูของแอป</p>`);
+        setTimeout(()=>openCurrentPageInChrome(),250);
         return;
       }
+
+      // Samsung Internet: prefer Chrome to avoid browser-generated APK / Play Protect warnings.
+      if(isAndroidDevice() && isSamsungInternet()){
+        showInstallInstructions(`
+          <p><b>แนะนำติดตั้งผ่าน Google Chrome</b></p>
+          <p>เพื่อหลีกเลี่ยงคำเตือนจาก Play Protect ให้เปิดเว็บไซต์นี้ด้วย Chrome ก่อนติดตั้ง</p>
+          <button type="button" class="btn primary" id="openChromeInstallBtn">เปิดด้วย Chrome</button>`);
+        return;
+      }
+
+      // Native PWA install prompt on supported Android Chrome / Chromium.
       if(deferredInstallPrompt){
-        deferredInstallPrompt.prompt();
+        const promptEvent=deferredInstallPrompt;
+        deferredInstallPrompt=null;
         try{
-          const choice = await deferredInstallPrompt.userChoice;
-          if(choice?.outcome === 'accepted') deferredInstallPrompt = null;
-        }catch(_err){}
+          await promptEvent.prompt();
+          const choice=await promptEvent.userChoice;
+          if(choice?.outcome==='accepted'){
+            const hint=document.getElementById('installAppHint');
+            if(hint) hint.textContent='ติดตั้ง ตลาดกระทุ่มแบน เรียบร้อยแล้ว';
+          }
+        }catch(err){ console.warn('PWA install prompt failed:',err); }
         refreshInstallButton();
         return;
       }
+
+      // iPhone/iPad: Apple does not expose the Android-style install prompt.
       if(isIOSDevice()){
-        showInstallInstructions(`
-          <p><b>บน iPhone / iPad</b></p>
-          <ol>
-            <li>เปิดหน้านี้ด้วย <b>Safari</b></li>
-            <li>แตะปุ่ม <b>แชร์ ⬆️</b></li>
-            <li>เลื่อนหา <b>“เพิ่มไปยังหน้าจอโฮม”</b></li>
-            <li>แตะ <b>เพิ่ม</b></li>
-          </ol>
-          <p class="install-note">จากนั้นไอคอน “ตลาดกระทุ่มแบน” จะอยู่บนหน้าจอเหมือนแอป</p>`);
+        if(isLineOrSocialInApp()){
+          showInstallInstructions(`
+            <p><b>ติดตั้งบน iPhone / iPad</b></p>
+            <p>ขณะนี้เปิดจาก LINE / Facebook / Instagram</p>
+            <ol>
+              <li>แตะเมนู <b>…</b> ของแอป</li>
+              <li>เลือก <b>เปิดใน Safari</b></li>
+              <li>ใน Safari กด <b>แชร์ ⬆️</b></li>
+              <li>เลือก <b>เพิ่มไปยังหน้าจอโฮม</b> → <b>เพิ่ม</b></li>
+            </ol>`);
+        }else{
+          showInstallInstructions(`
+            <p><b>ติดตั้ง “ตลาดกระทุ่มแบน” บน iPhone / iPad</b></p>
+            <ol>
+              <li>เปิดด้วย <b>Safari</b></li>
+              <li>กด <b>แชร์ ⬆️</b></li>
+              <li>เลือก <b>เพิ่มไปยังหน้าจอโฮม</b></li>
+              <li>กด <b>เพิ่ม</b></li>
+            </ol>
+            <p class="install-note">iOS ไม่อนุญาตให้เว็บไซต์กด Install อัตโนมัติเหมือน Android</p>`);
+        }
         return;
       }
-      showInstallInstructions(`
-        <p><b>อุปกรณ์นี้ยังไม่แสดงหน้าต่างติดตั้งอัตโนมัติ</b></p>
-        <p>ให้เปิดเมนูของเบราว์เซอร์ แล้วเลือก <b>ติดตั้งแอป</b> หรือ <b>เพิ่มไปยังหน้าจอหลัก</b></p>
-        <p class="install-note">บน Android แนะนำ Chrome หรือ Edge เวอร์ชันปัจจุบัน</p>`);
+
+      if(isAndroidDevice()){
+        showInstallInstructions(`
+          <p><b>ยังไม่พบคำสั่งติดตั้งจาก Android</b></p>
+          <button type="button" class="btn primary" id="openChromeInstallBtn">เปิดด้วย Chrome</button>
+          <p>หรือใน Chrome แตะ <b>⋮ → ติดตั้งแอป / เพิ่มลงในหน้าจอหลัก</b></p>`);
+        return;
+      }
+
+      showInstallInstructions(`<p><b>เบราว์เซอร์นี้ยังไม่รองรับการติดตั้งโดยตรง</b></p><p>ลองเปิดด้วย Chrome หรือใช้เมนูของเบราว์เซอร์เพื่อเพิ่มเว็บไซต์เป็นแอป</p>`);
     });
   }
 
+  document.addEventListener('click',(event)=>{
+    const btn=event.target?.closest?.('#openChromeInstallBtn');
+    if(btn){
+      event.preventDefault();
+      openCurrentPageInChrome();
+    }
+  });
+
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.22.11', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.22.21', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
