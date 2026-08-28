@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.18 Guest Header 3-Column Fix loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.19 Guest Header 3-Column Fix loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -959,7 +959,7 @@
     const box=$('missionContent');openModal('missionModal');if(box)box.innerHTML='<h2>🎯 Mission กระทุ่มแบน</h2><p>กำลังตรวจสอบความคืบหน้า...</p>';
     try{const [p,reward]=await Promise.all([loadMissionProgress(true),loadMissionReward(true)]);if(p.allDone&&db)await db.rpc('market_sync_mission_coupon_claim').catch(()=>{});const percent=Math.round(p.done/p.total*100);
       box.innerHTML=`<div class="mission-head"><div><span class="eyebrow red">ภารกิจเริ่มต้น</span><h2>🎯 Mission กระทุ่มแบน</h2><p>ลองใช้ฟังก์ชันต่าง ๆ ของตลาดให้ครบ ${p.total} ภารกิจ</p></div><strong class="mission-score">${p.done}/${p.total}</strong></div>${missionRewardHtml(reward,p.allDone)}<div class="mission-progress"><span style="width:${percent}%"></span></div><div class="mission-list">${p.items.map(m=>`<article class="mission-item ${m.done?'done':''}"><div class="mission-icon">${m.done?'✅':m.icon}</div><div class="mission-copy"><b>${esc(m.title)}</b><small>${esc(m.detail)}</small><div class="mission-mini-progress"><span style="width:${Math.min(100,Math.round(m.value/m.goal*100))}%"></span></div></div><strong>${m.value}/${m.goal}</strong></article>`).join('')}</div>${p.allDone?`<div class="mission-complete">🎉 Mission สำเร็จครบแล้ว!<small>${reward?.reward_active&&reward?.reward_title?'คุณได้รับสิทธิ์รางวัลตามที่แสดงด้านบน':'ขณะนี้ Admin ยังไม่ได้เปิดรางวัลสำหรับ Mission นี้'}</small></div>`:'<div class="mission-note">ระบบตรวจ Mission ให้อัตโนมัติ ไม่ต้องกดยืนยันว่าทำแล้ว</div>'}`;
-    }catch(err){box.innerHTML='<h2>🎯 Mission กระทุ่มแบน</h2><div class="mission-note">ยังโหลด Mission ไม่สำเร็จ กรุณารัน SQL Mission V1 ก่อน</div>';console.error(err);}
+    }catch(err){const msg=err?.message||String(err||'ไม่ทราบสาเหตุ');box.innerHTML=`<h2>🎯 Mission กระทุ่มแบน</h2><div class="mission-note">โหลด Mission ไม่สำเร็จ<br><small>${esc(msg)}</small></div>`;console.error('Mission load failed',err);}
   }
 
   async function openShopDetails(shopId){
