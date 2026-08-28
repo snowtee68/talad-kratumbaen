@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.22 Guest Header 3-Column Fix loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.23 Guest Header 3-Column Fix loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -1287,10 +1287,9 @@
     const form=ev.currentTarget,fd=new FormData(form);
     const shopId=String(fd.get('shop_id')||'');
     if(!currentDisplayName()){
-      alert('ก่อนรีวิว กรุณาตั้ง “ชื่อที่ใช้แสดงในระบบ” ที่หน้า บัญชีของฉัน ก่อน');
+      alert('ก่อนรีวิว กรุณาตั้ง “ชื่อที่ใช้แสดงในระบบ” ก่อน');
       closeModal('reviewModal');
-      $('dashboard')?.scrollIntoView({behavior:'smooth',block:'start'});
-      $('profileDisplayNameForm')?.elements?.display_name?.focus();
+      openProfileNameEditor();
       return;
     }
     const payload={
@@ -1535,6 +1534,14 @@
     if(status)status.textContent=name?`แสดงเป็น “${name}”`:'ยังไม่ได้ตั้งชื่อ';
   }
 
+  function openProfileNameEditor(){
+    if(!session)return openModal('authModal');
+    const form=$('mobileProfileDisplayNameForm');
+    if(form?.elements?.display_name)form.elements.display_name.value=currentDisplayName();
+    openModal('profileNameModal');
+    setTimeout(()=>form?.elements?.display_name?.focus(),80);
+  }
+
   async function refreshAuth(){
     if(!db){ updateAccountUI(); return; }
     const {data}=await db.auth.getSession(); session=data.session;
@@ -1565,6 +1572,9 @@
     if(headerUserName){
       headerUserName.textContent=session?(currentDisplayName()||'สมาชิก'):'';
       headerUserName.classList.toggle('hidden',!session);
+      headerUserName.title=session?'แตะเพื่อแก้ไขชื่อ':'';
+      headerUserName.setAttribute('role',session?'button':'status');
+      headerUserName.tabIndex=session?0:-1;
     }
     $('dashboard').classList.toggle('hidden',!session);
     const favBtn=$('favoritesBtn'); if(favBtn)favBtn.classList.toggle('hidden',!session);
@@ -1891,7 +1901,13 @@
     $('floatingHomeBtn')?.addEventListener('click',goHome);
     $('floatingBackBtn')?.addEventListener('click',goBack);
     document.querySelectorAll('[data-analytics-period]').forEach(btn=>btn.addEventListener('click',()=>loadAnalyticsDashboard(btn.dataset.analyticsPeriod||'7d')));
-    $('accountBtn').addEventListener('click',()=>session?$('dashboard').scrollIntoView({behavior:'smooth'}):openModal('authModal'));
+    $('accountBtn').addEventListener('click',()=>{
+      if(!session)return openModal('authModal');
+      if(window.matchMedia('(max-width:760px)').matches)return openProfileNameEditor();
+      $('dashboard').scrollIntoView({behavior:'smooth'});
+    });
+    $('headerUserName')?.addEventListener('click',()=>{if(session)openProfileNameEditor();});
+    $('headerUserName')?.addEventListener('keydown',ev=>{if(session&&(ev.key==='Enter'||ev.key===' ')){ev.preventDefault();openProfileNameEditor();}});
     $('guestSignUpBtn')?.addEventListener('click',()=>{setAuthMethod('email');openModal('authModal');setTimeout(()=>document.querySelector('#authModal input[name="email"]')?.focus(),60);});
     $('addShopBtn').addEventListener('click',()=>{if(!session)return openModal('authModal');$('shopForm').reset();fillOpeningHours($('shopForm'),{});$('shopFormTitle').textContent='เพิ่มร้านของฉัน';openModal('shopModal');});
     $('searchBtn').addEventListener('click',()=>resetShopList({scroll:true}));
@@ -2008,6 +2024,17 @@
     }
     $('shopForm').addEventListener('submit',submitShop);
     $('promotionForm').addEventListener('submit',submitPromotion);
+    $('mobileProfileDisplayNameForm')?.addEventListener('submit',async ev=>{
+      ev.preventDefault();
+      const form=ev.currentTarget;
+      const btn=form.querySelector('button[type=submit]');
+      btn.disabled=true;btn.textContent='กำลังบันทึก...';
+      try{
+        await saveMyDisplayName(form.elements.display_name.value);
+        closeModal('profileNameModal');
+      }catch(err){alert('บันทึกชื่อไม่สำเร็จ: '+(err.message||err));}
+      finally{btn.disabled=false;btn.textContent='💾 บันทึกชื่อ';}
+    });
     $('profileDisplayNameForm')?.addEventListener('submit',async ev=>{
       ev.preventDefault();
       const form=ev.currentTarget;
@@ -2304,7 +2331,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.22.22', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.22.23', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
