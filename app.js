@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.21 Guest Header 3-Column Fix loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.22 Guest Header 3-Column Fix loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -1062,13 +1062,21 @@
     if(!db){box.innerHTML='<p>ยังไม่มีรีวิว</p>';return;}
 
     const id=String(shopId||'').trim();
-    let {data,error}=await db
-      .from('market_reviews')
-      .select('id,shop_id,reviewer_name,rating,comment,status,created_at')
-      .eq('shop_id',id)
-      .eq('status','approved')
-      .order('created_at',{ascending:false})
-      .limit(50);
+    let data=null,error=null;
+    const rpcResult=await db.rpc('market_public_shop_reviews',{p_shop_id:id});
+    if(!rpcResult.error){
+      data=Array.isArray(rpcResult.data)?rpcResult.data:(rpcResult.data||[]);
+    }else{
+      console.warn('market_public_shop_reviews fallback',rpcResult.error);
+      const fallbackDirect=await db
+        .from('market_reviews')
+        .select('id,shop_id,reviewer_name,rating,comment,status,created_at')
+        .eq('shop_id',id)
+        .eq('status','approved')
+        .order('created_at',{ascending:false})
+        .limit(50);
+      data=fallbackDirect.data; error=fallbackDirect.error;
+    }
 
     // Fallback สำหรับกรณี client/query ไม่คืนแถว ทั้งที่สถิติบอกว่าร้านมีรีวิว
     if(!error && (!data || !data.length) && (reviewStats[id]?.count||0)>0){
@@ -1278,10 +1286,17 @@
     }
     const form=ev.currentTarget,fd=new FormData(form);
     const shopId=String(fd.get('shop_id')||'');
+    if(!currentDisplayName()){
+      alert('ก่อนรีวิว กรุณาตั้ง “ชื่อที่ใช้แสดงในระบบ” ที่หน้า บัญชีของฉัน ก่อน');
+      closeModal('reviewModal');
+      $('dashboard')?.scrollIntoView({behavior:'smooth',block:'start'});
+      $('profileDisplayNameForm')?.elements?.display_name?.focus();
+      return;
+    }
     const payload={
       shop_id:shopId,
       user_id:session.user.id,
-      reviewer_name:profile?.display_name||session.user.email?.split('@')[0]||'สมาชิกตลาด',
+      reviewer_name:currentDisplayName()||'สมาชิกตลาด',
       rating:Number(fd.get('rating')),
       comment:String(fd.get('comment')||'').trim(),
       status:'approved'
@@ -1486,12 +1501,53 @@
     }
   }
 
+
+  function cleanDisplayName(value=''){
+    return String(value||'').replace(/\s+/g,' ').trim().slice(0,50);
+  }
+
+  function currentDisplayName(){
+    return cleanDisplayName(profile?.display_name||session?.user?.user_metadata?.display_name||'');
+  }
+
+  async function saveMyDisplayName(name,{silent=false}={}){
+    if(!db||!session?.user?.id)throw new Error('กรุณาเข้าสู่ระบบก่อน');
+    const displayName=cleanDisplayName(name);
+    if(displayName.length<2)throw new Error('กรุณาตั้งชื่ออย่างน้อย 2 ตัวอักษร');
+    const {data,error}=await db.rpc('market_set_my_display_name',{p_display_name:displayName});
+    if(error)throw error;
+    const {data:p,error:profileError}=await db.from('market_profiles').select('*').eq('id',session.user.id).maybeSingle();
+    if(profileError)throw profileError;
+    profile=p;
+    try{await db.auth.updateUser({data:{display_name:displayName}});}catch(_err){}
+    updateAccountUI();
+    fillProfileDisplayName();
+    if(!silent)alert('บันทึกชื่อที่ใช้แสดงเรียบร้อยแล้ว');
+    return data;
+  }
+
+  function fillProfileDisplayName(){
+    const form=$('profileDisplayNameForm');
+    if(!form)return;
+    const name=currentDisplayName();
+    form.elements.display_name.value=name;
+    const status=$('profileNameStatus');
+    if(status)status.textContent=name?`แสดงเป็น “${name}”`:'ยังไม่ได้ตั้งชื่อ';
+  }
+
   async function refreshAuth(){
     if(!db){ updateAccountUI(); return; }
     const {data}=await db.auth.getSession(); session=data.session;
     profile=null;
-    if(session){const {data:p}=await db.from('market_profiles').select('*').eq('id',session.user.id).maybeSingle();profile=p;}
+    if(session){
+      const {data:p}=await db.from('market_profiles').select('*').eq('id',session.user.id).maybeSingle();profile=p;
+      const metadataName=cleanDisplayName(session.user.user_metadata?.display_name||'');
+      if(!cleanDisplayName(profile?.display_name)&&metadataName){
+        try{await saveMyDisplayName(metadataName,{silent:true});}catch(err){console.warn('display name metadata sync skipped',err);}
+      }
+    }
     updateAccountUI();
+    fillProfileDisplayName();
     await loadFavorites();
     renderShops(); renderRecommended();
     if(session) await loadDashboard();
@@ -1507,7 +1563,7 @@
         : '<span class="nav-ico">👤</span><span class="nav-label">เข้าสู่ระบบ</span>';
     }
     if(headerUserName){
-      headerUserName.textContent=session?(profile?.display_name||session.user.email||'บัญชีของฉัน'):'';
+      headerUserName.textContent=session?(currentDisplayName()||'สมาชิก'):'';
       headerUserName.classList.toggle('hidden',!session);
     }
     $('dashboard').classList.toggle('hidden',!session);
@@ -1878,6 +1934,8 @@
       const email=String(fd.get('email')||'').trim();
       const phone=normalizeLoginPhone(fd.get('phone'));
       const password=String(fd.get('password')||'');
+      const displayName=cleanDisplayName(fd.get('display_name'));
+      if(displayName.length<2)return alert('กรุณาตั้งชื่อที่ใช้แสดงอย่างน้อย 2 ตัวอักษร');
       if(password.length<6)return alert('กรุณากรอกรหัสผ่านอย่างน้อย 6 ตัว');
       if(method==='email'&&!email)return alert('กรุณากรอกอีเมล');
       if(method==='phone'&&!phone)return alert('กรุณากรอกเบอร์โทร 10 หลัก เช่น 0812345678');
@@ -1885,11 +1943,13 @@
       try{
         const signupEmail=method==='phone'?phoneLoginEmail(phone):email;
         const options=method==='phone'
-          ? {data:{signup_method:'phone_alias',phone_local:'0'+phone.slice(3),phone_e164:phone}}
-          : {emailRedirectTo:window.location.origin};
+          ? {data:{signup_method:'phone_alias',phone_local:'0'+phone.slice(3),phone_e164:phone,display_name:displayName}}
+          : {emailRedirectTo:window.location.origin,data:{display_name:displayName}};
         const {data,error}=await db.auth.signUp({email:signupEmail,password,options});
         if(error)throw error;
         if(data.session){
+          session=data.session;
+          try{await db.rpc('market_set_my_display_name',{p_display_name:displayName});}catch(err){console.warn('initial display name save skipped',err);}
           alert(method==='phone'?'สมัครด้วยเบอร์โทรสำเร็จ และเข้าสู่ระบบแล้ว':'สมัครสมาชิกสำเร็จ และเข้าสู่ระบบแล้ว');
           closeModal('authModal'); await refreshAuth();
         }else{
@@ -1948,6 +2008,15 @@
     }
     $('shopForm').addEventListener('submit',submitShop);
     $('promotionForm').addEventListener('submit',submitPromotion);
+    $('profileDisplayNameForm')?.addEventListener('submit',async ev=>{
+      ev.preventDefault();
+      const form=ev.currentTarget;
+      const btn=form.querySelector('button[type=submit]');
+      btn.disabled=true;btn.textContent='กำลังบันทึก...';
+      try{await saveMyDisplayName(form.elements.display_name.value);}
+      catch(err){alert('บันทึกชื่อไม่สำเร็จ: '+(err.message||err));}
+      finally{btn.disabled=false;btn.textContent='💾 บันทึกชื่อ';}
+    });
     $('reviewForm').addEventListener('submit',submitReview);
     $('openReviewBtn').addEventListener('click',()=>{closeModal('shopDetailModal');openModal('reviewModal');});
     $('showAllPromotionsBtn').addEventListener('click',openAllPromotions);
@@ -2235,7 +2304,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.22.21', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.22.22', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });

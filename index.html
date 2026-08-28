@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="ตลาดกระทุ่มแบน">
-  <link rel="manifest" href="manifest.webmanifest?v=0.5.22.21">
+  <link rel="manifest" href="manifest.webmanifest?v=0.5.22.22">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=5.7.9.15">
   <title>ตลาดกระทุ่มแบน</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -17,7 +17,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
-  <link rel="stylesheet" href="styles.css?v=0.5.22.21">
+  <link rel="stylesheet" href="styles.css?v=0.5.22.22">
 <link rel="stylesheet" href="order.css?v=0.5.20.42-restore">
 <style>
 #adminPanel .admin-control-center{margin-bottom:18px}
@@ -38,7 +38,7 @@
 #adminPanel .admin-coupon-links button{min-height:72px}
 @media(max-width:760px){#adminPanel .admin-control-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#adminPanel .admin-control-btn{min-height:82px}#adminPanel .admin-coupon-links{grid-template-columns:1fr}}
 
-/* Guest header layout — V0.5.22.21: fixed 3-column guest actions */
+/* Guest header layout — V0.5.22.22: fixed 3-column guest actions */
 body.guest-session .site-header .header-dashboard-nav{
   display:grid;grid-template-columns:minmax(0,1fr);gap:18px;align-items:start;padding-top:18px;padding-bottom:18px
 }
@@ -155,12 +155,20 @@ body:not(.guest-session) .site-header #guestSignUpBtn{display:none!important}
 
   <section id="dashboard" class="container section hidden">
     <div class="section-head"><div><span class="eyebrow red">บัญชีของฉัน</span><h2 id="dashboardTitle">ร้านของฉัน</h2></div><button id="signOutBtn" class="danger">ออกจากระบบ</button></div>
+    <section id="profileDisplayNameCard" class="admin-mission-reward profile-display-name-card">
+      <div class="section-head"><div><span class="eyebrow red">โปรไฟล์</span><h3>👤 ชื่อที่ใช้แสดงในระบบ</h3></div><span id="profileNameStatus" class="muted"></span></div>
+      <p class="muted">ชื่อนี้ใช้แทนอีเมลหรือเบอร์โทรในส่วนสาธารณะ เช่น รีวิว โดยไม่เปลี่ยนข้อมูลเข้าสู่ระบบของคุณ</p>
+      <form id="profileDisplayNameForm" class="mission-reward-form">
+        <label>ชื่อที่ต้องการให้แสดง<input name="display_name" type="text" maxlength="50" placeholder="เช่น พี่นัท / เจ๊ภา / วรวุฒิ" required></label>
+        <button type="submit" class="primary">💾 บันทึกชื่อ</button>
+      </form>
+    </section>
     <div id="adminPanel" class="hidden"><section class="admin-mission-reward"><div class="section-head"><div><span class="eyebrow red">Delivery</span><h3>🛵 ควบคุมระบบ Delivery</h3></div><span id="deliverySystemAdminStatus" class="muted"></span></div><p class="muted">สวิตช์หลักสำหรับออเดอร์ใหม่ของทุกร้าน เมื่อปิด ลูกค้าจะเลือกได้เฉพาะรับเองที่ร้าน โดยค่าการเปิด Delivery รายร้านจะยังถูกเก็บไว้เหมือนเดิม</p><form id="deliverySystemForm" class="mission-reward-form"><label class="check mission-master-toggle"><input name="delivery_enabled" type="checkbox" checked> <b>🛵 เปิดระบบ Delivery ทั้งระบบ</b><small>ปิด = ออเดอร์ใหม่ทั้งหมดบังคับเป็น “รับเองที่ร้าน” และคูปอง Delivery-only จะไม่แสดง</small></label><button type="submit" class="primary">💾 บันทึกการตั้งค่า Delivery</button></form></section><section class="admin-mission-reward"><div class="section-head"><div><span class="eyebrow red">Rider</span><h3>🛵 จัดการวิน / ไรเดอร์</h3></div><div style="display:flex;gap:8px;align-items:center"><span id="riderRegistryStatus" class="muted"></span><button id="adminRiderRefreshBtn" type="button" class="secondary">↻ รีเฟรช</button></div></div><p class="muted">ระบบจะบันทึกชื่อและเบอร์ของวินที่กดรับงาน Delivery ให้อัตโนมัติ และ Admin สามารถเพิ่มวินไว้ล่วงหน้าหรือปิดใช้งานได้</p><form id="adminRiderForm" class="mission-reward-form" style="margin-bottom:16px"><div class="form-grid"><label>ชื่อวิน / ชื่อเรียก<input name="rider_name" maxlength="120" placeholder="เช่น พี่เอก วินตลาด" required></label><label>เบอร์โทร<input name="rider_phone" inputmode="tel" maxlength="20" placeholder="08xxxxxxxx" required></label></div><button type="submit" class="primary">＋ เพิ่มวินในทะเบียน</button></form><h4>วินในระบบ</h4><div id="adminRiderList" style="overflow-x:auto"></div><h4 style="margin-top:18px">งาน Delivery ล่าสุด</h4><p class="muted">แสดงวินที่รับงาน เบอร์ติดต่อ เวลาเริ่มรับงาน และสถานะล่าสุด</p><div id="adminRiderJobs" style="overflow-x:auto"></div></section><section class="admin-mission-reward"><div class="section-head"><div><span class="eyebrow red">Mission</span><h3>🎁 ตั้งค่ารางวัล Mission</h3></div><span id="missionRewardAdminStatus" class="muted"></span></div><p class="muted">เปิด/ปิดกิจกรรม Mission ทั้งระบบ และกำหนดรางวัลที่ผู้ใช้จะเห็นเมื่อทำภารกิจครบ</p><form id="missionRewardForm" class="mission-reward-form"><label class="check mission-master-toggle"><input name="mission_active" type="checkbox" checked> <b>🎯 เปิดระบบ Mission</b><small>เมื่อปิด ปุ่ม Mission และ Popup แนะนำกิจกรรมจะไม่แสดงต่อผู้ใช้</small></label><label>ชื่อรางวัล<input name="reward_title" maxlength="120" placeholder="เช่น รับไอศกรีมฟรี 1 โคน"></label><label>รายละเอียดรางวัล<textarea name="reward_detail" rows="3" maxlength="500" placeholder="เช่น รับได้ที่ร้านที่ร่วมรายการ ภายในวันที่..."></textarea></label><label>วิธีรับรางวัล / หมายเหตุ<textarea name="claim_note" rows="2" maxlength="500" placeholder="เช่น แสดงหน้า Mission ที่สำเร็จต่อพนักงาน"></textarea></label><label class="check"><input name="reward_active" type="checkbox"> เปิดแสดงรางวัลนี้ให้ผู้ใช้</label><button type="submit" class="primary">💾 บันทึกการตั้งค่า Mission</button></form></section><section class="analytics-panel"><div class="analytics-head"><div><h3>📊 สถิติการใช้งานเว็บไซต์</h3><p class="muted">นับแบบไม่เก็บ IP หรือข้อมูลส่วนบุคคล • ผู้เข้าชมเป็นค่าประมาณจาก anonymous session</p></div><div class="analytics-range"><button type="button" data-analytics-period="today">วันนี้</button><button type="button" data-analytics-period="7d" class="active">7 วัน</button><button type="button" data-analytics-period="30d">30 วัน</button><button type="button" data-analytics-period="all">ทั้งหมด</button></div></div><p id="analyticsPeriodCaption" class="muted">7 วันปฏิทินล่าสุด</p><div id="analyticsCards" class="analytics-cards"><div class="analytics-loading">กำลังโหลดสถิติ...</div></div><div class="analytics-shop-section"><h4>ร้านที่ถูกเปิดดูมากที่สุด</h4><div id="analyticsTopShops" class="analytics-top-shops"></div></div></section><h3>ร้านที่รออนุมัติ</h3><div id="pendingGrid" class="grid compact"></div><h3>ร้านค้าทั้งหมด (Admin)</h3><p class="muted">แอดมินสามารถแก้ไขข้อมูลร้าน หมวดหมู่ จุดสังเกต พิกัด และช่องทางติดต่อได้ โดยเจ้าของร้านเดิมยังคงเป็นเจ้าของร้าน</p><div id="adminAllGrid" class="grid compact"></div></div>
     <h3>ร้านที่ฉันดูแล</h3><div id="myShopGrid" class="grid compact"></div>
   </section>
 </main>
 
-<footer><div class="container support-footer"><div>ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ <span class="version-badge">V0.5.22.21</span></div><a class="support-openchat-link" href="https://line.me/ti/g2/26r6PGveA0bN-PKo8YNyw7dd2lF_ejymNdCNKw?utm_source=invitation&utm_medium=link_copy&utm_campaign=default" target="_blank" rel="noopener noreferrer">💬 สอบถาม / แจ้งปัญหาการใช้งาน</a></div></footer>
+<footer><div class="container support-footer"><div>ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ <span class="version-badge">V0.5.22.22</span></div><a class="support-openchat-link" href="https://line.me/ti/g2/26r6PGveA0bN-PKo8YNyw7dd2lF_ejymNdCNKw?utm_source=invitation&utm_medium=link_copy&utm_campaign=default" target="_blank" rel="noopener noreferrer">💬 สอบถาม / แจ้งปัญหาการใช้งาน</a></div></footer>
 
 <nav class="floating-navigation" aria-label="ทางลัดหน้าเว็บ">
   <button id="floatingBackBtn" type="button" class="floating-nav-button" aria-label="ย้อนกลับ">← <span>กลับ</span></button>
@@ -169,11 +177,11 @@ body:not(.guest-session) .site-header #guestSignUpBtn{display:none!important}
 </nav>
 
 
-<div id="installAppModal" class="modal hidden"><div class="backdrop" data-close="installAppModal"></div><div class="modal-card small install-modal-card"><button class="close" data-close="installAppModal">×</button><h2>📲 เพิ่มไปหน้าจอหลัก</h2><div id="installAppInstructions" class="install-app-instructions"></div></div></div>
+<div id="installAppModal" class="modal hidden"><div class="backdrop" data-close="installAppModal"></div><div class="modal-card small install-modal-card"><button class="close" data-close="installAppModal">×</button><h2>📲 ติดตั้ง ตลาดกระทุ่มแบน</h2><div id="installAppInstructions" class="install-app-instructions"></div></div></div>
 
 <div id="favoritesModal" class="modal hidden"><div class="backdrop" data-close="favoritesModal"></div><div class="modal-card"><button class="close" data-close="favoritesModal">×</button><div class="section-head"><div><span class="eyebrow red">บัญชีของฉัน</span><h2>❤️ ร้านชื่นชอบของฉัน</h2></div><span id="favoriteCount"></span></div><div id="favoriteGrid" class="grid compact"></div></div></div>
 
-<div id="authModal" class="modal hidden"><div class="backdrop" data-close="authModal"></div><div class="modal-card small"><button class="close" data-close="authModal">×</button><h2>เข้าสู่ระบบ / สมัครสมาชิก</h2><p>เลือกเข้าสู่ระบบด้วยอีเมล หรือเบอร์โทรศัพท์</p><form id="authForm"><div class="auth-method-switch"><button type="button" class="auth-method active" data-auth-method="email">📧 อีเมล</button><button type="button" class="auth-method" data-auth-method="phone">📱 เบอร์โทร</button></div><input type="hidden" name="auth_method" value="email"><label id="authEmailLabel">อีเมล<input name="email" type="email" autocomplete="email"></label><label id="authPhoneLabel" class="hidden">เบอร์โทรศัพท์<input name="phone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="0812345678"></label><div id="authPhoneHelp" class="auth-help hidden">ไม่ใช้ OTP/SMS · ใช้เบอร์โทร + รหัสผ่าน</div><label>รหัสผ่าน<span class="password-field"><input name="password" type="password" minlength="6" required><button type="button" class="password-toggle" data-password-toggle aria-label="แสดงรหัสผ่าน" title="แสดงรหัสผ่าน">👁️</button></span></label><div class="row"><button type="submit" class="primary">เข้าสู่ระบบ</button><button type="button" id="signUpBtn" class="ghost">สมัครสมาชิก</button></div><button type="button" id="forgotPasswordBtn" class="text-button">ลืมรหัสผ่าน</button></form></div></div>
+<div id="authModal" class="modal hidden"><div class="backdrop" data-close="authModal"></div><div class="modal-card small"><button class="close" data-close="authModal">×</button><h2>เข้าสู่ระบบ / สมัครสมาชิก</h2><p>เลือกเข้าสู่ระบบด้วยอีเมล หรือเบอร์โทรศัพท์</p><form id="authForm"><div class="auth-method-switch"><button type="button" class="auth-method active" data-auth-method="email">📧 อีเมล</button><button type="button" class="auth-method" data-auth-method="phone">📱 เบอร์โทร</button></div><input type="hidden" name="auth_method" value="email"><label id="authEmailLabel">อีเมล<input name="email" type="email" autocomplete="email"></label><label id="authPhoneLabel" class="hidden">เบอร์โทรศัพท์<input name="phone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="0812345678"></label><div id="authPhoneHelp" class="auth-help hidden">ไม่ใช้ OTP/SMS · ใช้เบอร์โทร + รหัสผ่าน</div><label>ชื่อที่ใช้แสดงในระบบ <small class="muted">(ใช้ตอนสมัครสมาชิก)</small><input name="display_name" type="text" maxlength="50" autocomplete="nickname" placeholder="เช่น พี่นัท / เจ๊ภา / วรวุฒิ"></label><label>รหัสผ่าน<span class="password-field"><input name="password" type="password" minlength="6" required><button type="button" class="password-toggle" data-password-toggle aria-label="แสดงรหัสผ่าน" title="แสดงรหัสผ่าน">👁️</button></span></label><div class="row"><button type="submit" class="primary">เข้าสู่ระบบ</button><button type="button" id="signUpBtn" class="ghost">สมัครสมาชิก</button></div><button type="button" id="forgotPasswordBtn" class="text-button">ลืมรหัสผ่าน</button></form></div></div>
 
 <div id="shopModal" class="modal hidden"><div class="backdrop" data-close="shopModal"></div><div class="modal-card"><button class="close" data-close="shopModal">×</button><h2 id="shopFormTitle">เพิ่มร้านของฉัน</h2><p>ข้อมูลจะรอการตรวจสอบก่อนเผยแพร่</p><form id="shopForm"><input type="hidden" name="id"><div class="form-grid">
 <label>ชื่อร้าน *<input name="name" required></label><label>หมวดหมู่ *<select name="category_id" id="categorySelect" required></select></label>
@@ -239,8 +247,8 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
-<script src="app.js?v=0.5.22.21"></script>
-<script src="order.js?v=0.5.22.21"></script>
+<script src="app.js?v=0.5.22.22"></script>
+<script src="order.js?v=0.5.22.22"></script>
 
 </body>
 </html>
