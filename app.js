@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.45 Guest Header 3-Column Fix loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.47 Guest Header 3-Column Fix loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -307,8 +307,23 @@
   };
   const showNotice = (text, isError=false) => { const n=$('notice'); n.textContent=text; n.classList.remove('hidden'); n.style.background=isError?'#ffe5e5':'#fff4d7'; };
   const hideNotice = () => $('notice').classList.add('hidden');
-  const openModal = id => { $(id).classList.remove('hidden'); document.body.style.overflow='hidden'; };
-  const closeModal = id => { $(id).classList.add('hidden'); document.body.style.overflow=''; };
+  const syncModalBodyState = () => {
+    const hasOpenModal = Boolean(document.querySelector('.modal:not(.hidden)'));
+    document.body.classList.toggle('market-modal-open', hasOpenModal);
+    document.body.style.overflow = hasOpenModal ? 'hidden' : '';
+  };
+  const openModal = id => {
+    const modal=$(id);
+    if(!modal)return;
+    modal.classList.remove('hidden');
+    syncModalBodyState();
+  };
+  const closeModal = id => {
+    const modal=$(id);
+    if(!modal)return;
+    modal.classList.add('hidden');
+    syncModalBodyState();
+  };
 
 
   const IMAGE_LIMITS = {
@@ -2490,7 +2505,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.22.45', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.22.47', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
