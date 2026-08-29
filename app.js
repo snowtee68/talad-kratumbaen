@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.44 Guest Header 3-Column Fix loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.45 Guest Header 3-Column Fix loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -94,7 +94,7 @@
     const btn=$('riderJoinBtn'),label=$('riderJoinLabel');
     if(!btn||!label)return;
     const st=myRiderApplication?.status;
-    label.textContent=st==='approved'?'งานวิน':st==='pending'?'รอตรวจสอบวิน':st==='rejected'?'สมัครวินอีกครั้ง':'สมัครเป็นวิน';
+    label.textContent=st==='approved'?'งานวิน':st==='pending'?'รอตรวจสอบวิน':st==='rejected'?'สมัครเป็นวินโครงการ':'สมัครเป็นวินโครงการ';
     btn.title=st==='approved'?'บัญชีวินของฉัน':st==='pending'?'ดูสถานะคำขอสมัครวิน':'สมัครเป็นวินส่งของ';
   }
 
@@ -118,12 +118,12 @@
         if(title)title.textContent='🛵 งานวิน';
         form.classList.add('hidden'); approved?.classList.remove('hidden');
       }else{
-        if(title)title.textContent='🛵 สมัครเป็นวินอีกครั้ง';
+        if(title)title.textContent='🛵 สมัครเป็นวินโครงการ';
         [...form.elements].forEach(el=>el.disabled=false);
-        form.querySelector('button[type=submit]').textContent='ส่งใบสมัครใหม่';
+        form.querySelector('button[type=submit]').textContent='ส่งใบสมัครเป็นวิน';
       }
     }else{
-      if(title)title.textContent='🛵 สมัครเป็นวินส่งของ';
+      if(title)title.textContent='🛵 สมัครเป็นวินโครงการ';
       if(status)status.textContent='กรอกข้อมูลเพื่อส่งให้ Admin ตรวจสอบ';
       [...form.elements].forEach(el=>el.disabled=false);
       form.reset();
@@ -2490,7 +2490,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.22.44', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.22.45', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
