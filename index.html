@@ -8,8 +8,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="ตลาดกระทุ่มแบน">
-  <link rel="manifest" href="manifest.webmanifest?v=0.5.22.29">
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=0.5.22.29">
+  <link rel="manifest" href="manifest.webmanifest?v=0.5.22.32">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=0.5.22.32">
   <title>ตลาดกระทุ่มแบน</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,7 +17,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
-  <link rel="stylesheet" href="styles.css?v=0.5.22.29">
+  <link rel="stylesheet" href="styles.css?v=0.5.22.32">
 <link rel="stylesheet" href="order.css?v=0.5.20.42-restore">
 <style>
 #adminPanel .admin-control-center{margin-bottom:18px}
@@ -38,7 +38,7 @@
 #adminPanel .admin-coupon-links button{min-height:72px}
 @media(max-width:760px){#adminPanel .admin-control-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#adminPanel .admin-control-btn{min-height:82px}#adminPanel .admin-coupon-links{grid-template-columns:1fr}}
 
-/* Guest header layout — V0.5.22.29: fixed 3-column guest actions */
+/* Guest header layout — V0.5.22.32: fixed 3-column guest actions */
 body.guest-session .site-header .header-dashboard-nav{
   display:grid;grid-template-columns:minmax(0,1fr);gap:18px;align-items:start;padding-top:18px;padding-bottom:18px
 }
@@ -83,57 +83,9 @@ body:not(.guest-session) .site-header #guestSignUpBtn{display:none!important}
   body.guest-session .site-header .nav-actions .nav-label{font-size:13px}
   body.guest-session .site-header #addShopBtn{min-height:54px!important}
 }
-
-/* V0.5.22.29 — Mobile navigation redesign. Brand/logo/theme remain unchanged. */
-.mobile-quick-actions,.mobile-bottom-taskbar,.mobile-more-menu{display:none}
-@media(max-width:760px){
-  body{padding-bottom:calc(78px + env(safe-area-inset-bottom))}
-  .site-header .header-dashboard-nav{padding-bottom:10px!important}
-  .site-header .nav-actions{display:none!important}
-  .mobile-quick-actions{
-    display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;
-    margin:8px 12px 10px;padding:9px;background:#fff;border:1px solid rgba(179,18,23,.10);
-    border-radius:18px;box-shadow:0 7px 24px rgba(40,20,20,.07);position:relative;z-index:15
-  }
-  .mobile-quick-actions button{
-    appearance:none;border:0;background:transparent;min-width:0;padding:7px 2px;display:flex;
-    flex-direction:column;align-items:center;gap:4px;font-family:inherit;color:#292524
-  }
-  .mobile-quick-actions button>span{font-size:23px;line-height:1}
-  .mobile-quick-actions small{font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-  .desktop-floating-navigation{display:none!important}
-  .mobile-bottom-taskbar{
-    display:grid;grid-template-columns:repeat(4,1fr);position:fixed;left:0;right:0;bottom:0;z-index:9000;
-    padding:7px 8px calc(7px + env(safe-area-inset-bottom));background:rgba(255,255,255,.97);
-    border-top:1px solid #eee;box-shadow:0 -8px 28px rgba(0,0,0,.08);backdrop-filter:blur(14px)
-  }
-  .mobile-bottom-taskbar button{
-    position:relative;appearance:none;border:0;background:transparent;padding:4px 1px;min-height:50px;
-    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-family:inherit;color:#444
-  }
-  .mobile-bottom-taskbar button>span{font-size:21px;line-height:1.05}
-  .mobile-bottom-taskbar small{font-size:10.5px;font-weight:700;line-height:1.15}
-  .mobile-bottom-taskbar button.active{color:#b31217}
-  .mobile-bottom-taskbar button.active:before{content:"";position:absolute;top:-7px;width:34px;height:3px;border-radius:99px;background:#b31217}
-  #mobileOrderBadge{display:none;position:absolute;top:1px;left:calc(50% + 8px);min-width:17px;height:17px;padding:0 4px;border-radius:99px;background:#c70f17;color:#fff;font:800 10px/17px Prompt,sans-serif;font-style:normal}
-  #mobileOrderBadge.show{display:block}
-  .mobile-more-menu{display:block;position:fixed;inset:0;z-index:9500}
-  .mobile-more-menu.hidden{display:none}
-  .mobile-more-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.34)}
-  .mobile-more-sheet{
-    position:absolute;left:10px;right:10px;bottom:calc(72px + env(safe-area-inset-bottom));background:#fff;
-    border-radius:20px;padding:8px 12px 12px;box-shadow:0 20px 60px rgba(0,0,0,.22)
-  }
-  .mobile-more-head{display:flex;align-items:center;justify-content:space-between;padding:8px 4px 10px;border-bottom:1px solid #eee}
-  .mobile-more-head button{border:0;background:#f5f5f5;border-radius:50%;width:34px;height:34px;font-size:22px}
-  .mobile-more-sheet>button,.mobile-more-sheet>a{
-    width:100%;border:0;border-bottom:1px solid #f1f1f1;background:#fff;color:#292524;text-decoration:none;
-    min-height:49px;padding:10px 5px;display:flex;align-items:center;gap:12px;font:600 14px Prompt,sans-serif;text-align:left
-  }
-  .mobile-more-sheet>button:last-child,.mobile-more-sheet>a:last-child{border-bottom:0}
-}
 </style>
 
+<link rel="stylesheet" href="responsive-ui-v0.5.22.32.css?v=0.5.22.32">
 </head>
 <body class="guest-session">
 <header class="site-header">
@@ -156,16 +108,18 @@ body:not(.guest-session) .site-header #guestSignUpBtn{display:none!important}
   </div>
 </header>
 
-<!-- V0.5.22.29: Mobile quick actions. These are proxy buttons only; original functions remain unchanged. -->
-<div class="mobile-quick-actions" id="mobileQuickActions" aria-label="เมนูลัด">
-  <button type="button" data-proxy="favoritesBtn"><span>❤️</span><small>ร้านชื่นชอบ</small></button>
-  <button type="button" data-proxy="missionBtn"><span>🎯</span><small>Mission</small></button>
-  <button type="button" data-proxy="riderJoinBtn"><span>🛵</span><small id="mobileRiderLabel">สมัครเป็นวิน</small></button>
-  <button type="button" id="mobileMoreBtn"><span>•••</span><small>เพิ่มเติม</small></button>
-</div>
-
 <main id="top">
-  <section class="hero">
+  <section class="market-photo-banner" aria-label="บรรยากาศตลาดกระทุ่มแบน">
+  <img src="assets/krathumbaen-market-banner.jpg?v=0.5.22.32" alt="บรรยากาศริมคลองตลาดกระทุ่มแบน" loading="eager" decoding="async">
+  <div class="market-photo-overlay">
+    <div class="container market-photo-copy">
+      <b>ตลาดกระทุ่มแบน</b>
+      <span>ของดีเมืองกระทุ่มแบน • สนับสนุนร้านค้าในชุมชน</span>
+    </div>
+  </div>
+</section>
+
+<section class="hero">
     <div class="container hero-grid">
       <div>
         <span class="eyebrow">ตลาดของคนกระทุ่มแบน</span>
@@ -235,32 +189,13 @@ body:not(.guest-session) .site-header #guestSignUpBtn{display:none!important}
   </section>
 </main>
 
-<footer><div class="container support-footer"><div>ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ <span class="version-badge">V0.5.22.29</span></div><a class="support-openchat-link" href="https://line.me/ti/g2/26r6PGveA0bN-PKo8YNyw7dd2lF_ejymNdCNKw?utm_source=invitation&utm_medium=link_copy&utm_campaign=default" target="_blank" rel="noopener noreferrer">💬 สอบถาม / แจ้งปัญหาการใช้งาน</a></div></footer>
+<footer><div class="container support-footer"><div>ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ <span class="version-badge">V0.5.22.32</span></div><a class="support-openchat-link" href="https://line.me/ti/g2/26r6PGveA0bN-PKo8YNyw7dd2lF_ejymNdCNKw?utm_source=invitation&utm_medium=link_copy&utm_campaign=default" target="_blank" rel="noopener noreferrer">💬 สอบถาม / แจ้งปัญหาการใช้งาน</a></div></footer>
 
-<nav class="floating-navigation desktop-floating-navigation" aria-label="ทางลัดหน้าเว็บ">
+<nav class="floating-navigation" aria-label="ทางลัดหน้าเว็บ">
   <button id="floatingBackBtn" type="button" class="floating-nav-button" aria-label="ย้อนกลับ">← <span>กลับ</span></button>
   <button id="floatingHomeBtn" type="button" class="floating-nav-button home" aria-label="กลับหน้าหลัก">🏠 <span>หน้าหลัก</span></button>
   <a class="floating-nav-button support" href="https://line.me/ti/g2/26r6PGveA0bN-PKo8YNyw7dd2lF_ejymNdCNKw?utm_source=invitation&utm_medium=link_copy&utm_campaign=default" target="_blank" rel="noopener noreferrer" aria-label="สอบถามหรือแจ้งปัญหาการใช้งานผ่าน LINE OpenChat">💬 <span>ช่วยเหลือ</span></a>
 </nav>
-
-<nav class="mobile-bottom-taskbar" aria-label="เมนูหลัก">
-  <button type="button" class="active" data-mobile-action="home"><span>🏠</span><small>หน้าหลัก</small></button>
-  <button type="button" data-proxy="marketOrdersBtn"><span>📋</span><small>ออเดอร์</small><i id="mobileOrderBadge"></i></button>
-  <button type="button" data-proxy="couponWalletBtn"><span>🎟️</span><small>คูปองของฉัน</small></button>
-  <button type="button" data-proxy="accountBtn"><span>🏪</span><small id="mobileAccountLabel">ร้านของฉัน</small></button>
-</nav>
-
-<div id="mobileMoreMenu" class="mobile-more-menu hidden" aria-hidden="true">
-  <div class="mobile-more-backdrop" data-mobile-more-close></div>
-  <div class="mobile-more-sheet">
-    <div class="mobile-more-head"><b>เพิ่มเติม</b><button type="button" data-mobile-more-close>×</button></div>
-    <button type="button" data-proxy="nearBtn">📍 <span>ร้านใกล้ฉัน</span></button>
-    <button type="button" data-proxy="addShopBtn">➕ <span>เพิ่มร้านของคุณ</span></button>
-    <button type="button" data-proxy="installAppBtn">📲 <span>ติดตั้งแอป / เพิ่มไปหน้าจอ</span></button>
-    <button type="button" data-proxy="guestSignUpBtn" data-guest-only>👤＋ <span>สมัครสมาชิก</span></button>
-    <a href="https://line.me/ti/g2/26r6PGveA0bN-PKo8YNyw7dd2lF_ejymNdCNKw?utm_source=invitation&utm_medium=link_copy&utm_campaign=default" target="_blank" rel="noopener noreferrer">💬 <span>ติดต่อ / แจ้งปัญหา</span></a>
-  </div>
-</div>
 
 
 <div id="installAppModal" class="modal hidden"><div class="backdrop" data-close="installAppModal"></div><div class="modal-card small install-modal-card"><button class="close" data-close="installAppModal">×</button><h2>📲 ติดตั้ง ตลาดกระทุ่มแบน</h2><div id="installAppInstructions" class="install-app-instructions"></div></div></div>
@@ -371,66 +306,39 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
+<script src="app.js?v=0.5.22.32"></script>
+
+<nav class="unified-app-dock" aria-label="เมนูหลัก">
+  <button type="button" data-dock-action="home" aria-label="หน้าหลัก">
+    <span class="dock-icon">🏠</span><span class="dock-label">หน้าหลัก</span>
+  </button>
+  <button type="button" data-dock-target="marketOrdersBtn" aria-label="ออเดอร์">
+    <span class="dock-icon">📋</span><span class="dock-label">ออเดอร์</span>
+  </button>
+  <button type="button" data-dock-target="couponWalletBtn" aria-label="คูปองของฉัน">
+    <span class="dock-icon">🎟️</span><span class="dock-label">คูปองของฉัน</span>
+  </button>
+  <button type="button" data-dock-target="accountBtn" aria-label="ร้านของฉัน">
+    <span class="dock-icon">🏪</span><span class="dock-label">ร้านของฉัน</span>
+  </button>
+</nav>
+
+<script src="order.js?v=0.5.22.32"></script>
+
 
 <script>
-(function(){
-  function clickTarget(id){
-    const el=document.getElementById(id);
-    if(el && !el.classList.contains('hidden')) el.click();
-    else if(id==='couponWalletBtn'||id==='marketOrdersBtn'||id==='accountBtn') el?.click();
+document.addEventListener('click', function (event) {
+  const home = event.target.closest('[data-dock-action="home"]');
+  if (home) {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    return;
   }
-  document.addEventListener('click',function(ev){
-    const proxy=ev.target.closest('[data-proxy]');
-    if(proxy){
-      const id=proxy.getAttribute('data-proxy');
-      document.getElementById('mobileMoreMenu')?.classList.add('hidden');
-      clickTarget(id); return;
-    }
-    if(ev.target.closest('[data-mobile-action="home"]')){
-      window.scrollTo({top:0,behavior:'smooth'}); return;
-    }
-    if(ev.target.closest('#mobileMoreBtn')){
-      const m=document.getElementById('mobileMoreMenu');m?.classList.remove('hidden');m?.setAttribute('aria-hidden','false');return;
-    }
-    if(ev.target.closest('[data-mobile-more-close]')){
-      const m=document.getElementById('mobileMoreMenu');m?.classList.add('hidden');m?.setAttribute('aria-hidden','true');
-    }
-  });
-  function syncMobileNav(){
-    const rider=document.getElementById('riderJoinLabel');
-    const mr=document.getElementById('mobileRiderLabel');
-    if(rider&&mr){
-      const next=(rider.textContent||'สมัครเป็นวิน').trim();
-      if(mr.textContent!==next) mr.textContent=next;
-    }
-    const acct=document.getElementById('accountBtn')?.querySelector('.nav-label');
-    const ma=document.getElementById('mobileAccountLabel');
-    if(ma){
-      const next=(acct&&/เข้าสู่ระบบ/.test(acct.textContent||''))?'เข้าสู่ระบบ':'ร้านของฉัน';
-      if(ma.textContent!==next) ma.textContent=next;
-    }
-    document.querySelectorAll('[data-guest-only]').forEach(el=>{
-      const next=document.body.classList.contains('guest-session')?'':'none';
-      if(el.style.display!==next) el.style.display=next;
-    });
-    const badge=document.querySelector('#marketOrdersBtn .order-notify-badge');
-    const mb=document.getElementById('mobileOrderBadge');
-    if(mb){
-      const val=(badge?.textContent||'').trim();
-      mb.textContent=val;
-      mb.classList.toggle('show',!!val && getComputedStyle(badge).display!=='none');
-    }
-  }
-  window.addEventListener('load',syncMobileNav);
-  setTimeout(syncMobileNav,300);
-  setTimeout(syncMobileNav,1000);
-  // Local UI-only sync. No API/backend polling.
-  setInterval(syncMobileNav,2000);
-})();
+  const proxy = event.target.closest('[data-dock-target]');
+  if (!proxy) return;
+  const target = document.getElementById(proxy.getAttribute('data-dock-target'));
+  if (target) target.click();
+});
 </script>
-
-<script src="app.js?v=0.5.22.29"></script>
-<script src="order.js?v=0.5.22.29"></script>
 
 </body>
 </html>
