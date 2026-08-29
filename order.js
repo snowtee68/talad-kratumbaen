@@ -436,7 +436,16 @@
     document.getElementById('marketOrdersBtn')?.addEventListener('click',()=>{if(!session)return requireLogin();return Number(orderNotifyState.activeSellerOrders||0)>0?openSellerOrdersFromNav():openOrdersRoleHub();});
     document.addEventListener('click',e=>{
       if(e.target.closest('[data-mo-close]'))return closeModal();
-      const orderBtn=e.target.closest('[data-market-order-shop]');if(orderBtn){e.preventDefault();return openShopMenu(orderBtn.dataset.marketOrderShop);}
+      const orderBtn=e.target.closest('[data-market-order-shop]');
+      if(orderBtn){
+        e.preventDefault();
+        const shopDetail=document.getElementById('shopDetailModal');
+        if(shopDetail && !shopDetail.classList.contains('hidden')){
+          shopDetail.classList.add('hidden');
+          document.body.classList.remove('market-modal-open');
+        }
+        return openShopMenu(orderBtn.dataset.marketOrderShop);
+      }
       const add=e.target.closest('[data-add-product]');if(add)return addProduct(add.dataset.addProduct);
       if(e.target.closest('#confirmAddConfiguredProduct'))return confirmAddConfiguredProduct();
       if(e.target.closest('#customQtyMinus'))return changeCustomQty(-1);
@@ -498,8 +507,25 @@
     document.addEventListener('input',e=>{const el=e.target.closest('[data-draft-field]');if(el)draftFieldChanged(el);const q=e.target.closest('#orderSearchInput');if(q){orderSearchTerm=q.value||'';customerOrderPage=1;sellerOrderPage=1;clearTimeout(window.__orderSearchTimer);window.__orderSearchTimer=setTimeout(()=>{const sid=document.getElementById('sellerShopId')?.value;if(sid)(document.getElementById('sellerOrdersOnly')?openSellerOrders(sid):openSellerShop(sid));else renderHubTab('customer');},250);}});
     document.addEventListener('change',e=>{if(e.target.id==='coProvince')return provinceChanged();if(e.target.id==='coDistrict')return districtChanged();if(e.target.id==='coSubdistrict')return subdistrictChanged();const el=e.target.closest('[data-draft-field]');if(el)draftFieldChanged(el);if(e.target.closest('[data-option-value]'))updateCustomProductTotal();const df=e.target.closest('#orderDateFilter');if(df){orderDateFilter=df.value;customerOrderPage=1;sellerOrderPage=1;const sid=document.getElementById('sellerShopId')?.value;if(sid)(document.getElementById('sellerOrdersOnly')?openSellerOrders(sid):openSellerShop(sid));else renderHubTab('customer');}});
   }
-  function openModal(html,wide=false){const m=document.getElementById('marketOrderModal');m.querySelector('.market-order-panel').classList.toggle('wide',wide);document.getElementById('marketOrderBody').innerHTML=html;m.classList.remove('hidden');document.body.style.overflow='hidden';}
-  function closeModal(){document.getElementById('marketOrderModal')?.classList.add('hidden');document.body.style.overflow='';}
+  function openModal(html,wide=false){
+    const m=document.getElementById('marketOrderModal');
+    if(!m)return;
+    m.querySelector('.market-order-panel').classList.toggle('wide',wide);
+    document.getElementById('marketOrderBody').innerHTML=html;
+    m.classList.remove('hidden');
+    document.body.classList.add('market-order-open');
+    const body=document.getElementById('marketOrderBody');
+    const isProductView=Boolean(body?.querySelector('.product-grid,[data-add-product],[data-product-category-filter]'));
+    document.body.classList.toggle('market-order-product-view',isProductView);
+    document.body.style.overflow='hidden';
+  }
+  function closeModal(){
+    document.getElementById('marketOrderModal')?.classList.add('hidden');
+    document.body.classList.remove('market-order-open');
+    document.body.classList.remove('market-order-product-view');
+    const baseModalOpen=Boolean(document.querySelector('.modal:not(.hidden)'));
+    document.body.style.overflow=baseModalOpen?'hidden':'';
+  }
   function requireLogin(){alert('กรุณาเข้าสู่ระบบก่อนทำรายการ');document.getElementById('accountBtn')?.click();}
   function applyOrderAccess(){
     const allowed=canUseOrders();
@@ -974,7 +1000,7 @@
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=0.5.22.47',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=0.5.22.50',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
