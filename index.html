@@ -8,8 +8,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="ตลาดกระทุ่มแบน">
-  <link rel="manifest" href="manifest.webmanifest?v=0.5.22.25">
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=0.5.22.25">
+  <link rel="manifest" href="manifest.webmanifest?v=0.5.22.26">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=0.5.22.26">
   <title>ตลาดกระทุ่มแบน</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,7 +17,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
-  <link rel="stylesheet" href="styles.css?v=0.5.22.25">
+  <link rel="stylesheet" href="styles.css?v=0.5.22.26">
 <link rel="stylesheet" href="order.css?v=0.5.20.42-restore">
 <style>
 #adminPanel .admin-control-center{margin-bottom:18px}
@@ -38,7 +38,7 @@
 #adminPanel .admin-coupon-links button{min-height:72px}
 @media(max-width:760px){#adminPanel .admin-control-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#adminPanel .admin-control-btn{min-height:82px}#adminPanel .admin-coupon-links{grid-template-columns:1fr}}
 
-/* Guest header layout — V0.5.22.25: fixed 3-column guest actions */
+/* Guest header layout — V0.5.22.26: fixed 3-column guest actions */
 body.guest-session .site-header .header-dashboard-nav{
   display:grid;grid-template-columns:minmax(0,1fr);gap:18px;align-items:start;padding-top:18px;padding-bottom:18px
 }
@@ -62,6 +62,11 @@ body.guest-session .site-header #addShopBtn{
 }
 body.guest-session .site-header #addShopBtn .nav-ico{font-size:23px}
 body.guest-session .site-header #addShopBtn .nav-label::after{content:'ของคุณ';margin-left:.2em}
+body.guest-session .site-header #riderJoinBtn{
+  order:5;grid-column:1/-1;grid-row:3;min-height:50px!important;border-radius:18px!important;
+  display:flex!important;align-items:center;justify-content:center;gap:8px
+}
+
 body.guest-session .site-header #nearBtn,
 body.guest-session .site-header #favoritesBtn,
 body.guest-session .site-header #missionBtn,
@@ -95,6 +100,8 @@ body:not(.guest-session) .site-header #guestSignUpBtn{display:none!important}
       <button id="accountBtn" class="ghost header-shortcut" type="button"><span class="nav-ico">👤</span><span class="nav-label">เข้าสู่ระบบ</span></button>
       <button id="guestSignUpBtn" class="ghost header-shortcut guest-signup-btn" type="button"><span class="nav-ico">👤＋</span><span class="nav-label">สมัครสมาชิก</span><small>สร้างบัญชีใหม่</small></button>
       <button id="addShopBtn" class="primary header-add-shop" type="button"><span class="nav-ico">＋</span><span class="nav-label">เพิ่มร้าน</span></button>
+      <button id="riderJoinBtn" class="ghost header-shortcut" type="button"><span class="nav-ico">🛵</span><span id="riderJoinLabel" class="nav-label">สมัครเป็นวิน</span></button>
+
       <div id="headerUserName" class="header-user-pill hidden" aria-live="polite"></div>
     </div>
   </div>
@@ -163,12 +170,15 @@ body:not(.guest-session) .site-header #guestSignUpBtn{display:none!important}
         <button type="submit" class="primary">💾 บันทึกชื่อ</button>
       </form>
     </section>
-    <div id="adminPanel" class="hidden"><section class="admin-mission-reward"><div class="section-head"><div><span class="eyebrow red">Delivery</span><h3>🛵 ควบคุมระบบ Delivery</h3></div><span id="deliverySystemAdminStatus" class="muted"></span></div><p class="muted">สวิตช์หลักสำหรับออเดอร์ใหม่ของทุกร้าน เมื่อปิด ลูกค้าจะเลือกได้เฉพาะรับเองที่ร้าน โดยค่าการเปิด Delivery รายร้านจะยังถูกเก็บไว้เหมือนเดิม</p><form id="deliverySystemForm" class="mission-reward-form"><label class="check mission-master-toggle"><input name="delivery_enabled" type="checkbox" checked> <b>🛵 เปิดระบบ Delivery ทั้งระบบ</b><small>ปิด = ออเดอร์ใหม่ทั้งหมดบังคับเป็น “รับเองที่ร้าน” และคูปอง Delivery-only จะไม่แสดง</small></label><button type="submit" class="primary">💾 บันทึกการตั้งค่า Delivery</button></form></section><section class="admin-mission-reward"><div class="section-head"><div><span class="eyebrow red">Rider</span><h3>🛵 จัดการวิน / ไรเดอร์</h3></div><div style="display:flex;gap:8px;align-items:center"><span id="riderRegistryStatus" class="muted"></span><button id="adminRiderRefreshBtn" type="button" class="secondary">↻ รีเฟรช</button></div></div><p class="muted">ระบบจะบันทึกชื่อและเบอร์ของวินที่กดรับงาน Delivery ให้อัตโนมัติ และ Admin สามารถเพิ่มวินไว้ล่วงหน้าหรือปิดใช้งานได้</p><form id="adminRiderForm" class="mission-reward-form" style="margin-bottom:16px"><div class="form-grid"><label>ชื่อวิน / ชื่อเรียก<input name="rider_name" maxlength="120" placeholder="เช่น พี่เอก วินตลาด" required></label><label>เบอร์โทร<input name="rider_phone" inputmode="tel" maxlength="20" placeholder="08xxxxxxxx" required></label></div><button type="submit" class="primary">＋ เพิ่มวินในทะเบียน</button></form><h4>วินในระบบ</h4><div id="adminRiderList" style="overflow-x:auto"></div><h4 style="margin-top:18px">งาน Delivery ล่าสุด</h4><p class="muted">แสดงวินที่รับงาน เบอร์ติดต่อ เวลาเริ่มรับงาน และสถานะล่าสุด</p><div id="adminRiderJobs" style="overflow-x:auto"></div></section><section class="admin-mission-reward"><div class="section-head"><div><span class="eyebrow red">Mission</span><h3>🎁 ตั้งค่ารางวัล Mission</h3></div><span id="missionRewardAdminStatus" class="muted"></span></div><p class="muted">เปิด/ปิดกิจกรรม Mission ทั้งระบบ และกำหนดรางวัลที่ผู้ใช้จะเห็นเมื่อทำภารกิจครบ</p><form id="missionRewardForm" class="mission-reward-form"><label class="check mission-master-toggle"><input name="mission_active" type="checkbox" checked> <b>🎯 เปิดระบบ Mission</b><small>เมื่อปิด ปุ่ม Mission และ Popup แนะนำกิจกรรมจะไม่แสดงต่อผู้ใช้</small></label><label>ชื่อรางวัล<input name="reward_title" maxlength="120" placeholder="เช่น รับไอศกรีมฟรี 1 โคน"></label><label>รายละเอียดรางวัล<textarea name="reward_detail" rows="3" maxlength="500" placeholder="เช่น รับได้ที่ร้านที่ร่วมรายการ ภายในวันที่..."></textarea></label><label>วิธีรับรางวัล / หมายเหตุ<textarea name="claim_note" rows="2" maxlength="500" placeholder="เช่น แสดงหน้า Mission ที่สำเร็จต่อพนักงาน"></textarea></label><label class="check"><input name="reward_active" type="checkbox"> เปิดแสดงรางวัลนี้ให้ผู้ใช้</label><button type="submit" class="primary">💾 บันทึกการตั้งค่า Mission</button></form></section><section class="analytics-panel"><div class="analytics-head"><div><h3>📊 สถิติการใช้งานเว็บไซต์</h3><p class="muted">นับแบบไม่เก็บ IP หรือข้อมูลส่วนบุคคล • ผู้เข้าชมเป็นค่าประมาณจาก anonymous session</p></div><div class="analytics-range"><button type="button" data-analytics-period="today">วันนี้</button><button type="button" data-analytics-period="7d" class="active">7 วัน</button><button type="button" data-analytics-period="30d">30 วัน</button><button type="button" data-analytics-period="all">ทั้งหมด</button></div></div><p id="analyticsPeriodCaption" class="muted">7 วันปฏิทินล่าสุด</p><div id="analyticsCards" class="analytics-cards"><div class="analytics-loading">กำลังโหลดสถิติ...</div></div><div class="analytics-shop-section"><h4>ร้านที่ถูกเปิดดูมากที่สุด</h4><div id="analyticsTopShops" class="analytics-top-shops"></div></div></section><h3>ร้านที่รออนุมัติ</h3><div id="pendingGrid" class="grid compact"></div><h3>ร้านค้าทั้งหมด (Admin)</h3><p class="muted">แอดมินสามารถแก้ไขข้อมูลร้าน หมวดหมู่ จุดสังเกต พิกัด และช่องทางติดต่อได้ โดยเจ้าของร้านเดิมยังคงเป็นเจ้าของร้าน</p><div id="adminAllGrid" class="grid compact"></div></div>
+    <div id="adminPanel" class="hidden"><section class="admin-mission-reward"><div class="section-head"><div><span class="eyebrow red">Delivery</span><h3>🛵 ควบคุมระบบ Delivery</h3></div><span id="deliverySystemAdminStatus" class="muted"></span></div><p class="muted">สวิตช์หลักสำหรับออเดอร์ใหม่ของทุกร้าน เมื่อปิด ลูกค้าจะเลือกได้เฉพาะรับเองที่ร้าน โดยค่าการเปิด Delivery รายร้านจะยังถูกเก็บไว้เหมือนเดิม</p><form id="deliverySystemForm" class="mission-reward-form"><label class="check mission-master-toggle"><input name="delivery_enabled" type="checkbox" checked> <b>🛵 เปิดระบบ Delivery ทั้งระบบ</b><small>ปิด = ออเดอร์ใหม่ทั้งหมดบังคับเป็น “รับเองที่ร้าน” และคูปอง Delivery-only จะไม่แสดง</small></label><button type="submit" class="primary">💾 บันทึกการตั้งค่า Delivery</button></form></section><section class="admin-mission-reward"><div class="section-head"><div><span class="eyebrow red">Rider</span><h3>🛵 จัดการวิน / ไรเดอร์</h3></div><div style="display:flex;gap:8px;align-items:center"><span id="riderRegistryStatus" class="muted"></span><button id="adminRiderRefreshBtn" type="button" class="secondary">↻ รีเฟรช</button></div></div><p class="muted">ระบบจะบันทึกชื่อและเบอร์ของวินที่กดรับงาน Delivery ให้อัตโนมัติ และ Admin สามารถเพิ่มวินไว้ล่วงหน้าหรือปิดใช้งานได้</p><h4>คำขอสมัครวินจากผู้ใช้</h4>
+<div id="adminRiderApplicantList" style="margin-bottom:18px"><p class="muted">กำลังโหลดคำขอ...</p></div>
+<h4>เพิ่มวินโดย Admin</h4>
+<form id="adminRiderForm" class="mission-reward-form" style="margin-bottom:16px"><div class="form-grid"><label>ชื่อวิน / ชื่อเรียก<input name="rider_name" maxlength="120" placeholder="เช่น พี่เอก วินตลาด" required></label><label>เบอร์โทร<input name="rider_phone" inputmode="tel" maxlength="20" placeholder="08xxxxxxxx" required></label></div><button type="submit" class="primary">＋ เพิ่มวินในทะเบียน</button></form><h4>วินในระบบ</h4><div id="adminRiderList" style="overflow-x:auto"></div><h4 style="margin-top:18px">งาน Delivery ล่าสุด</h4><p class="muted">แสดงวินที่รับงาน เบอร์ติดต่อ เวลาเริ่มรับงาน และสถานะล่าสุด</p><div id="adminRiderJobs" style="overflow-x:auto"></div></section><section class="admin-mission-reward"><div class="section-head"><div><span class="eyebrow red">Mission</span><h3>🎁 ตั้งค่ารางวัล Mission</h3></div><span id="missionRewardAdminStatus" class="muted"></span></div><p class="muted">เปิด/ปิดกิจกรรม Mission ทั้งระบบ และกำหนดรางวัลที่ผู้ใช้จะเห็นเมื่อทำภารกิจครบ</p><form id="missionRewardForm" class="mission-reward-form"><label class="check mission-master-toggle"><input name="mission_active" type="checkbox" checked> <b>🎯 เปิดระบบ Mission</b><small>เมื่อปิด ปุ่ม Mission และ Popup แนะนำกิจกรรมจะไม่แสดงต่อผู้ใช้</small></label><label>ชื่อรางวัล<input name="reward_title" maxlength="120" placeholder="เช่น รับไอศกรีมฟรี 1 โคน"></label><label>รายละเอียดรางวัล<textarea name="reward_detail" rows="3" maxlength="500" placeholder="เช่น รับได้ที่ร้านที่ร่วมรายการ ภายในวันที่..."></textarea></label><label>วิธีรับรางวัล / หมายเหตุ<textarea name="claim_note" rows="2" maxlength="500" placeholder="เช่น แสดงหน้า Mission ที่สำเร็จต่อพนักงาน"></textarea></label><label class="check"><input name="reward_active" type="checkbox"> เปิดแสดงรางวัลนี้ให้ผู้ใช้</label><button type="submit" class="primary">💾 บันทึกการตั้งค่า Mission</button></form></section><section class="analytics-panel"><div class="analytics-head"><div><h3>📊 สถิติการใช้งานเว็บไซต์</h3><p class="muted">นับแบบไม่เก็บ IP หรือข้อมูลส่วนบุคคล • ผู้เข้าชมเป็นค่าประมาณจาก anonymous session</p></div><div class="analytics-range"><button type="button" data-analytics-period="today">วันนี้</button><button type="button" data-analytics-period="7d" class="active">7 วัน</button><button type="button" data-analytics-period="30d">30 วัน</button><button type="button" data-analytics-period="all">ทั้งหมด</button></div></div><p id="analyticsPeriodCaption" class="muted">7 วันปฏิทินล่าสุด</p><div id="analyticsCards" class="analytics-cards"><div class="analytics-loading">กำลังโหลดสถิติ...</div></div><div class="analytics-shop-section"><h4>ร้านที่ถูกเปิดดูมากที่สุด</h4><div id="analyticsTopShops" class="analytics-top-shops"></div></div></section><h3>ร้านที่รออนุมัติ</h3><div id="pendingGrid" class="grid compact"></div><h3>ร้านค้าทั้งหมด (Admin)</h3><p class="muted">แอดมินสามารถแก้ไขข้อมูลร้าน หมวดหมู่ จุดสังเกต พิกัด และช่องทางติดต่อได้ โดยเจ้าของร้านเดิมยังคงเป็นเจ้าของร้าน</p><div id="adminAllGrid" class="grid compact"></div></div>
     <h3>ร้านที่ฉันดูแล</h3><div id="myShopGrid" class="grid compact"></div>
   </section>
 </main>
 
-<footer><div class="container support-footer"><div>ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ <span class="version-badge">V0.5.22.25</span></div><a class="support-openchat-link" href="https://line.me/ti/g2/26r6PGveA0bN-PKo8YNyw7dd2lF_ejymNdCNKw?utm_source=invitation&utm_medium=link_copy&utm_campaign=default" target="_blank" rel="noopener noreferrer">💬 สอบถาม / แจ้งปัญหาการใช้งาน</a></div></footer>
+<footer><div class="container support-footer"><div>ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ <span class="version-badge">V0.5.22.26</span></div><a class="support-openchat-link" href="https://line.me/ti/g2/26r6PGveA0bN-PKo8YNyw7dd2lF_ejymNdCNKw?utm_source=invitation&utm_medium=link_copy&utm_campaign=default" target="_blank" rel="noopener noreferrer">💬 สอบถาม / แจ้งปัญหาการใช้งาน</a></div></footer>
 
 <nav class="floating-navigation" aria-label="ทางลัดหน้าเว็บ">
   <button id="floatingBackBtn" type="button" class="floating-nav-button" aria-label="ย้อนกลับ">← <span>กลับ</span></button>
@@ -180,6 +190,28 @@ body:not(.guest-session) .site-header #guestSignUpBtn{display:none!important}
 <div id="installAppModal" class="modal hidden"><div class="backdrop" data-close="installAppModal"></div><div class="modal-card small install-modal-card"><button class="close" data-close="installAppModal">×</button><h2>📲 ติดตั้ง ตลาดกระทุ่มแบน</h2><div id="installAppInstructions" class="install-app-instructions"></div></div></div>
 
 <div id="favoritesModal" class="modal hidden"><div class="backdrop" data-close="favoritesModal"></div><div class="modal-card"><button class="close" data-close="favoritesModal">×</button><div class="section-head"><div><span class="eyebrow red">บัญชีของฉัน</span><h2>❤️ ร้านชื่นชอบของฉัน</h2></div><span id="favoriteCount"></span></div><div id="favoriteGrid" class="grid compact"></div></div></div>
+
+<div id="riderApplyModal" class="modal hidden">
+  <div class="backdrop" data-close="riderApplyModal"></div>
+  <div class="modal-card">
+    <button class="close" data-close="riderApplyModal">×</button>
+    <div class="section-head"><div><span class="eyebrow red">ร่วมส่งของในชุมชน</span><h2 id="riderApplyTitle">🛵 สมัครเป็นวินส่งของ</h2></div></div>
+    <div id="riderApplyStatusBox" class="muted" style="margin-bottom:12px"></div>
+    <form id="riderApplyForm">
+      <label>ชื่อวิน / ชื่อที่ใช้ติดต่อ<input name="rider_name" maxlength="120" placeholder="เช่น พี่เอก วินตลาด" required></label>
+      <label>เบอร์โทร<input name="rider_phone" inputmode="tel" maxlength="20" placeholder="08xxxxxxxx" required></label>
+      <label>พื้นที่ที่สะดวกรับงาน<input name="service_area" maxlength="160" placeholder="เช่น ตลาดกระทุ่มแบน และพื้นที่ใกล้เคียง" required></label>
+      <label>ทะเบียนรถ <small class="muted">(ใช้ตรวจสอบโดย Admin ไม่แสดงต่อสาธารณะ)</small><input name="vehicle_plate" maxlength="40" placeholder="เช่น 1กข 1234 สมุทรสาคร" required></label>
+      <div class="warning-banner" style="margin:12px 0">การสมัครยังไม่ทำให้รับงานได้ทันที ต้องรอ Admin ตรวจสอบและอนุมัติก่อน</div>
+      <button type="submit" class="primary">ส่งใบสมัครเป็นวิน</button>
+    </form>
+    <div id="riderApprovedBox" class="hidden">
+      <div class="ready-banner"><b>✅ บัญชีวินได้รับอนุมัติแล้ว</b><br>คุณมีสิทธิ์เป็นวินในระบบตลาดกระทุ่มแบน</div>
+      <p class="muted">เมื่อระบบงานวินมีงานที่เปิดรับ คุณสามารถใช้บัญชีนี้สำหรับงาน Delivery ได้</p>
+      <button type="button" id="riderCloseApprovedBtn" class="primary">ตกลง</button>
+    </div>
+  </div>
+</div>
 
 <div id="profileNameModal" class="modal hidden">
   <div class="backdrop" data-close="profileNameModal"></div>
@@ -262,8 +294,8 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
-<script src="app.js?v=0.5.22.25"></script>
-<script src="order.js?v=0.5.22.25"></script>
+<script src="app.js?v=0.5.22.26"></script>
+<script src="order.js?v=0.5.22.26"></script>
 
 </body>
 </html>
