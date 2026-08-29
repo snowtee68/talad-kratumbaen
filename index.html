@@ -8,8 +8,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="ตลาดกระทุ่มแบน">
-  <link rel="manifest" href="manifest.webmanifest?v=0.5.22.42">
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=0.5.22.42">
+  <link rel="manifest" href="manifest.webmanifest?v=0.5.22.43">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=0.5.22.43">
   <title>ตลาดกระทุ่มแบน</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,7 +17,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
-  <link rel="stylesheet" href="styles.css?v=0.5.22.42">
+  <link rel="stylesheet" href="styles.css?v=0.5.22.43">
 <link rel="stylesheet" href="order.css?v=0.5.20.42-restore">
 <style>
 #adminPanel .admin-control-center{margin-bottom:18px}
@@ -38,7 +38,7 @@
 #adminPanel .admin-coupon-links button{min-height:72px}
 @media(max-width:760px){#adminPanel .admin-control-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#adminPanel .admin-control-btn{min-height:82px}#adminPanel .admin-coupon-links{grid-template-columns:1fr}}
 
-/* Guest header layout — V0.5.22.42: fixed 3-column guest actions */
+/* Guest header layout — V0.5.22.43: fixed 3-column guest actions */
 body.guest-session .site-header .header-dashboard-nav{
   display:grid;grid-template-columns:minmax(0,1fr);gap:18px;align-items:start;padding-top:18px;padding-bottom:18px
 }
@@ -85,7 +85,7 @@ body:not(.guest-session) .site-header #guestSignUpBtn{display:none!important}
 }
 </style>
 
-<link rel="stylesheet" href="responsive-ui-v0.5.22.42.css?v=0.5.22.42">
+<link rel="stylesheet" href="responsive-ui-v0.5.22.43.css?v=0.5.22.43">
 </head>
 <body class="guest-session">
 <header class="site-header">
@@ -106,7 +106,7 @@ body:not(.guest-session) .site-header #guestSignUpBtn{display:none!important}
 
 <main id="top">
   <section class="market-photo-banner" aria-label="บรรยากาศตลาดกระทุ่มแบน">
-  <img src="assets/krathumbaen-market-banner.jpg?v=0.5.22.42" alt="บรรยากาศริมคลองตลาดกระทุ่มแบน" loading="eager" decoding="async">
+  <img src="assets/krathumbaen-market-banner.jpg?v=0.5.22.43" alt="บรรยากาศริมคลองตลาดกระทุ่มแบน" loading="eager" decoding="async">
   <div class="market-photo-overlay">
     <div class="container market-photo-copy">
       <b>ค้นร้านง่าย</b>
@@ -169,7 +169,8 @@ body:not(.guest-session) .site-header #guestSignUpBtn{display:none!important}
         <span class="eyebrow">ตลาดของคนกระทุ่มแบน</span>
         <h1>ค้นหาร้านง่าย<br><em>ช่วยกันให้ตลาดคึกคัก</em></h1>
         <p>รวมร้านอาหาร เครื่องดื่ม แฟชั่น และบริการ พร้อมแผนที่ เบอร์โทร และเส้นทาง</p>
-        <div class="search-box"><span>🔎</span><input id="searchInput" placeholder="ค้นหาชื่อร้าน สินค้า หรือหมวดหมู่"><button id="searchBtn">ค้นหา</button></div>
+        <div class="search-box"><span>🔎</span><input id="searchInput" placeholder="ค้นหาชื่อร้าน สินค้า หรือหมวดหมู่"><button id="searchBtn">ค้นหา</button>
+      <button id="aboutProjectBtn" class="action-btn about-project-btn" type="button">ℹ️ <span>เกี่ยวกับเรา</span></button></div>
         <div id="categoryButtons" class="chips"></div>
         
       </div>
@@ -233,7 +234,7 @@ body:not(.guest-session) .site-header #guestSignUpBtn{display:none!important}
   </section>
 </main>
 
-<footer><div class="container support-footer"><div>ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ <span class="version-badge">V0.5.22.42</span></div><a class="support-openchat-link" href="https://line.me/ti/g2/26r6PGveA0bN-PKo8YNyw7dd2lF_ejymNdCNKw?utm_source=invitation&utm_medium=link_copy&utm_campaign=default" target="_blank" rel="noopener noreferrer">💬 สอบถาม / แจ้งปัญหาการใช้งาน</a></div></footer>
+<footer><div class="container support-footer"><div>ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ <span class="version-badge">V0.5.22.43</span></div><a class="support-openchat-link" href="https://line.me/ti/g2/26r6PGveA0bN-PKo8YNyw7dd2lF_ejymNdCNKw?utm_source=invitation&utm_medium=link_copy&utm_campaign=default" target="_blank" rel="noopener noreferrer">💬 สอบถาม / แจ้งปัญหาการใช้งาน</a></div></footer>
 
 <nav class="floating-navigation" aria-label="ทางลัดหน้าเว็บ">
   <button id="floatingBackBtn" type="button" class="floating-nav-button" aria-label="ย้อนกลับ">← <span>กลับ</span></button>
@@ -350,7 +351,7 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
-<script src="app.js?v=0.5.22.42"></script>
+<script src="app.js?v=0.5.22.43"></script>
 
 <nav class="unified-app-dock" aria-label="เมนูหลัก">
   <button type="button" data-dock-action="home" aria-label="หน้าหลัก">
@@ -367,7 +368,7 @@ if ('serviceWorker' in navigator) {
   </button>
 </nav>
 
-<script src="order.js?v=0.5.22.42"></script>
+<script src="order.js?v=0.5.22.43"></script>
 
 
 <script>
@@ -509,6 +510,62 @@ document.addEventListener('click', function (event) {
   setTimeout(syncTopAccount,300);
   setTimeout(syncTopAccount,1200);
   document.addEventListener('click',()=>setTimeout(syncTopAccount,80));
+})();
+</script>
+
+
+<div id="aboutProjectModal" class="about-project-modal hidden" aria-hidden="true">
+  <div class="about-project-backdrop" data-about-close></div>
+  <section class="about-project-panel" role="dialog" aria-modal="true" aria-labelledby="aboutProjectTitle">
+    <button class="about-project-close" type="button" aria-label="ปิด" data-about-close>×</button>
+    <div class="about-project-icon">❤️</div>
+    <h2 id="aboutProjectTitle">กระทุ่มแบนไปด้วยกัน</h2>
+    <p class="about-project-lead">พื้นที่เล็ก ๆ ที่อยากช่วยสร้างโอกาสใหม่ ๆ ให้กับชุมชน</p>
+
+    <p>โครงการ <b>กระทุ่มแบนไปด้วยกัน</b> จัดทำขึ้นเพื่อเพิ่มช่องทางและสร้างโอกาสใหม่ ๆ ให้กับร้านค้าในชุมชน ไม่ว่าจะเป็นร้านเล็ก ร้านใหญ่ ร้านเก่าแก่ หรือร้านที่เพิ่งเริ่มต้น</p>
+
+    <p>เราอยากให้พื้นที่แห่งนี้เป็น <b>ศูนย์รวมร้านค้าในกระทุ่มแบน</b> ที่ช่วยให้คนในพื้นที่และลูกค้าค้นหาร้าน ดูสินค้า โปรโมชั่น ติดต่อร้านค้า และเข้าถึงบริการต่าง ๆ ได้สะดวกขึ้น</p>
+
+    <div class="about-project-highlight">
+      <b>แนวคิดในการพัฒนา</b>
+      <span>ทำอย่างไรให้ร้านค้ามีโอกาสมากขึ้น ลูกค้าใช้งานได้สะดวกขึ้น และเกิดประโยชน์กับชุมชนมากที่สุด</span>
+    </div>
+
+    <p>Web App นี้จะค่อย ๆ พัฒนาและเพิ่มฟังก์ชันให้สอดคล้องกับพฤติกรรมของผู้ใช้งานในยุคปัจจุบัน โดยมุ่งเน้นประโยชน์สูงสุดต่อร้านค้า ผู้ซื้อ และชุมชน</p>
+
+    <p>โครงการนี้จัดทำขึ้น <b>โดยไม่มุ่งหวังผลกำไรจากการใช้งานแพลตฟอร์ม</b> แต่หวังให้เป็นอีกหนึ่งเครื่องมือที่ช่วยให้คนในชุมชนเชื่อมถึงกันง่ายขึ้น และเติบโตไปด้วยกัน</p>
+
+    <div class="about-project-maker">
+      <div><small>ผู้จัดทำโครงการ</small><b>ร้าน SNOWTEE สาขาตลาดกระทุ่มแบน</b></div>
+      <div><small>พัฒนา Web App โดย</small><b>คุณ วรวุฒิ ชูศรี</b><span>ผู้บริหารร้าน SNOWTEE สาขาตลาดกระทุ่มแบน</span></div>
+    </div>
+
+    <p class="about-project-ending"><b>กระทุ่มแบนไปด้วยกัน</b><br>เพราะชุมชนที่ดีไม่ได้เกิดจากใครคนใดคนหนึ่ง แต่เกิดจากการที่เราช่วยกันคนละไม้ คนละมือ ❤️</p>
+  </section>
+</div>
+
+<script>
+(function(){
+  const btn=document.getElementById('aboutProjectBtn');
+  const modal=document.getElementById('aboutProjectModal');
+  if(!btn||!modal)return;
+  const open=()=>{
+    modal.classList.remove('hidden');
+    modal.setAttribute('aria-hidden','false');
+    document.body.classList.add('about-project-open');
+    setTimeout(()=>modal.querySelector('.about-project-close')?.focus(),0);
+  };
+  const close=()=>{
+    modal.classList.add('hidden');
+    modal.setAttribute('aria-hidden','true');
+    document.body.classList.remove('about-project-open');
+    btn.focus();
+  };
+  btn.addEventListener('click',open);
+  modal.querySelectorAll('[data-about-close]').forEach(el=>el.addEventListener('click',close));
+  document.addEventListener('keydown',ev=>{
+    if(ev.key==='Escape'&&!modal.classList.contains('hidden'))close();
+  });
 })();
 </script>
 
