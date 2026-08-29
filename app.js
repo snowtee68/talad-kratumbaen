@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.50 Guest Header 3-Column Fix loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.51 Guest Header 3-Column Fix loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -892,6 +892,32 @@
       allBtn.classList.toggle('hidden',promotions.length<=6);
       allBtn.textContent=`ดูโปรโมชั่นทั้งหมด (${promotions.length})`;
     }
+    setupPromotionSwipeHint(featured.length);
+  }
+
+  function setupPromotionSwipeHint(count){
+    const grid=$('promotionGrid'),hint=$('promotionSwipeHint'),dots=$('promotionDots');
+    if(!grid||!hint||!dots)return;
+    const mobile=window.matchMedia?.('(max-width:760px)')?.matches;
+    const show=Boolean(mobile&&count>1);
+    hint.classList.toggle('hidden',!show);
+    if(!show){dots.innerHTML='';return;}
+    dots.innerHTML=Array.from({length:count},(_,i)=>`<i class="${i===0?'active':''}" aria-hidden="true"></i>`).join('');
+    const update=()=>{
+      const cards=Array.from(grid.querySelectorAll('.promo-card'));
+      if(!cards.length)return;
+      const center=grid.scrollLeft+grid.clientWidth/2;
+      let active=0,best=Infinity;
+      cards.forEach((card,i)=>{
+        const c=card.offsetLeft+card.offsetWidth/2;
+        const d=Math.abs(c-center);
+        if(d<best){best=d;active=i;}
+      });
+      dots.querySelectorAll('i').forEach((dot,i)=>dot.classList.toggle('active',i===active));
+      if(grid.scrollLeft>12)hint.classList.add('has-swiped');
+    };
+    grid.onscroll=update;
+    requestAnimationFrame(update);
   }
 
   function openAllPromotions(){
@@ -2505,7 +2531,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.22.50', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.22.51', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
