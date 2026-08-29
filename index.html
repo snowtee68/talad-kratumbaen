@@ -8,8 +8,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="ตลาดกระทุ่มแบน">
-  <link rel="manifest" href="manifest.webmanifest?v=0.5.22.34">
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=0.5.22.34">
+  <link rel="manifest" href="manifest.webmanifest?v=0.5.22.35">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=0.5.22.35">
   <title>ตลาดกระทุ่มแบน</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,7 +17,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
-  <link rel="stylesheet" href="styles.css?v=0.5.22.34">
+  <link rel="stylesheet" href="styles.css?v=0.5.22.35">
 <link rel="stylesheet" href="order.css?v=0.5.20.42-restore">
 <style>
 #adminPanel .admin-control-center{margin-bottom:18px}
@@ -38,7 +38,7 @@
 #adminPanel .admin-coupon-links button{min-height:72px}
 @media(max-width:760px){#adminPanel .admin-control-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#adminPanel .admin-control-btn{min-height:82px}#adminPanel .admin-coupon-links{grid-template-columns:1fr}}
 
-/* Guest header layout — V0.5.22.34: fixed 3-column guest actions */
+/* Guest header layout — V0.5.22.35: fixed 3-column guest actions */
 body.guest-session .site-header .header-dashboard-nav{
   display:grid;grid-template-columns:minmax(0,1fr);gap:18px;align-items:start;padding-top:18px;padding-bottom:18px
 }
@@ -85,7 +85,7 @@ body:not(.guest-session) .site-header #guestSignUpBtn{display:none!important}
 }
 </style>
 
-<link rel="stylesheet" href="responsive-ui-v0.5.22.34.css?v=0.5.22.34">
+<link rel="stylesheet" href="responsive-ui-v0.5.22.35.css?v=0.5.22.35">
 </head>
 <body class="guest-session">
 <header class="site-header">
@@ -100,11 +100,42 @@ body:not(.guest-session) .site-header #guestSignUpBtn{display:none!important}
 
 <main id="top">
   <section class="market-photo-banner" aria-label="บรรยากาศตลาดกระทุ่มแบน">
-  <img src="assets/krathumbaen-market-banner.jpg?v=0.5.22.34" alt="บรรยากาศริมคลองตลาดกระทุ่มแบน" loading="eager" decoding="async">
+  <img src="assets/krathumbaen-market-banner.jpg?v=0.5.22.35" alt="บรรยากาศริมคลองตลาดกระทุ่มแบน" loading="eager" decoding="async">
   <div class="market-photo-overlay">
     <div class="container market-photo-copy">
-      <b>ตลาดกระทุ่มแบน</b>
-      <span>ของดีเมืองกระทุ่มแบน • สนับสนุนร้านค้าในชุมชน</span>
+      <b>ค้นร้านง่าย</b>
+      <span>ช่วยกันให้ตลาดคึกคัก</span>
+    </div>
+  </div>
+</section>
+
+<section class="home-discovery" aria-label="ค้นหาร้านและหมวดหมู่">
+  <div class="container">
+    <div class="home-search-card">
+      <div class="home-search-row">
+        <span class="home-search-icon">🔎</span>
+        <input id="homeSearchProxy" type="search" placeholder="ค้นหาร้าน อาหาร เครื่องดื่ม หรือบริการ..." autocomplete="off" aria-label="ค้นหาร้าน">
+        <button id="homeSearchBtn" type="button">ค้นหา</button>
+      </div>
+      <div class="home-main-categories" aria-label="หมวดหมู่หลัก">
+        <button type="button" data-category-proxy="อาหาร">🍜 <span>อาหาร</span></button>
+        <button type="button" data-category-proxy="เครื่องดื่ม">🥤 <span>เครื่องดื่ม</span></button>
+        <button type="button" data-category-proxy="เบเกอรี่">🍰 <span>เบเกอรี่</span></button>
+        <button type="button" data-category-proxy="ร้านค้า">🛍️ <span>ร้านค้า</span></button>
+      </div>
+      <button id="allCategoriesToggle" class="all-categories-toggle" type="button" aria-expanded="false">
+        หมวดหมู่ทั้งหมด <span>⌄</span>
+      </button>
+      <div id="allCategoriesPanel" class="all-categories-panel" hidden></div>
+    </div>
+  </div>
+</section>
+
+<section class="function-shortcuts-section" aria-label="ฟังก์ชันการใช้งาน">
+  <div class="container">
+    <div class="function-shortcuts-title">
+      <b>ฟังก์ชันการใช้งาน</b>
+      <span>ทางลัดที่ใช้บ่อย</span>
     </div>
   </div>
 </section>
@@ -191,7 +222,7 @@ body:not(.guest-session) .site-header #guestSignUpBtn{display:none!important}
   </section>
 </main>
 
-<footer><div class="container support-footer"><div>ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ <span class="version-badge">V0.5.22.34</span></div><a class="support-openchat-link" href="https://line.me/ti/g2/26r6PGveA0bN-PKo8YNyw7dd2lF_ejymNdCNKw?utm_source=invitation&utm_medium=link_copy&utm_campaign=default" target="_blank" rel="noopener noreferrer">💬 สอบถาม / แจ้งปัญหาการใช้งาน</a></div></footer>
+<footer><div class="container support-footer"><div>ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ <span class="version-badge">V0.5.22.35</span></div><a class="support-openchat-link" href="https://line.me/ti/g2/26r6PGveA0bN-PKo8YNyw7dd2lF_ejymNdCNKw?utm_source=invitation&utm_medium=link_copy&utm_campaign=default" target="_blank" rel="noopener noreferrer">💬 สอบถาม / แจ้งปัญหาการใช้งาน</a></div></footer>
 
 <nav class="floating-navigation" aria-label="ทางลัดหน้าเว็บ">
   <button id="floatingBackBtn" type="button" class="floating-nav-button" aria-label="ย้อนกลับ">← <span>กลับ</span></button>
@@ -308,7 +339,7 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
-<script src="app.js?v=0.5.22.34"></script>
+<script src="app.js?v=0.5.22.35"></script>
 
 <nav class="unified-app-dock" aria-label="เมนูหลัก">
   <button type="button" data-dock-action="home" aria-label="หน้าหลัก">
@@ -325,7 +356,7 @@ if ('serviceWorker' in navigator) {
   </button>
 </nav>
 
-<script src="order.js?v=0.5.22.34"></script>
+<script src="order.js?v=0.5.22.35"></script>
 
 
 <script>
@@ -340,6 +371,69 @@ document.addEventListener('click', function (event) {
   const target = document.getElementById(proxy.getAttribute('data-dock-target'));
   if (target) target.click();
 });
+</script>
+
+
+<script>
+(function(){
+  const $=id=>document.getElementById(id);
+
+  function getOriginalSearch(){
+    return $('searchInput') || document.querySelector('input[type="search"]:not(#homeSearchProxy)');
+  }
+  function runHomeSearch(){
+    const proxy=$('homeSearchProxy');
+    const original=getOriginalSearch();
+    if(!proxy||!original) return;
+    original.value=proxy.value;
+    original.dispatchEvent(new Event('input',{bubbles:true}));
+    original.dispatchEvent(new Event('change',{bubbles:true}));
+    const searchBtn=$('searchBtn') || original.closest('form')?.querySelector('button[type="submit"]');
+    if(searchBtn) searchBtn.click();
+    else original.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
+  }
+  $('homeSearchBtn')?.addEventListener('click',runHomeSearch);
+  $('homeSearchProxy')?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();runHomeSearch();}});
+
+  function categoryButtons(){
+    const out=[];
+    document.querySelectorAll('button').forEach(btn=>{
+      if(btn.closest('.home-main-categories')||btn.id==='allCategoriesToggle') return;
+      const text=(btn.textContent||'').replace(/\s+/g,' ').trim();
+      if(text && /อาหาร|เครื่องดื่ม|เบเกอรี่|ร้านค้า|บริการ|สุขภาพ|ความงาม|แฟชั่น|อื่น/.test(text)) out.push(btn);
+    });
+    return out;
+  }
+  function clickCategory(label){
+    const buttons=categoryButtons();
+    const target=buttons.find(b=>(b.textContent||'').includes(label));
+    if(target) target.click();
+  }
+  document.querySelectorAll('[data-category-proxy]').forEach(btn=>{
+    btn.addEventListener('click',()=>clickCategory(btn.dataset.categoryProxy));
+  });
+
+  const toggle=$('allCategoriesToggle'), panel=$('allCategoriesPanel');
+  function buildAllCategories(){
+    if(!panel||panel.dataset.ready) return;
+    const seen=new Set();
+    categoryButtons().forEach(btn=>{
+      const label=(btn.textContent||'').replace(/\s+/g,' ').trim();
+      if(!label || seen.has(label)) return;
+      seen.add(label);
+      const b=document.createElement('button');
+      b.type='button'; b.textContent=label;
+      b.addEventListener('click',()=>{btn.click(); panel.hidden=true; toggle?.setAttribute('aria-expanded','false');});
+      panel.appendChild(b);
+    });
+    panel.dataset.ready='1';
+  }
+  toggle?.addEventListener('click',()=>{
+    buildAllCategories();
+    panel.hidden=!panel.hidden;
+    toggle.setAttribute('aria-expanded',String(!panel.hidden));
+  });
+})();
 </script>
 
 </body>
