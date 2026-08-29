@@ -8,8 +8,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="ตลาดกระทุ่มแบน">
-  <link rel="manifest" href="manifest.webmanifest?v=0.5.22.26">
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=0.5.22.26">
+  <link rel="manifest" href="manifest.webmanifest?v=0.5.22.27">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=0.5.22.27">
   <title>ตลาดกระทุ่มแบน</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,7 +17,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
-  <link rel="stylesheet" href="styles.css?v=0.5.22.26">
+  <link rel="stylesheet" href="styles.css?v=0.5.22.27">
 <link rel="stylesheet" href="order.css?v=0.5.20.42-restore">
 <style>
 #adminPanel .admin-control-center{margin-bottom:18px}
@@ -38,7 +38,7 @@
 #adminPanel .admin-coupon-links button{min-height:72px}
 @media(max-width:760px){#adminPanel .admin-control-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#adminPanel .admin-control-btn{min-height:82px}#adminPanel .admin-coupon-links{grid-template-columns:1fr}}
 
-/* Guest header layout — V0.5.22.26: fixed 3-column guest actions */
+/* Guest header layout — V0.5.22.27: fixed 3-column guest actions */
 body.guest-session .site-header .header-dashboard-nav{
   display:grid;grid-template-columns:minmax(0,1fr);gap:18px;align-items:start;padding-top:18px;padding-bottom:18px
 }
@@ -178,7 +178,7 @@ body:not(.guest-session) .site-header #guestSignUpBtn{display:none!important}
   </section>
 </main>
 
-<footer><div class="container support-footer"><div>ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ <span class="version-badge">V0.5.22.26</span></div><a class="support-openchat-link" href="https://line.me/ti/g2/26r6PGveA0bN-PKo8YNyw7dd2lF_ejymNdCNKw?utm_source=invitation&utm_medium=link_copy&utm_campaign=default" target="_blank" rel="noopener noreferrer">💬 สอบถาม / แจ้งปัญหาการใช้งาน</a></div></footer>
+<footer><div class="container support-footer"><div>ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ <span class="version-badge">V0.5.22.27</span></div><a class="support-openchat-link" href="https://line.me/ti/g2/26r6PGveA0bN-PKo8YNyw7dd2lF_ejymNdCNKw?utm_source=invitation&utm_medium=link_copy&utm_campaign=default" target="_blank" rel="noopener noreferrer">💬 สอบถาม / แจ้งปัญหาการใช้งาน</a></div></footer>
 
 <nav class="floating-navigation" aria-label="ทางลัดหน้าเว็บ">
   <button id="floatingBackBtn" type="button" class="floating-nav-button" aria-label="ย้อนกลับ">← <span>กลับ</span></button>
@@ -200,7 +200,8 @@ body:not(.guest-session) .site-header #guestSignUpBtn{display:none!important}
     <form id="riderApplyForm">
       <label>ชื่อวิน / ชื่อที่ใช้ติดต่อ<input name="rider_name" maxlength="120" placeholder="เช่น พี่เอก วินตลาด" required></label>
       <label>เบอร์โทร<input name="rider_phone" inputmode="tel" maxlength="20" placeholder="08xxxxxxxx" required></label>
-      <label>พื้นที่ที่สะดวกรับงาน<input name="service_area" maxlength="160" placeholder="เช่น ตลาดกระทุ่มแบน และพื้นที่ใกล้เคียง" required></label>
+      <div class="ready-banner" style="margin:10px 0"><b>📍 พื้นที่ให้บริการ</b><br>อำเภอกระทุ่มแบนและพื้นที่ใกล้เคียงตามที่ระบบกำหนด</div>
+      <label class="check"><input name="service_area_consent" type="checkbox" required> <span><b>ยินยอมและรับทราบ</b> ว่าจะรับงานในพื้นที่ให้บริการที่ระบบกำหนด</span></label>
       <label>ทะเบียนรถ <small class="muted">(ใช้ตรวจสอบโดย Admin ไม่แสดงต่อสาธารณะ)</small><input name="vehicle_plate" maxlength="40" placeholder="เช่น 1กข 1234 สมุทรสาคร" required></label>
       <div class="warning-banner" style="margin:12px 0">การสมัครยังไม่ทำให้รับงานได้ทันที ต้องรอ Admin ตรวจสอบและอนุมัติก่อน</div>
       <button type="submit" class="primary">ส่งใบสมัครเป็นวิน</button>
@@ -294,8 +295,8 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
-<script src="app.js?v=0.5.22.26"></script>
-<script src="order.js?v=0.5.22.26"></script>
+<script src="app.js?v=0.5.22.27"></script>
+<script src="order.js?v=0.5.22.27"></script>
 
 </body>
 </html>

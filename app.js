@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.26 Guest Header 3-Column Fix loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.27 Guest Header 3-Column Fix loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -107,7 +107,7 @@
     if(a){
       form.elements.rider_name.value=a.display_name||currentDisplayName()||'';
       form.elements.rider_phone.value=a.phone||'';
-      form.elements.service_area.value=a.service_area||'';
+      if(form.elements.service_area_consent)form.elements.service_area_consent.checked=Boolean(a.service_area);
       form.elements.vehicle_plate.value=a.vehicle_plate||'';
       if(status)status.innerHTML=`สถานะปัจจุบัน: <b>${riderApplicationStatusText(a.status)}</b>${a.admin_note?`<br><small>หมายเหตุ: ${esc(a.admin_note)}</small>`:''}`;
       if(a.status==='pending'){
@@ -149,9 +149,10 @@
     const f=ev.currentTarget;
     const name=String(f.elements.rider_name.value||'').trim();
     const phone=String(f.elements.rider_phone.value||'').trim();
-    const area=String(f.elements.service_area.value||'').trim();
+    const areaConsent=Boolean(f.elements.service_area_consent?.checked);
+    const area='อำเภอกระทุ่มแบนและพื้นที่ใกล้เคียงตามที่ระบบกำหนด';
     const plate=String(f.elements.vehicle_plate.value||'').trim();
-    if(!name||!phone||!area||!plate)return alert('กรุณากรอกข้อมูลสมัครวินให้ครบ');
+    if(!name||!phone||!plate||!areaConsent)return alert('กรุณากรอกข้อมูลให้ครบ และติ๊กยินยอมรับทราบพื้นที่ให้บริการ');
     const btn=f.querySelector('button[type=submit]');
     btn.disabled=true;btn.textContent='กำลังส่งใบสมัคร...';
     try{
@@ -2489,7 +2490,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.22.26', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.22.27', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
