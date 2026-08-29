@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.24 Guest Header 3-Column Fix loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.25 Guest Header 3-Column Fix loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -1903,7 +1903,6 @@
     document.querySelectorAll('[data-analytics-period]').forEach(btn=>btn.addEventListener('click',()=>loadAnalyticsDashboard(btn.dataset.analyticsPeriod||'7d')));
     $('accountBtn').addEventListener('click',()=>{
       if(!session)return openModal('authModal');
-      if(window.matchMedia('(max-width:760px)').matches)return openProfileNameEditor();
       $('dashboard').scrollIntoView({behavior:'smooth'});
     });
     $('headerUserName')?.addEventListener('click',()=>{if(session)openProfileNameEditor();});
@@ -2331,7 +2330,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.22.24', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.22.25', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
