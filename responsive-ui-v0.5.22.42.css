@@ -1,0 +1,828 @@
+
+/* V0.5.22.42 — Unified responsive UI
+   Visual layer only. Keeps existing IDs, functions and business logic intact. */
+
+:root{
+  --market-red:#b31217;
+  --market-red-dark:#8e0e12;
+  --market-soft:#fff7f7;
+  --market-line:#eee5e5;
+  --market-text:#262222;
+  --market-muted:#716767;
+  --market-surface:#ffffff;
+  --market-shadow:0 10px 30px rgba(77,32,32,.08);
+}
+
+/* Overall visual direction */
+body{
+  background:#fbfaf9;
+  color:var(--market-text);
+  padding-bottom:92px;
+}
+.site-header{
+  position:sticky;
+  top:0;
+  z-index:7000;
+  background:rgba(255,255,255,.96);
+  border-bottom:1px solid rgba(179,18,23,.08);
+  box-shadow:0 5px 22px rgba(60,25,25,.05);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+}
+.site-header .header-dashboard-nav{
+  gap:14px;
+  padding-top:10px;
+  padding-bottom:10px;
+}
+.site-header .brand{
+  min-width:max-content;
+}
+.site-header .logo{
+  background:var(--market-red)!important;
+  box-shadow:0 6px 18px rgba(179,18,23,.18);
+}
+.site-header .brand-copy b{color:#2c2525}
+.site-header .brand-copy small{color:#817474}
+
+/* Secondary navigation: same design language on all screen sizes */
+.site-header .nav-actions{
+  gap:7px!important;
+  background:#fff;
+  border:1px solid var(--market-line);
+  border-radius:18px;
+  padding:7px!important;
+  box-shadow:0 5px 16px rgba(55,25,25,.035);
+}
+.site-header .nav-actions>button,
+.site-header .nav-actions>.header-user-pill{
+  border-radius:13px!important;
+}
+.site-header .nav-actions>.header-shortcut,
+.site-header .nav-actions>.market-order-nav{
+  min-height:44px;
+}
+.site-header .nav-actions .nav-ico{font-size:19px}
+.site-header .nav-actions .nav-label{font-weight:700}
+.site-header #addShopBtn{
+  background:var(--market-red)!important;
+  border-color:var(--market-red)!important;
+  box-shadow:none!important;
+}
+.site-header #addShopBtn:hover{background:var(--market-red-dark)!important}
+
+/* Hero stays recognizable, but cleaner and more app-like */
+.hero{
+  background:
+    radial-gradient(circle at 92% 12%, rgba(179,18,23,.10), transparent 28%),
+    linear-gradient(180deg,#fff 0%,#fff9f9 100%)!important;
+  border-bottom:1px solid rgba(179,18,23,.07);
+}
+.hero .hero-grid{
+  padding-top:26px;
+  padding-bottom:26px;
+}
+.hero h1{
+  letter-spacing:-.035em;
+  line-height:1.08;
+}
+.hero h1 em{color:var(--market-red)!important}
+.search-box{
+  background:#fff!important;
+  border:1px solid #eadfdf!important;
+  box-shadow:0 10px 28px rgba(73,34,34,.06)!important;
+}
+.search-box button{
+  background:var(--market-red)!important;
+}
+.chips button{
+  border-color:#ebdddd!important;
+  background:#fff!important;
+}
+.chips button:hover{
+  border-color:var(--market-red)!important;
+  color:var(--market-red)!important;
+}
+
+/* Cards and sections visually aligned across devices */
+.section{
+  scroll-margin-top:92px;
+}
+.card,.promo-card,.shop-card{
+  border-color:#eee7e7!important;
+  box-shadow:0 8px 25px rgba(70,35,35,.055)!important;
+}
+.section-head h2{letter-spacing:-.02em}
+.eyebrow.red,.eyebrow{color:var(--market-red)}
+
+/* Hide old floating 3-button control; unified app dock replaces it */
+.floating-navigation{display:none!important}
+
+/* Unified dock – same navigation concept on mobile, tablet and PC */
+.unified-app-dock{
+  position:fixed;
+  z-index:8500;
+  left:50%;
+  bottom:14px;
+  transform:translateX(-50%);
+  width:min(560px,calc(100vw - 28px));
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:4px;
+  padding:7px;
+  background:rgba(255,255,255,.96);
+  border:1px solid #ece4e4;
+  border-radius:21px;
+  box-shadow:0 14px 42px rgba(46,24,24,.16);
+  backdrop-filter:blur(15px);
+  -webkit-backdrop-filter:blur(15px);
+}
+.unified-app-dock button{
+  appearance:none;
+  border:0;
+  background:transparent;
+  color:#4c4444;
+  min-width:0;
+  min-height:54px;
+  border-radius:15px;
+  padding:5px 3px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  gap:3px;
+  font-family:inherit;
+  cursor:pointer;
+}
+.unified-app-dock button:hover{
+  background:#fff3f3;
+  color:var(--market-red);
+}
+.unified-app-dock button[data-dock-action="home"]{
+  color:var(--market-red);
+  background:#fff4f4;
+}
+.unified-app-dock .dock-icon{
+  font-size:21px;
+  line-height:1;
+}
+.unified-app-dock .dock-label{
+  font-size:11px;
+  font-weight:750;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  max-width:100%;
+}
+
+/* Tablet */
+@media (min-width:761px) and (max-width:1100px){
+  .site-header .header-dashboard-nav{
+    grid-template-columns:1fr!important;
+    align-items:stretch!important;
+  }
+  .site-header .nav-actions{
+    width:100%;
+    max-width:none!important;
+    justify-self:stretch!important;
+    display:flex!important;
+    flex-wrap:wrap;
+  }
+  .site-header .nav-actions>button{flex:1 1 120px}
+  .site-header #addShopBtn{flex:1 1 160px}
+  .hero .hero-grid{padding-top:22px;padding-bottom:22px}
+  .unified-app-dock{width:min(520px,calc(100vw - 40px))}
+}
+
+/* Mobile */
+@media (max-width:760px){
+  body{
+    padding-bottom:calc(86px + env(safe-area-inset-bottom));
+  }
+  .site-header{
+    position:sticky;
+  }
+  .site-header .header-dashboard-nav{
+    display:block!important;
+    padding:9px 12px!important;
+  }
+  .site-header .brand{
+    display:flex!important;
+    margin-bottom:8px;
+  }
+  .site-header .brand-copy small{font-size:10px}
+  .site-header .nav-actions{
+    display:flex!important;
+    width:100%;
+    overflow-x:auto;
+    flex-wrap:nowrap!important;
+    scrollbar-width:none;
+    -webkit-overflow-scrolling:touch;
+    padding:6px!important;
+    border-radius:15px;
+  }
+  .site-header .nav-actions::-webkit-scrollbar{display:none}
+  .site-header .nav-actions>button,
+  .site-header .nav-actions>.header-user-pill{
+    flex:0 0 auto!important;
+    min-width:86px!important;
+    min-height:44px!important;
+    padding:6px 9px!important;
+    grid-column:auto!important;
+    grid-row:auto!important;
+    order:initial!important;
+    border-radius:11px!important;
+  }
+  .site-header .nav-actions .nav-ico{font-size:17px!important}
+  .site-header .nav-actions .nav-label{
+    font-size:11px!important;
+    white-space:nowrap!important;
+  }
+  .site-header .guest-signup-btn small{display:none!important}
+  .site-header #addShopBtn{
+    min-width:102px!important;
+    min-height:44px!important;
+  }
+  .site-header #addShopBtn .nav-label::after{content:""!important}
+  .site-header #riderJoinBtn{
+    min-width:100px!important;
+    min-height:44px!important;
+  }
+
+  /* Do not hide useful guest shortcuts just because screen is small.
+     Login/signup/add-shop remain visible; logged-in actions are still controlled by existing JS classes. */
+  body.guest-session .site-header #nearBtn{display:flex!important}
+  body.guest-session .site-header #riderJoinBtn{display:flex!important}
+
+  .hero .hero-grid{
+    padding:18px 12px 20px!important;
+  }
+  .hero h1{
+    font-size:clamp(30px,10vw,43px)!important;
+  }
+  .hero p{font-size:14px}
+  .search-box{
+    border-radius:16px!important;
+  }
+  .section{
+    padding-left:12px!important;
+    padding-right:12px!important;
+  }
+  .unified-app-dock{
+    left:8px;
+    right:8px;
+    bottom:calc(7px + env(safe-area-inset-bottom));
+    transform:none;
+    width:auto;
+    border-radius:18px;
+    padding:6px;
+  }
+  .unified-app-dock button{
+    min-height:51px;
+    border-radius:13px;
+  }
+  .unified-app-dock .dock-icon{font-size:20px}
+  .unified-app-dock .dock-label{font-size:10px}
+}
+
+/* Wide desktop: a compact centered dock, never stretched excessively */
+@media (min-width:1101px){
+  .site-header .header-dashboard-nav{
+    grid-template-columns:minmax(230px,.62fr) minmax(650px,1.38fr)!important;
+  }
+  .site-header .nav-actions{
+    justify-self:end;
+    max-width:920px;
+  }
+  .unified-app-dock{
+    width:480px;
+  }
+}
+
+
+/* V0.5.22.42 — Real Krathumbaen market photo banner supplied by project owner */
+.market-photo-banner{
+  position:relative;
+  width:100%;
+  height:clamp(190px,24vw,330px);
+  overflow:hidden;
+  background:#2c2424;
+  border-bottom:1px solid rgba(179,18,23,.10);
+}
+.market-photo-banner img{
+  width:100%;
+  height:100%;
+  display:block;
+  object-fit:cover;
+  object-position:center 55%;
+}
+.market-photo-banner::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:linear-gradient(180deg,rgba(0,0,0,.04) 20%,rgba(0,0,0,.58) 100%);
+  pointer-events:none;
+}
+.market-photo-overlay{
+  position:absolute;
+  z-index:2;
+  left:0;right:0;bottom:0;
+  color:#fff;
+}
+.market-photo-copy{
+  padding:22px 20px 20px;
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  text-shadow:0 2px 10px rgba(0,0,0,.55);
+}
+.market-photo-copy b{
+  font-size:clamp(24px,3vw,38px);
+  line-height:1.1;
+}
+.market-photo-copy span{
+  font-size:clamp(12px,1.5vw,17px);
+  font-weight:600;
+}
+@media(max-width:760px){
+  .market-photo-banner{height:190px}
+  .market-photo-banner img{object-position:center 54%}
+  .market-photo-copy{padding:16px 14px}
+  .market-photo-copy b{font-size:25px}
+  .market-photo-copy span{font-size:12px}
+}
+@media(min-width:761px) and (max-width:1100px){
+  .market-photo-banner{height:250px}
+}
+@media(min-width:1101px){
+  .market-photo-banner{height:300px}
+}
+
+
+/* V0.5.22.42 — Mobile top buttons: fixed grid, no horizontal sliding */
+@media (max-width:760px){
+  .site-header .nav-actions{
+    display:grid!important;
+    grid-template-columns:repeat(4,minmax(0,1fr))!important;
+    gap:6px!important;
+    width:100%!important;
+    overflow:visible!important;
+    flex-wrap:initial!important;
+    padding:6px!important;
+  }
+
+  .site-header .nav-actions>button,
+  .site-header .nav-actions>.header-user-pill{
+    width:100%!important;
+    min-width:0!important;
+    max-width:none!important;
+    min-height:54px!important;
+    padding:6px 3px!important;
+    margin:0!important;
+    display:flex!important;
+    flex-direction:column!important;
+    justify-content:center!important;
+    align-items:center!important;
+    gap:3px!important;
+  }
+
+  .site-header .nav-actions .nav-ico{
+    font-size:18px!important;
+    line-height:1!important;
+  }
+
+  .site-header .nav-actions .nav-label{
+    font-size:10px!important;
+    line-height:1.15!important;
+    white-space:normal!important;
+    text-align:center!important;
+    overflow:visible!important;
+    text-overflow:clip!important;
+  }
+
+  /* These 3 functions are already in the bottom dock on mobile.
+     Hide only their duplicate top buttons to keep the header clean. */
+  .site-header #marketOrdersBtn,
+  .site-header #couponWalletBtn,
+  .site-header #accountBtn{
+    display:none!important;
+  }
+
+  /* Add shop stays clear and prominent but remains inside the grid */
+  .site-header #addShopBtn{
+    min-width:0!important;
+    width:100%!important;
+  }
+}
+
+@media (max-width:420px){
+  .site-header .nav-actions{
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  }
+}
+
+/* V0.5.22.42 — Shortcut actions directly below market banner */
+.below-banner-actions{background:#fff;border-bottom:1px solid rgba(179,18,23,.08);padding:10px 0 12px}
+.below-banner-actions .nav-actions{
+ display:grid!important;grid-template-columns:repeat(6,minmax(0,1fr))!important;gap:8px!important;
+ width:100%!important;max-width:none!important;margin:0!important;padding:8px!important;overflow:visible!important;
+ background:#fff!important;border:1px solid var(--market-line)!important;border-radius:18px!important;
+ box-shadow:0 7px 22px rgba(55,25,25,.045)!important
+}
+.below-banner-actions .nav-actions>button,.below-banner-actions .nav-actions>.header-user-pill{
+ width:100%!important;min-width:0!important;min-height:58px!important;margin:0!important;padding:7px 4px!important;
+ display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;
+ gap:4px!important;border-radius:13px!important
+}
+.below-banner-actions .nav-ico{font-size:20px!important;line-height:1!important}
+.below-banner-actions .nav-label{font-size:11px!important;line-height:1.15!important;text-align:center!important;white-space:normal!important}
+@media(max-width:760px){
+ .below-banner-actions{padding:8px 10px 10px}
+ .below-banner-actions .container{padding:0!important}
+ .below-banner-actions .nav-actions{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:6px!important;padding:7px!important}
+ .below-banner-actions #marketOrdersBtn,.below-banner-actions #couponWalletBtn,.below-banner-actions #accountBtn{display:none!important}
+ .below-banner-actions .nav-actions>button,.below-banner-actions .nav-actions>.header-user-pill{min-height:55px!important}
+ .below-banner-actions .nav-label{font-size:10px!important}
+}
+@media(max-width:420px){.below-banner-actions .nav-actions{grid-template-columns:repeat(3,minmax(0,1fr))!important}}
+@media(min-width:761px) and (max-width:1100px){.below-banner-actions .nav-actions{grid-template-columns:repeat(4,minmax(0,1fr))!important}}
+
+
+/* V0.5.22.42 — Home flow: Market image → Search → Main categories → All categories → Functions */
+.home-discovery{background:#fff;padding:14px 0 8px}
+.home-search-card{
+  border:1px solid #eee4e4;background:#fff;border-radius:20px;padding:12px;
+  box-shadow:0 8px 24px rgba(65,28,28,.05)
+}
+.home-search-row{
+  display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:8px;
+  border:1px solid #e8dddd;border-radius:15px;padding:5px 5px 5px 12px;background:#fff
+}
+.home-search-icon{font-size:20px}
+.home-search-row input{
+  width:100%;border:0;outline:0;background:transparent;font:inherit;min-height:42px;color:#2d2929
+}
+.home-search-row button{
+  border:0;background:var(--market-red);color:#fff;border-radius:11px;min-height:42px;padding:0 17px;font:700 13px inherit
+}
+.home-main-categories{
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:12px
+}
+.home-main-categories button{
+  border:1px solid #eadede;background:#fff;border-radius:14px;min-height:66px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  font:700 12px inherit;color:#373131
+}
+.home-main-categories button:first-child{background:#fff7f7;border-color:#e9cccc}
+.home-main-categories button span{line-height:1.15}
+.all-categories-toggle{
+  width:100%;margin-top:9px;min-height:42px;border:1px solid #eadede;border-radius:12px;
+  background:#faf8f8;color:#4a4141;font:700 12px inherit
+}
+.all-categories-panel{
+  margin-top:8px;padding:8px;border:1px solid #eee3e3;border-radius:13px;background:#fff;
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px
+}
+.all-categories-panel[hidden]{display:none}
+.all-categories-panel button{
+  border:1px solid #eee3e3;background:#fff;border-radius:10px;min-height:40px;padding:6px;font:650 11px inherit
+}
+.function-shortcuts-section{background:#fff;padding:8px 0 0}
+.function-shortcuts-title{display:flex;align-items:end;justify-content:space-between;padding:0 2px}
+.function-shortcuts-title b{font-size:17px}
+.function-shortcuts-title span{font-size:11px;color:#807474}
+
+/* The real action buttons now sit under search/categories; arrange by usability */
+.below-banner-actions{padding-top:6px!important}
+.below-banner-actions .nav-actions{
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+}
+/* On all sizes, avoid duplicating the persistent dock actions */
+.below-banner-actions #marketOrdersBtn,
+.below-banner-actions #couponWalletBtn,
+.below-banner-actions #accountBtn{display:none!important}
+
+@media(max-width:760px){
+  .market-photo-banner{height:180px}
+  .market-photo-copy b{font-size:28px}
+  .market-photo-copy span{font-size:14px}
+  .home-discovery{padding:10px 10px 5px}
+  .home-discovery .container{padding:0!important}
+  .home-search-card{padding:9px;border-radius:17px}
+  .home-search-row button{padding:0 13px}
+  .home-main-categories{gap:6px;margin-top:9px}
+  .home-main-categories button{min-height:59px;font-size:10.5px;border-radius:12px}
+  .all-categories-panel{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .function-shortcuts-section{padding:8px 10px 0}
+  .function-shortcuts-section .container{padding:0!important}
+  .below-banner-actions .nav-actions{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+}
+@media(max-width:420px){
+  .below-banner-actions .nav-actions{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+}
+@media(min-width:761px) and (max-width:1100px){
+  .home-main-categories{max-width:720px;margin-left:auto;margin-right:auto}
+  .all-categories-panel{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .below-banner-actions .nav-actions{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+}
+@media(min-width:1101px){
+  .home-search-card{max-width:960px;margin:0 auto}
+  .below-banner-actions .nav-actions{grid-template-columns:repeat(4,minmax(0,1fr))!important;max-width:960px!important;margin:0 auto!important}
+}
+
+
+/* V0.5.22.42 — Help shortcut + richer market palette */
+.below-banner-actions .nav-actions>a.header-shortcut{
+  width:100%!important;min-width:0!important;min-height:58px!important;margin:0!important;padding:7px 4px!important;
+  display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;
+  gap:4px!important;border-radius:13px!important;text-decoration:none!important;box-sizing:border-box!important
+}
+.below-banner-actions .nav-actions>a.header-shortcut small{
+  font-size:9px;line-height:1.1;color:#8a7777;text-align:center
+}
+
+/* Slightly stronger contrast without turning the page into a rainbow */
+.market-photo-overlay{
+  background:linear-gradient(to top,rgba(65,9,12,.78),rgba(65,9,12,.12) 70%,transparent)!important
+}
+.market-photo-copy b{
+  text-shadow:0 2px 12px rgba(0,0,0,.28)
+}
+.home-search-card{
+  border-color:#e8cfcf!important;
+  box-shadow:0 10px 26px rgba(132,28,34,.09)!important
+}
+.home-search-row{
+  background:#fffafa!important;
+  border-color:#e4caca!important
+}
+.home-search-row:focus-within{
+  border-color:var(--market-red)!important;
+  box-shadow:0 0 0 3px rgba(179,18,23,.09)!important
+}
+.home-main-categories button{
+  border-color:#ead2d2!important;
+  background:linear-gradient(180deg,#fff,#fff8f8)!important;
+  box-shadow:0 4px 12px rgba(103,39,39,.045)
+}
+.home-main-categories button:nth-child(1){
+  background:linear-gradient(180deg,#fff5f5,#ffecec)!important
+}
+.home-main-categories button:nth-child(2){
+  background:linear-gradient(180deg,#fff8f3,#fff0e7)!important
+}
+.home-main-categories button:nth-child(3){
+  background:linear-gradient(180deg,#fff7fb,#fcecf4)!important
+}
+.home-main-categories button:nth-child(4){
+  background:linear-gradient(180deg,#fff9ee,#fff2d8)!important
+}
+.home-main-categories button:active,
+.home-main-categories button:hover{
+  border-color:var(--market-red)!important;
+  transform:translateY(-1px)
+}
+.all-categories-toggle{
+  background:#fff4f4!important;
+  border-color:#e8caca!important;
+  color:#9f151b!important
+}
+.function-shortcuts-title b{color:#8f1117}
+.below-banner-actions .nav-actions{
+  border-color:#ead0d0!important;
+  box-shadow:0 8px 22px rgba(115,28,33,.07)!important
+}
+.below-banner-actions .nav-actions>button,
+.below-banner-actions .nav-actions>a.header-shortcut,
+.below-banner-actions .nav-actions>.header-user-pill{
+  border:1px solid #eddada!important;
+  background:linear-gradient(180deg,#fff,#fff8f8)!important;
+  color:#3b3030!important
+}
+.below-banner-actions #addShopBtn{
+  background:linear-gradient(180deg,#c62027,#a80f16)!important;
+  color:#fff!important;
+  border-color:#a80f16!important
+}
+.below-banner-actions #addShopBtn .nav-label{color:#fff!important}
+.below-banner-actions #missionBtn{
+  background:linear-gradient(180deg,#fff6e8,#fff0d3)!important;
+  border-color:#ecd39d!important
+}
+.below-banner-actions #favoritesBtn{
+  background:linear-gradient(180deg,#fff4f6,#ffe9ed)!important;
+  border-color:#ebc6cc!important
+}
+.below-banner-actions #riderJoinBtn{
+  background:linear-gradient(180deg,#fff8e8,#ffefc8)!important;
+  border-color:#ebd39a!important
+}
+.below-banner-actions #supportCenterBtn{
+  background:linear-gradient(180deg,#f5f9ff,#eaf3ff)!important;
+  border-color:#cbdcf0!important
+}
+@media(max-width:760px){
+  .below-banner-actions .nav-actions>a.header-shortcut{min-height:55px!important}
+}
+
+
+/* V0.5.22.42 — Red brand header + remove duplicate discovery UI */
+
+/* Strong, compact brand bar */
+.site-header{
+  background:linear-gradient(180deg,#bd171d 0%,#a90f15 100%)!important;
+  border-bottom:0!important;
+  box-shadow:0 3px 12px rgba(77,8,12,.16)!important;
+}
+.site-header .header-dashboard-nav{
+  min-height:64px!important;
+  padding-top:8px!important;
+  padding-bottom:8px!important;
+  display:flex!important;
+  align-items:center!important;
+}
+.site-header .brand{
+  color:#fff!important;
+  text-decoration:none!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:10px!important;
+}
+.site-header .brand-copy b{
+  color:#fff!important;
+  font-weight:800!important;
+  letter-spacing:.1px;
+}
+.site-header .brand-copy small{
+  color:rgba(255,255,255,.84)!important;
+}
+.site-header .logo{
+  background:#b31217!important;
+  color:#fff!important;
+  border:3px solid #fff!important;
+  box-shadow:0 2px 9px rgba(62,5,8,.22)!important;
+}
+
+/* New discovery block under market photo is now the only visible search/category UI.
+   Keep old Hero DOM hidden so existing search/category logic can still be proxied safely. */
+.hero{
+  display:none!important;
+}
+
+/* Install App now belongs with the function shortcuts */
+.below-banner-actions .function-install-shortcut{
+  min-width:0!important;
+  margin:0!important;
+  display:flex!important;
+  flex-direction:column!important;
+}
+.below-banner-actions .function-install-shortcut #installAppBtn{
+  width:100%!important;
+  min-width:0!important;
+  min-height:58px!important;
+  margin:0!important;
+  padding:7px 4px!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:4px!important;
+  border:1px solid #c9dfd4!important;
+  border-radius:13px!important;
+  background:linear-gradient(180deg,#f3fbf7,#e8f6ee)!important;
+  color:#315a46!important;
+  font:inherit!important;
+}
+.below-banner-actions .function-install-shortcut #installAppHint{
+  display:none!important;
+}
+
+/* Keep shortcut order intuitive: discover/use → participate → create → install/help */
+.below-banner-actions #nearBtn{order:1}
+.below-banner-actions #favoritesBtn{order:2}
+.below-banner-actions #missionBtn{order:3}
+.below-banner-actions #riderJoinBtn{order:4}
+.below-banner-actions #guestSignUpBtn{order:5}
+.below-banner-actions #addShopBtn{order:6}
+.below-banner-actions .function-install-shortcut{order:7}
+.below-banner-actions #supportCenterBtn{order:8}
+.below-banner-actions #headerUserName{order:9}
+
+/* Existing bottom dock owns these actions; never duplicate them in the shortcut grid. */
+.below-banner-actions #marketOrdersBtn,
+.below-banner-actions #couponWalletBtn,
+.below-banner-actions #accountBtn{
+  display:none!important;
+}
+
+@media(max-width:760px){
+  .site-header .header-dashboard-nav{
+    min-height:60px!important;
+    padding:7px 12px!important;
+  }
+  .site-header .logo{
+    border-width:2.5px!important;
+  }
+  .site-header .brand-copy b{font-size:16px!important}
+  .site-header .brand-copy small{font-size:10px!important}
+  .below-banner-actions .function-install-shortcut #installAppBtn{
+    min-height:55px!important;
+  }
+}
+
+/* V0.5.22.42 — Account controls belong in the red header */
+.site-header .header-dashboard-nav{
+  justify-content:space-between!important;
+  gap:12px!important;
+}
+.top-account-area{
+  margin-left:auto;display:flex;align-items:center;justify-content:flex-end;gap:7px;min-width:0
+}
+.top-account-area button{
+  border:1px solid rgba(255,255,255,.72);background:rgba(255,255,255,.10);color:#fff;
+  min-height:36px;border-radius:999px;padding:7px 12px;font:700 11px inherit;cursor:pointer;
+  white-space:nowrap
+}
+.top-account-area .top-signup-proxy{
+  background:#fff;color:#a90f15;border-color:#fff
+}
+.top-account-area .top-display-name-proxy{
+  max-width:210px;overflow:hidden;text-overflow:ellipsis
+}
+.top-account-area .top-display-name-proxy span{
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap
+}
+.top-account-area .hidden{display:none!important}
+
+/* Original controls stay in DOM for app logic, but account UI is now in the header. */
+.below-banner-actions #guestSignUpBtn,
+.below-banner-actions #headerUserName{
+  display:none!important
+}
+
+@media(max-width:760px){
+  .site-header .header-dashboard-nav{flex-direction:row!important}
+  .site-header .brand-copy small{display:none!important}
+  .top-account-area{gap:5px}
+  .top-account-area button{min-height:33px;padding:6px 9px;font-size:9.5px}
+  .top-account-area .top-login-proxy{display:none}
+  .top-account-area .top-display-name-proxy{max-width:125px}
+}
+@media(max-width:390px){
+  .site-header .brand-copy b{font-size:14px!important}
+  .site-header .logo{transform:scale(.92)}
+  .top-account-area .top-signup-proxy{padding-left:8px;padding-right:8px}
+}
+
+
+/* V0.5.22.42 — Mobile cart visible above the app dock */
+@media(max-width:760px){
+  #marketCartBtn.mobile-floating-cart{
+    position:fixed!important;
+    right:14px!important;
+    bottom:calc(82px + env(safe-area-inset-bottom))!important;
+    left:auto!important;
+    top:auto!important;
+    z-index:10020!important;
+    min-width:58px!important;
+    height:58px!important;
+    padding:0 13px!important;
+    border:2px solid #fff!important;
+    border-radius:999px!important;
+    background:linear-gradient(180deg,#c62027,#a90f15)!important;
+    color:#fff!important;
+    box-shadow:0 8px 24px rgba(116,12,18,.28)!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    gap:5px!important;
+    pointer-events:auto!important;
+    touch-action:manipulation!important;
+  }
+  #marketCartBtn.mobile-floating-cart .cart-icon{
+    font-size:24px!important;
+    line-height:1!important
+  }
+  #marketCartBtn.mobile-floating-cart .cart-label{
+    display:none!important
+  }
+  #marketCartBtn.mobile-floating-cart .count{
+    position:absolute!important;
+    top:-5px!important;
+    right:-3px!important;
+    min-width:23px!important;
+    height:23px!important;
+    padding:0 5px!important;
+    display:grid!important;
+    place-items:center!important;
+    border-radius:999px!important;
+    background:#fff!important;
+    color:#b31217!important;
+    border:2px solid #b31217!important;
+    font-size:11px!important;
+    font-weight:900!important;
+    line-height:1!important
+  }
+  body.order-has-mobile-cart{
+    padding-bottom:max(108px,calc(94px + env(safe-area-inset-bottom)))!important
+  }
+}

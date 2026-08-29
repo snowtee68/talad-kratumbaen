@@ -180,10 +180,25 @@
   function directChildUnder(parent,node){let n=node;while(n&&n.parentElement!==parent)n=n.parentElement;return n;}
   function attachCartToBottomNav(){
     const cart=document.getElementById('marketCartBtn');if(!cart)return;
+
+    // Mobile: keep cart as a dedicated floating action above the persistent app dock.
+    // Do not insert it into the legacy floating navigation because that navigation is hidden
+    // by the new responsive UI.
+    if(window.matchMedia && window.matchMedia('(max-width:760px)').matches){
+      if(cart.parentElement!==document.body)document.body.appendChild(cart);
+      cart.classList.remove('order-bottom-cart');
+      cart.classList.add('mobile-floating-cart');
+      document.body.classList.add('order-has-mobile-cart');
+      document.body.classList.remove('order-has-bottom-cart');
+      return;
+    }
+
+    cart.classList.remove('mobile-floating-cart');
+    document.body.classList.remove('order-has-mobile-cart');
+
     const back=buttonByThaiLabel('กลับ'),home=buttonByThaiLabel('หน้าหลัก'),help=buttonByThaiLabel('ช่วยเหลือ');
     if(!back||!home||!help)return;
     let bar=commonAncestor([back,home,help]);if(!bar)return;
-    // Keep the detected container reasonably local to the three bottom-nav controls.
     if(bar===document.body||bar.children.length>12)return;
     const helpItem=directChildUnder(bar,help),homeItem=directChildUnder(bar,home);
     if(!helpItem||!homeItem)return;
@@ -959,7 +974,7 @@
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=0.5.22.40',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=0.5.22.42',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
