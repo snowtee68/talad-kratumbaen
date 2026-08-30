@@ -1045,7 +1045,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=0.5.22.68',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=0.5.22.69',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
@@ -1230,9 +1230,10 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
     const effective=done?'ส่งสำเร็จ':arrived?'รอลูกค้ายืนยันรับสินค้า':deliveryBatchStatusText(b.status);
     const proof=arrived?(b.proof_deleted_at?`<div class="mo-muted">📷 หลักฐานการส่งมอบถูกลบตามนโยบายแล้ว</div>`:b.proof_path?`<button class="mo-secondary" data-view-delivery-proof="${b.id}">📷 ดูหลักฐานการส่งมอบ</button>`:''):'';
     const customerActions=arrived&&!done&&!issue?`<div class="mo-actions"><button class="mo-primary" data-confirm-delivery="${b.id}">✅ ได้รับสินค้าแล้ว</button><button class="mo-danger" data-report-delivery-issue="${b.id}">⚠️ ยังไม่ได้รับ / มีปัญหา</button></div>`:'';
+    const switchToPickup=(!b.accepted_at&&['creating','waiting_rider','created','open'].includes(String(b.status||'')))?`<div class="mo-actions switch-pickup-wrap"><button type="button" class="mo-secondary switch-pickup-btn" data-switch-pickup-batch="${b.id}">🏪 เปลี่ยนเป็นมารับเองที่ร้าน</button></div><div class="mo-muted"><small>เปลี่ยนได้เฉพาะก่อนวินรับงาน · ออเดอร์สินค้าไม่ถูกยกเลิก</small></div>`:'';
     const issueBox=issue?`<div class="warning-banner"><b>⚠️ แจ้งปัญหาการส่งมอบแล้ว</b><br>${esc(b.delivery_issue_note||'')}<br><small>รูปหลักฐานจะถูกเก็บไว้จนกว่าปัญหาจะถูกแก้ไข</small></div>`:'';
     const times=`<div class="mo-muted" style="margin-top:6px">${b.accepted_at?`รับงาน ${new Date(b.accepted_at).toLocaleString('th-TH')} · `:''}${b.picked_up_at?`รับสินค้าครบ ${new Date(b.picked_up_at).toLocaleString('th-TH')} · `:''}${b.delivery_arrived_at?`ถึงปลายทาง ${new Date(b.delivery_arrived_at).toLocaleString('th-TH')} · `:''}${b.customer_confirmed_at?`ลูกค้ายืนยัน ${new Date(b.customer_confirmed_at).toLocaleString('th-TH')}`:''}</div>`;
-    return `<div class="delivery-track"><div class="order-card-head"><b>${done?'✅':'🛵'} ${esc(effective)}</b><span class="status-pill">${esc(String(b.id).slice(0,8).toUpperCase())}</span></div>${b.rider_name||phone?`<div class="rider-contact"><b>วิน: ${esc(b.rider_name||'ไม่ระบุชื่อ')}</b>${phone?` · ${esc(phone)} <a href="tel:${esc(phone)}">📞 โทรหาวิน</a>`:''}</div>`:`<div class="mo-muted">รอวินรับงานและส่งข้อมูลติดต่อ</div>`}<div class="delivery-steps"><span class="${['accepted','pickup_started','picked_up','delivering','completed'].includes(b.status)?'done':''}">วินรับงาน</span><span class="${['picked_up','delivering','completed'].includes(b.status)?'done':b.status==='pickup_started'?'active':''}">รับสินค้า</span><span class="${arrived||done?'done':b.status==='delivering'?'active':''}">ถึงปลายทาง</span><span class="${done?'done':arrived?'active':''}">ลูกค้ายืนยัน</span></div>${b.delivery_fee?`<small>ค่าส่งประมาณ ${money(b.delivery_fee)} บาท${b.distance_km?` · ${Number(b.distance_km).toFixed(1)} กม.`:''}</small>`:''}${times}${issueBox}<div class="mo-actions">${proof}</div>${customerActions}</div>`;
+    return `<div class="delivery-track"><div class="order-card-head"><b>${done?'✅':'🛵'} ${esc(effective)}</b><span class="status-pill">${esc(String(b.id).slice(0,8).toUpperCase())}</span></div>${b.rider_name||phone?`<div class="rider-contact"><b>วิน: ${esc(b.rider_name||'ไม่ระบุชื่อ')}</b>${phone?` · ${esc(phone)} <a href="tel:${esc(phone)}">📞 โทรหาวิน</a>`:''}</div>`:`<div class="mo-muted">รอวินรับงานและส่งข้อมูลติดต่อ</div>`}<div class="delivery-steps"><span class="${['accepted','pickup_started','picked_up','delivering','completed'].includes(b.status)?'done':''}">วินรับงาน</span><span class="${['picked_up','delivering','completed'].includes(b.status)?'done':b.status==='pickup_started'?'active':''}">รับสินค้า</span><span class="${arrived||done?'done':b.status==='delivering'?'active':''}">ถึงปลายทาง</span><span class="${done?'done':arrived?'active':''}">ลูกค้ายืนยัน</span></div>${b.delivery_fee?`<small>ค่าส่งประมาณ ${money(b.delivery_fee)} บาท${b.distance_km?` · ${Number(b.distance_km).toFixed(1)} กม.`:''}</small>`:''}${times}${issueBox}<div class="mo-actions">${proof}</div>${switchToPickup}${customerActions}</div>`;
   }
   function deliveryProgress(g,activeOrders){
     if(g.fulfillment_method==='pickup')return '';
@@ -1894,23 +1895,5 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
 
   document.addEventListener('change',e=>{if(e.target?.matches('input[name="fulfillmentMethod"]')){updateFulfillmentUI();if(document.getElementById('checkoutCouponPanel'))loadCheckoutCoupons(groupedCart(),e.target.value||'delivery').catch(err=>console.warn('coupon checkout',err));}if(e.target?.id==='pickupTimeChoice')updatePickupCustomUI();});
 
-  function decorateCustomerWaitingRiderPickupButtons(){
-    document.querySelectorAll('[data-delivery-batch-id], [data-batch-id]').forEach(card=>{
-      const batchId=card.getAttribute('data-delivery-batch-id')||card.getAttribute('data-batch-id');
-      if(!batchId||card.querySelector('[data-switch-pickup-batch]'))return;
-      const text=(card.textContent||'').replace(/\s+/g,' ').trim();
-      const waiting=/กำลังหาวิน|รอวิน|waiting_rider/i.test(text);
-      const accepted=/วินรับงานแล้ว|accepted|กำลังไปรับ|รับสินค้าครบ|กำลังนำส่ง|ถึงจุดส่ง/i.test(text);
-      if(waiting&&!accepted){
-        const wrap=document.createElement('div');
-        wrap.className='switch-pickup-wrap';
-        wrap.innerHTML=`<button type="button" class="secondary switch-pickup-btn" data-switch-pickup-batch="${String(batchId).replace(/"/g,'&quot;')}">🏪 เปลี่ยนเป็นมารับเองที่ร้าน</button><small>ใช้ได้เฉพาะตอนที่ยังไม่มีวินรับงาน</small>`;
-        card.appendChild(wrap);
-      }
-    });
-  }
 
-  setInterval(()=>{
-    if(document.visibilityState==='visible')decorateCustomerWaitingRiderPickupButtons();
-  },4000);
 })();
