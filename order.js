@@ -252,7 +252,7 @@
     if(orderNotifySoundRepeatTimer){clearInterval(orderNotifySoundRepeatTimer);orderNotifySoundRepeatTimer=null}
   }
   function startOrderSoundRepeat(){
-    // V0.5.22.83: notification sounds are event-based only.
+    // V0.5.22.84: notification sounds are event-based only.
     // Do not repeat sound merely because an unread banner/badge remains.
     // Repeating here caused customer devices to ring every 20 seconds from payment
     // through preparing / waiting-rider states.
@@ -1048,7 +1048,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=0.5.22.83',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=0.5.22.84',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
@@ -1770,7 +1770,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
     if(Number.isFinite(Number(pickupCount))&&Number(pickupCount)>0)detailParts.push(`${Number(pickupCount)} จุดรับ`);
     if(Number.isFinite(Number(fareTotal))&&Number(fareTotal)>0)detailParts.push(`ค่าส่งประมาณ ${Number(fareTotal)} บาท`);
     const pushBody=detailParts.length?`มีงาน Delivery ใหม่ ${detailParts.join(' · ')}`:'มีงาน Delivery ใหม่รอรับ';
-    console.info('auto rider push invoke',{batch_id:batchId,rider_job_id:riderJobId||null,retry:!!retry});
+    console.info('auto rider browser push fallback invoke',{batch_id:batchId,rider_job_id:riderJobId||null,retry:!!retry});
     try{
       const {data:pushData,error:pushError}=await db.functions.invoke('send-rider-push',{body:{
         event:'rider_job_created',
@@ -1781,10 +1781,10 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
         url:'./?rider_jobs=1'
       }});
       if(pushError)throw pushError;
-      console.info('rider job push result',pushData);
+      console.info('rider browser push fallback result',pushData);
       return pushData||{ok:true};
     }catch(err){
-      console.warn('rider new-job push failed',err?.message||err);
+      console.warn('rider browser push fallback failed',err?.message||err);
       return {ok:false,error:err?.message||String(err)};
     }
   }

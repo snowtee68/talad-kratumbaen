@@ -1,14 +1,14 @@
-const CACHE_NAME = 'talad-kratumbaen-v0.5.22.83';
+const CACHE_NAME = 'talad-kratumbaen-v0.5.22.84';
 const CORE = [
   './',
   './index.html',
   './styles.css',
   './app.js',
   './manifest.webmanifest',
-  './icons/icon-192.png?v=0.5.22.83',
-  './icons/icon-512.png?v=0.5.22.83',
-  './icons/icon-maskable-512.png?v=0.5.22.83',
-  './icons/apple-touch-icon.png?v=0.5.22.83'
+  './icons/icon-192.png?v=0.5.22.84',
+  './icons/icon-512.png?v=0.5.22.84',
+  './icons/icon-maskable-512.png?v=0.5.22.84',
+  './icons/apple-touch-icon.png?v=0.5.22.84'
 ];
 
 self.addEventListener('install', (event) => {
