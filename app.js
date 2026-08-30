@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.58 Guest Header 3-Column Fix loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.59 Guest Header 3-Column Fix loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -238,8 +238,9 @@
         p_user_id:userId,p_approve:approve,p_admin_note:note
       });
       if(error)throw error;
-      await Promise.all([loadAdminRiderApplicants(),loadRiderAdminPanel()]);
-      showNotice(approve?'อนุมัติวินเรียบร้อยแล้ว':'อัปเดตคำขอสมัครวินแล้ว');
+      await loadAdminRiderApplicants();
+      await loadRiderAdminPanel();
+      showNotice(approve?'อนุมัติวินเรียบร้อยแล้ว และเพิ่มเข้ารายชื่อวินในระบบแล้ว':'อัปเดตคำขอสมัครวินแล้ว');
     }catch(err){
       alert('อัปเดตคำขอไม่สำเร็จ: '+(err?.message||err));
     }
@@ -2588,7 +2589,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.22.58', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.22.59', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });

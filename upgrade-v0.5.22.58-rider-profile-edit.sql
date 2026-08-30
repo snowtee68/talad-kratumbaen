@@ -1,4 +1,4 @@
--- V0.5.22.58 Rider Profile Edit
+-- V0.5.22.59 Rider Profile Edit
 -- รันใน Supabase SQL Editor 1 ครั้ง
 -- ให้เฉพาะวินที่ได้รับอนุมัติแล้วแก้ข้อมูลของตนเองได้
 -- ไม่เปลี่ยนสถานะ approved และไม่ต้องสมัครใหม่
@@ -56,4 +56,4 @@ grant execute on function public.market_update_my_rider_profile(text,text,text,t
 
 notify pgrst, 'reload schema';
 
-select 'v0.5.22.58 rider profile edit ready' as result;
+select 'v0.5.22.59 rider profile edit ready' as result;
