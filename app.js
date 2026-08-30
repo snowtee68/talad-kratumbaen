@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.62 Guest Header 3-Column Fix loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.63 Guest Header 3-Column Fix loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -146,6 +146,42 @@
 
 
   let riderJobsRealtimeChannel=null;
+  let riderAlertAudioArmed=false;
+
+  function armRiderAlertAudio(){
+    if(riderAlertAudioArmed)return;
+    riderAlertAudioArmed=true;
+    try{
+      const C=window.AudioContext||window.webkitAudioContext;
+      if(!C)return;
+      const c=window.__marketRiderAudioContext||new C();
+      window.__marketRiderAudioContext=c;
+      c.resume?.();
+      const o=c.createOscillator(),g=c.createGain();
+      g.gain.value=.0001;o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+.01);
+    }catch(_e){}
+  }
+
+  function playRiderAlertSound(){
+    if(!riderAlertAudioArmed)return;
+    try{
+      const C=window.AudioContext||window.webkitAudioContext;
+      if(!C)return;
+      const c=window.__marketRiderAudioContext||new C();
+      window.__marketRiderAudioContext=c;c.resume?.();
+      const now=c.currentTime;
+      [880,1175,880,1175,988,1318].forEach((freq,i)=>{
+        const d=i*.34,o=c.createOscillator(),g=c.createGain();
+        o.type='square';o.frequency.value=freq;
+        g.gain.setValueAtTime(.0001,now+d);
+        g.gain.exponentialRampToValueAtTime(.34,now+d+.02);
+        g.gain.setValueAtTime(.25,now+d+.18);
+        g.gain.exponentialRampToValueAtTime(.0001,now+d+.30);
+        o.connect(g);g.connect(c.destination);o.start(now+d);o.stop(now+d+.32);
+      });
+    }catch(_e){}
+  }
+
 
   function riderJobInboxStatusLabel(status){
     const s=String(status||'');
@@ -172,7 +208,11 @@
     if(s==='accepted')return `<button type="button" class="primary rider-next-job" data-rider-advance-batch="${esc(job.batch_id)}" data-rider-next="pickup_started">🛵 เริ่มไปรับสินค้า</button>`;
     if(s==='pickup_started')return `<button type="button" class="primary rider-next-job" data-rider-advance-batch="${esc(job.batch_id)}" data-rider-next="picked_up">📦 รับสินค้าครบแล้ว</button>`;
     if(s==='picked_up')return `<button type="button" class="primary rider-next-job" data-rider-advance-batch="${esc(job.batch_id)}" data-rider-next="delivering">🏠 เริ่มนำส่งลูกค้า</button>`;
-    if(s==='delivering'&&!job.delivery_arrived_at)return `<button type="button" class="primary rider-next-job" data-rider-advance-batch="${esc(job.batch_id)}" data-rider-next="arrived">📍 ถึงจุดส่งแล้ว</button>`;
+    if(s==='delivering'&&!job.delivery_arrived_at)return `<div class="rider-proof-action">
+      <input class="rider-proof-input" type="file" accept="image/*" capture="environment" data-rider-proof-input="${esc(job.batch_id)}" hidden>
+      <button type="button" class="primary rider-next-job" data-rider-proof-batch="${esc(job.batch_id)}">📷 ถ่ายภาพส่งมอบ / ถึงจุดส่ง</button>
+      <small>ต้องแนบภาพส่งมอบก่อนจบขั้นตอนของวิน</small>
+    </div>`;
     if(s==='delivering'&&job.delivery_arrived_at)return `<div class="rider-job-owned">✅ ถึงจุดส่งแล้ว · รอลูกค้ายืนยันรับสินค้า</div>`;
     return `<div class="rider-job-owned">งานของคุณ · ${esc(riderJobInboxStatusLabel(job.status))}</div>`;
   }
@@ -283,7 +323,40 @@
     }
   }
 
+
+  async function submitRiderDeliveryProof(batchId,file){
+    if(!db||!session||myRiderApplication?.status!=='approved')return alert('บัญชีนี้ยังไม่ได้รับสิทธิ์วิน');
+    if(!file)return;
+    let path='';
+    const btn=document.querySelector(`[data-rider-proof-batch="${CSS.escape(String(batchId))}"]`);
+    if(btn){btn.disabled=true;btn.textContent='กำลังอัปโหลดภาพ...';}
+    try{
+      const packed=await compressImage(file,{maxWidth:1600,maxHeight:1600,maxBytes:650*1024});
+      path=`${batchId}/${session.user.id}/delivery-${Date.now()}.webp`;
+      const {error:up}=await db.storage.from('rider-delivery-proof').upload(path,packed,{
+        contentType:'image/webp',upsert:false,cacheControl:'604800'
+      });
+      if(up)throw up;
+
+      const {error}=await db.rpc('market_rider_submit_delivery_proof',{
+        p_batch_id:batchId,p_proof_path:path
+      });
+      if(error)throw error;
+
+      showNotice('📷 บันทึกภาพส่งมอบแล้ว · รอลูกค้ายืนยันรับสินค้า');
+      playRiderAlertSound();
+      await loadRiderJobInbox();
+    }catch(err){
+      if(path){
+        try{await db.storage.from('rider-delivery-proof').remove([path])}catch(_e){}
+      }
+      alert('บันทึกภาพส่งมอบไม่สำเร็จ: '+(err?.message||err));
+      if(btn){btn.disabled=false;btn.textContent='📷 ถ่ายภาพส่งมอบ / ถึงจุดส่ง';}
+    }
+  }
+
   function notifyRiderNewJob(){
+    playRiderAlertSound();
     try{
       if('Notification' in window && Notification.permission==='granted'){
         new Notification('🛵 มีงานวินใหม่',{body:'มีงาน Delivery ใหม่รอรับ กด “งานวิน” เพื่อดูรายละเอียด',tag:'market-rider-new-job'});
@@ -308,7 +381,10 @@
           notifyRiderNewJob();
           if(!$('riderApplyModal')?.classList.contains('hidden'))await loadRiderJobInbox({quiet:true});
         })
-        .on('postgres_changes',{event:'UPDATE',schema:'public',table:'market_delivery_batches'},async()=>{
+        .on('postgres_changes',{event:'UPDATE',schema:'public',table:'market_delivery_batches'},async(payload)=>{
+          const changed=payload?.new||{};
+          const mine=changed.rider_phone&&myRiderApplication?.phone&&String(changed.rider_phone)===String(myRiderApplication.phone);
+          if(mine)playRiderAlertSound();
           if(!$('riderApplyModal')?.classList.contains('hidden'))await loadRiderJobInbox({quiet:true});
         })
         .subscribe();
@@ -2608,7 +2684,23 @@
     if(accept){e.preventDefault();acceptRiderJob(accept.dataset.riderAcceptBatch);return;}
     const advance=e.target.closest?.('[data-rider-advance-batch]');
     if(advance){e.preventDefault();advanceRiderJob(advance.dataset.riderAdvanceBatch,advance.dataset.riderNext);return;}
+    const proof=e.target.closest?.('[data-rider-proof-batch]');
+    if(proof){
+      e.preventDefault();
+      const input=document.querySelector(`[data-rider-proof-input="${CSS.escape(String(proof.dataset.riderProofBatch))}"]`);
+      input?.click();
+      return;
+    }
     if(e.target.closest?.('#refreshRiderJobsBtn')){e.preventDefault();loadRiderJobInbox();return;}
+  });
+
+  document.addEventListener('pointerdown',armRiderAlertAudio,{once:true,capture:true});
+  document.addEventListener('keydown',armRiderAlertAudio,{once:true,capture:true});
+  document.addEventListener('change',e=>{
+    const input=e.target?.closest?.('[data-rider-proof-input]');
+    if(!input)return;
+    const file=input.files?.[0];
+    if(file)submitRiderDeliveryProof(input.dataset.riderProofInput,file);
   });
 })();
 
@@ -2772,7 +2864,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.22.62', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.22.63', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });

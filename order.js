@@ -11,7 +11,7 @@
   const MAX_PICKUPS=5, EXTRA_PICKUP_FEE=10;
   let session=null, productShopIds=new Set(), productOptionDraft=[];
   const ORDER_NOTIFY_KEY='talad_order_notify_v042';
-  let orderNotifyTimer=null,orderNotifyRealtime=null,orderNotifyRealtimeDebounce=null,orderNotifyBusy=false,orderNotifyBaseline=false,orderNotifyAudioArmed=false,orderNotifySoundRepeatTimer=null;
+  let orderNotifyTimer=null,orderNotifyRealtime=null,orderDeliveryRealtime=null,orderNotifyRealtimeDebounce=null,orderNotifyBusy=false,orderNotifyBaseline=false,orderNotifyAudioArmed=false,orderNotifySoundRepeatTimer=null;
   let customerOrderTab='waiting',sellerOrderTab='action',customerOrderPage=1,sellerOrderPage=1,orderSearchTerm='',orderDateFilter='today',customerFocusGroupId=null,customerFocusOrderId=null;
   const ORDER_UI_VERSION='0.5.20.42-restore';
   let orderNotifyState={statuses:{},viewed:{},reminded:{},unread:0,activeSellerOrders:0};
@@ -281,6 +281,7 @@
     if(orderNotifyTimer){clearInterval(orderNotifyTimer);orderNotifyTimer=null}
     if(orderNotifyRealtimeDebounce){clearTimeout(orderNotifyRealtimeDebounce);orderNotifyRealtimeDebounce=null}
     if(orderNotifyRealtime){try{db.removeChannel(orderNotifyRealtime)}catch(_e){}orderNotifyRealtime=null}
+    if(orderDeliveryRealtime){try{db.removeChannel(orderDeliveryRealtime)}catch(_e){}orderDeliveryRealtime=null}
     orderNotifyBusy=false;orderNotifyBaseline=false;
   }
   async function getMySellerShopIds(){
@@ -311,6 +312,8 @@
           if(o.role==='seller'&&cur==='payment_review')events.push({type:'seller_payment',id:o.id});
           if(o.role==='customer'&&cur==='awaiting_payment')events.push({type:'customer_pay',id:o.id});
           if(o.role==='customer'&&cur==='awaiting_customer_confirmation')events.push({type:'customer_revision',id:o.id});
+          if(o.role==='customer'&&cur==='payment_review')events.push({type:'customer_payment_sent',id:o.id});
+          if(o.role==='customer'&&cur==='preparing')events.push({type:'customer_preparing',id:o.id});
           if(o.role==='customer'&&cur==='ready')events.push({type:'customer_ready',id:o.id});
           if(o.role==='customer'&&cur==='cancelled')events.push({type:'customer_cancelled',id:o.id});
         }
@@ -333,6 +336,8 @@
         if(counts.seller_reminder)parts.push('ยังไม่ได้เปิดดู '+counts.seller_reminder);
         if(counts.customer_pay)parts.push('ร้านรับแล้ว รอชำระ '+counts.customer_pay);
         if(counts.customer_revision)parts.push('ร้านขอแก้รายการ '+counts.customer_revision);
+        if(counts.customer_payment_sent)parts.push('ส่งสลิปแล้ว '+counts.customer_payment_sent);
+        if(counts.customer_preparing)parts.push('ตรวจสลิปแล้ว · กำลังเตรียม '+counts.customer_preparing);
         if(counts.customer_ready)parts.push('สินค้าพร้อม '+counts.customer_ready);
         if(counts.customer_cancelled)parts.push('ออเดอร์ยกเลิก '+counts.customer_cancelled);
         showOrderNotifyBanner(title,parts.join(' · '),events.length);
@@ -394,6 +399,40 @@
       }catch(err){console.warn('Realtime UI refresh:',err?.message||err)}
     },700);
   }
+
+  async function handleDeliveryRealtime(payload){
+    if(!session?.user?.id)return;
+    const b=payload?.new||{};
+    const batchId=b.id||payload?.old?.id;
+    if(!batchId)return;
+    try{
+      const {data:batch}=await db.from('market_delivery_batches')
+        .select('id,status,group_id,accepted_at,pickup_started_at,picked_up_at,delivering_at,delivery_arrived_at,customer_confirmed_at,group:market_delivery_groups(customer_id)')
+        .eq('id',batchId).maybeSingle();
+      if(!batch)return;
+
+      let relevant=batch.group?.customer_id===session.user.id;
+      if(!relevant){
+        const sellerIds=await getMySellerShopIds();
+        if(sellerIds.length){
+          const {data:rows}=await db.from('market_delivery_batch_orders')
+            .select('order:market_orders(shop_id)').eq('batch_id',batchId);
+          relevant=(rows||[]).some(x=>sellerIds.includes(x.order?.shop_id));
+        }
+      }
+      if(!relevant)return;
+
+      const status=String(batch.status||'');
+      const detail=batch.delivery_arrived_at?'วินถึงจุดส่งแล้ว · รอยืนยันรับสินค้า':
+        status==='accepted'?'วินรับงานแล้ว':
+        status==='pickup_started'?'วินกำลังไปรับสินค้า':
+        status==='picked_up'?'วินรับสินค้าครบแล้ว':
+        status==='delivering'?'วินกำลังนำส่งลูกค้า':
+        status==='completed'?'จัดส่งสำเร็จ':'สถานะ Delivery อัปเดตแล้ว';
+      showOrderNotifyBanner('🛵 อัปเดต Delivery',detail,1);
+    }catch(err){console.warn('Delivery realtime notification:',err?.message||err)}
+  }
+
   async function startOrderNotifications(){
     if(!session||!canUseOrders())return;
     stopOrderNotifications();loadOrderNotifyState();
@@ -403,6 +442,9 @@
       orderNotifyRealtime=db.channel(`market-orders-${session.user.id}-${Date.now()}`)
         .on('postgres_changes',{event:'*',schema:'public',table:'market_orders'},scheduleRealtimeOrderRefresh)
         .subscribe(status=>{if(status==='CHANNEL_ERROR'||status==='TIMED_OUT')console.warn('Order Realtime:',status)});
+      orderDeliveryRealtime=db.channel(`market-delivery-${session.user.id}-${Date.now()}`)
+        .on('postgres_changes',{event:'UPDATE',schema:'public',table:'market_delivery_batches'},handleDeliveryRealtime)
+        .subscribe(status=>{if(status==='CHANNEL_ERROR'||status==='TIMED_OUT')console.warn('Delivery Realtime:',status)});
     }catch(err){console.warn('Order Realtime setup:',err?.message||err)}
     // Low-frequency safety net only: 5 minutes instead of every 15 seconds.
     orderNotifyTimer=setInterval(()=>{if(document.visibilityState==='visible')pollOrderNotifications()},300000);
@@ -1000,7 +1042,7 @@
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=0.5.22.62',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=0.5.22.63',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
