@@ -252,7 +252,7 @@
     if(orderNotifySoundRepeatTimer){clearInterval(orderNotifySoundRepeatTimer);orderNotifySoundRepeatTimer=null}
   }
   function startOrderSoundRepeat(){
-    // V0.5.22.78: notification sounds are event-based only.
+    // V0.5.22.82: notification sounds are event-based only.
     // Do not repeat sound merely because an unread banner/badge remains.
     // Repeating here caused customer devices to ring every 20 seconds from payment
     // through preparing / waiting-rider states.
@@ -1048,7 +1048,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=0.5.22.78',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=0.5.22.82',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
@@ -1108,6 +1108,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
     }finally{if(btn){btn.disabled=false;btn.textContent=old;}}
   }
   window.marketEnablePush=enableOrderPush;
+  window.marketDisablePush=disableOrderPush;
   window.marketRefreshPushUI=refreshOrderPushUI;
   window.marketGetPushSubscription=getOrderPushSubscription;
 

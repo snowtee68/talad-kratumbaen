@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.78 Guest Header 3-Column Fix loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.82 Guest Header 3-Column Fix loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -354,20 +354,9 @@
 
   async function acceptRiderJob(batchId){
     if(!db||!session||myRiderApplication?.status!=='approved')return alert('บัญชีนี้ยังไม่ได้รับสิทธิ์วิน');
-    // Preflight prevents a stale rider card from being accepted after the customer switches to self-pickup.
-    try{
-      const {data:live,error:liveErr}=await db.from('market_delivery_batches')
-        .select('id,status,accepted_at,group:market_delivery_groups(fulfillment_method)')
-        .eq('id',batchId).maybeSingle();
-      if(liveErr)throw liveErr;
-      const openStatuses=['creating','waiting_rider','created','open'];
-      if(!live||live.accepted_at||!openStatuses.includes(String(live.status||''))||live.group?.fulfillment_method==='pickup'){
-        await loadRiderJobInbox({quiet:true});
-        return alert('งานนี้ถูกยกเลิกหรือเปลี่ยนเป็นรับเองที่ร้านแล้ว');
-      }
-    }catch(err){
-      console.warn('rider accept preflight skipped',err?.message||err);
-    }
+    // V0.5.22.82: do not reject from a client-side preflight.
+    // The inbox RPC already filters pickup/cancelled jobs, and the atomic
+    // market_rider_accept_delivery_batch RPC remains the server-side authority.
     if(!confirm('ยืนยันรับงานนี้? เมื่อรับแล้วงานจะถูกล็อกให้คุณทันที'))return;
     const btn=document.querySelector(`[data-rider-accept-batch="${CSS.escape(String(batchId))}"]`);
     if(btn){btn.disabled=true;btn.textContent='กำลังรับงาน...';}
@@ -2808,13 +2797,17 @@
       const sub=Notification.permission==='granted'&&window.marketGetPushSubscription
         ?await window.marketGetPushSubscription():null;
       if(sub){
-        st.textContent='✅ เครื่องนี้พร้อมรับงานวินแม้พักหน้าจอ';
-        btn.textContent='✅ เปิดแจ้งเตือนแล้ว';btn.disabled=true;
+        st.textContent='✅ การแจ้งเตือนงานวินเปิดอยู่ — เครื่องนี้พร้อมรับงานแม้พักหน้าจอ';
+        btn.textContent='✅ เปิดการแจ้งเตือนแล้ว';
+        btn.disabled=true;
+        btn.dataset.pushEnabled='true';
       }else{
         st.textContent=Notification.permission==='denied'
           ?'❌ ปิดสิทธิ์แจ้งเตือนอยู่ กรุณาเปิด Notification ในการตั้งค่าเครื่อง/เว็บไซต์'
           :'ยังไม่ได้เปิด Push Notification บนเครื่องนี้';
-        btn.textContent='เปิดแจ้งเตือนงานวิน';btn.disabled=false;
+        btn.textContent='🔔 เปิดแจ้งเตือนงานวิน';
+        btn.disabled=false;
+        btn.dataset.pushEnabled='false';
       }
     }catch(err){st.textContent='ตรวจสถานะ Push ไม่สำเร็จ';btn.disabled=false;}
   }
@@ -2823,9 +2816,16 @@
     const b=e.target?.closest?.('#riderEnablePushBtn');
     if(!b)return;
     e.preventDefault();
-    if(typeof window.marketEnablePush!=='function')return alert('ระบบ Push ยังโหลดไม่เสร็จ กรุณาลองอีกครั้ง');
-    await window.marketEnablePush();
-    await refreshRiderPushStatus();
+    if(b.disabled)return;
+    b.disabled=true;
+    try{
+      const sub=window.marketGetPushSubscription?await window.marketGetPushSubscription():null;
+      if(sub)return;
+      if(typeof window.marketEnablePush!=='function')return alert('ระบบ Push ยังโหลดไม่เสร็จ กรุณาลองอีกครั้ง');
+      await window.marketEnablePush();
+    }finally{
+      await refreshRiderPushStatus();
+    }
   });
 
   document.addEventListener('click',e=>{
@@ -3015,7 +3015,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.22.78', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.22.82', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
