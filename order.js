@@ -1000,7 +1000,7 @@
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=0.5.22.59',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=0.5.22.61',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
@@ -1726,6 +1726,18 @@
       if(jobErr)throw jobErr;
       const {error:attachErr}=await db.rpc('market_attach_delivery_batch',{p_batch_id:batchId,p_rider_job_id:jobId,p_delivery_fee:fare.total,p_distance_km:+km.toFixed(3)});
       if(attachErr)throw attachErr;
+      // ขอให้ระบบ Push เดิมส่งแจ้งเตือนไปยังวินที่ได้รับอนุมัติ
+      // ถ้า Edge Function รุ่นเดิมยังไม่รองรับ event นี้ จะไม่ทำให้งานเรียกวินล้มเหลว
+      try{
+        await db.functions.invoke('send-order-push',{body:{
+          event:'rider_job_created',
+          batch_id:batchId,
+          rider_job_id:jobId,
+          title:'🛵 มีงานวินใหม่',
+          body:`มีงาน Delivery ใหม่ ${ready.length} จุดรับ · ค่าส่งประมาณ ${fare.total} บาท`,
+          url:'./?rider_jobs=1'
+        }});
+      }catch(_pushErr){console.warn('rider push request skipped',_pushErr);}
       alert(`เรียกวินแล้วสำหรับ ${ready.length} ร้าน\nค่าส่งประมาณ ${fare.total} บาท${partial?`\nยังเหลือ ${notReady.length} ร้านรอพร้อม`:''}`);
       guideCustomerToGroup(groupId,partial?`เรียกวินสำหรับ ${ready.length} ร้านแล้ว · ติดตามวินได้ที่นี่ และยังเหลือ ${notReady.length} ร้านรอพร้อม`:'เรียกวินแล้ว · ติดตามสถานะวินและการจัดส่งได้ที่นี่');
     }catch(err){
