@@ -252,7 +252,7 @@
     if(orderNotifySoundRepeatTimer){clearInterval(orderNotifySoundRepeatTimer);orderNotifySoundRepeatTimer=null}
   }
   function startOrderSoundRepeat(){
-    // V0.5.22.85: notification sounds are event-based only.
+    // V0.5.22.86: notification sounds are event-based only.
     // Do not repeat sound merely because an unread banner/badge remains.
     // Repeating here caused customer devices to ring every 20 seconds from payment
     // through preparing / waiting-rider states.
@@ -1048,13 +1048,116 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=0.5.22.85',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=0.5.22.86',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
     const reg=await navigator.serviceWorker.getRegistration('./')||await navigator.serviceWorker.getRegistration();
     if(reg){try{await reg.update()}catch(_e){}}
     return reg?await reg.pushManager.getSubscription():null;
+  }
+
+  function pushSubscriptionPayload(sub){
+    if(!sub||!session?.user?.id)return null;
+    const j=sub.toJSON();
+    if(!j?.endpoint||!j?.keys?.p256dh||!j?.keys?.auth)return null;
+    return {
+      user_id:session.user.id,
+      endpoint:j.endpoint,
+      p256dh:j.keys.p256dh,
+      auth:j.keys.auth,
+      user_agent:navigator.userAgent,
+      updated_at:new Date().toISOString()
+    };
+  }
+
+  async function savePushSubscriptionToServer(sub){
+    const payload=pushSubscriptionPayload(sub);
+    if(!payload)throw new Error('ข้อมูล Push subscription ไม่สมบูรณ์');
+    const {error}=await db.from('market_push_subscriptions')
+      .upsert(payload,{onConflict:'user_id,endpoint'});
+    if(error)throw new Error('บันทึก Push subscription ไม่สำเร็จ: '+error.message);
+    return payload;
+  }
+
+  async function createFreshPushSubscription({replaceExisting=false}={}){
+    if(!session?.user?.id)throw new Error('กรุณาเข้าสู่ระบบก่อน');
+    if(Notification.permission!=='granted')throw new Error('อุปกรณ์ยังไม่ได้อนุญาตการแจ้งเตือน');
+
+    const {data:cfg,error:cfgErr}=await db.from('market_push_config')
+      .select('vapid_public_key').eq('id',1).maybeSingle();
+    if(cfgErr)throw new Error('อ่านการตั้งค่า Push ไม่สำเร็จ: '+cfgErr.message);
+    if(!cfg?.vapid_public_key)throw new Error('ยังไม่ได้ตั้งค่า Push Public Key');
+
+    const reg=await getOrderPushRegistration();
+    let sub=await reg.pushManager.getSubscription();
+
+    if(sub&&replaceExisting){
+      try{await sub.unsubscribe()}catch(_e){}
+      sub=null;
+    }
+    if(!sub){
+      sub=await reg.pushManager.subscribe({
+        userVisibleOnly:true,
+        applicationServerKey:vapidKeyToBytes(cfg.vapid_public_key)
+      });
+    }
+    await savePushSubscriptionToServer(sub);
+    return sub;
+  }
+
+  async function ensurePushSubscriptionServerSync({repair=true}={}){
+    if(!session?.user?.id)return {ok:false,reason:'not_logged_in',sub:null};
+    if(!('Notification' in window)||!('serviceWorker' in navigator)||!('PushManager' in window)){
+      return {ok:false,reason:'unsupported',sub:null};
+    }
+    if(Notification.permission!=='granted'){
+      return {ok:false,reason:Notification.permission==='denied'?'permission_denied':'permission_not_granted',sub:null};
+    }
+
+    let sub=await getOrderPushSubscription();
+    if(!sub)return {ok:false,reason:'no_local_subscription',sub:null};
+
+    // Browser/PWA can keep a local subscription object even after the push
+    // provider has returned 404/410 and the backend has removed that endpoint.
+    // Verify the current endpoint exists on our server before claiming "ready".
+    let serverRow=null,serverReadError=null;
+    try{
+      const {data,error}=await db.from('market_push_subscriptions')
+        .select('endpoint,updated_at')
+        .eq('user_id',session.user.id)
+        .eq('endpoint',sub.endpoint)
+        .maybeSingle();
+      if(error)serverReadError=error;
+      else serverRow=data||null;
+    }catch(err){serverReadError=err;}
+
+    if(serverRow){
+      // Refresh keys/UA/updated_at in case the browser rotated subscription keys.
+      try{await savePushSubscriptionToServer(sub)}catch(_e){}
+      return {ok:true,reason:'verified',sub,repaired:false};
+    }
+
+    if(!repair){
+      return {ok:false,reason:serverReadError?'server_check_failed':'missing_on_server',sub,repaired:false};
+    }
+
+    try{
+      // If the endpoint vanished from DB after a 410 Unregistered response,
+      // do not simply re-save the same stale endpoint. Replace it with a fresh
+      // PushManager subscription first.
+      if(!serverReadError){
+        sub=await createFreshPushSubscription({replaceExisting:true});
+        return {ok:true,reason:'recreated_after_server_missing',sub,repaired:true};
+      }
+
+      // If RLS/network prevented verification, preserve the local subscription
+      // and at least synchronize it back to the user's server row.
+      await savePushSubscriptionToServer(sub);
+      return {ok:true,reason:'resynced_after_check_error',sub,repaired:true};
+    }catch(err){
+      return {ok:false,reason:'repair_failed',sub,error:err?.message||String(err)};
+    }
   }
   async function refreshOrderPushUI(){
     const st=document.getElementById('orderPushStatus'),on=document.getElementById('enableOrderPushBtn'),off=document.getElementById('disableOrderPushBtn'),test=document.getElementById('testOrderPushBtn');
@@ -1094,9 +1197,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
       if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:vapidKeyToBytes(cfg.vapid_public_key)});
 
       step('5/5 กำลังบันทึกอุปกรณ์กับระบบ...');
-      const j=sub.toJSON(),payload={user_id:session.user.id,endpoint:j.endpoint,p256dh:j.keys?.p256dh,auth:j.keys?.auth,user_agent:navigator.userAgent,updated_at:new Date().toISOString()};
-      const {error}=await db.from('market_push_subscriptions').upsert(payload,{onConflict:'user_id,endpoint'});
-      if(error)throw new Error('บันทึก Push subscription ไม่สำเร็จ: '+error.message);
+      await savePushSubscriptionToServer(sub);
 
       step('✅ เปิดการแจ้งเตือนสำเร็จ กำลังตรวจสอบสถานะ...');
       await refreshOrderPushUI();
@@ -1111,6 +1212,8 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
   window.marketDisablePush=disableOrderPush;
   window.marketRefreshPushUI=refreshOrderPushUI;
   window.marketGetPushSubscription=getOrderPushSubscription;
+  window.marketEnsurePushSubscription=ensurePushSubscriptionServerSync;
+  window.marketCreateFreshPushSubscription=createFreshPushSubscription;
 
   async function disableOrderPush(){
     const btn=document.getElementById('disableOrderPushBtn'),old=btn?.textContent||'ปิดการแจ้งเตือนเครื่องนี้';

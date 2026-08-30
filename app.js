@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.85 Guest Header 3-Column Fix loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.86 Guest Header 3-Column Fix loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -354,7 +354,7 @@
 
   async function acceptRiderJob(batchId){
     if(!db||!session||myRiderApplication?.status!=='approved')return alert('บัญชีนี้ยังไม่ได้รับสิทธิ์วิน');
-    // V0.5.22.85: do not reject from a client-side preflight.
+    // V0.5.22.86: do not reject from a client-side preflight.
     // The inbox RPC already filters pickup/cancelled jobs, and the atomic
     // market_rider_accept_delivery_batch RPC remains the server-side authority.
     if(!confirm('ยืนยันรับงานนี้? เมื่อรับแล้วงานจะถูกล็อกให้คุณทันที'))return;
@@ -2786,7 +2786,8 @@
     if(file)submitRiderDeliveryProof(input.dataset.riderProofInput,file);
   });
 
-  async function refreshRiderPushStatus(){
+  let riderPushRepairInFlight=false;
+  async function refreshRiderPushStatus({repair=true}={}){
     const st=$('riderPushStatus'),btn=$('riderEnablePushBtn');
     if(!st||!btn)return;
     try{
@@ -2794,13 +2795,51 @@
         st.textContent='อุปกรณ์/เบราว์เซอร์นี้ไม่รองรับ Web Push';
         btn.style.display='none';return;
       }
+
+      if(Notification.permission==='granted'&&typeof window.marketEnsurePushSubscription==='function'){
+        if(repair&&!riderPushRepairInFlight){
+          riderPushRepairInFlight=true;
+          st.textContent='🔄 กำลังตรวจสอบการเชื่อมต่อ Push กับเซิร์ฟเวอร์...';
+          btn.disabled=true;
+        }
+        let state;
+        try{
+          state=await window.marketEnsurePushSubscription({repair:!!repair});
+        }finally{
+          riderPushRepairInFlight=false;
+        }
+
+        if(state?.ok){
+          st.textContent=state.repaired
+            ?'✅ ซ่อมการแจ้งเตือนงานวินแล้ว — เครื่องนี้ลงทะเบียนกับเซิร์ฟเวอร์ใหม่เรียบร้อย'
+            :'✅ การแจ้งเตือนงานวินพร้อมใช้งาน — ตรวจสอบกับเซิร์ฟเวอร์แล้ว';
+          btn.textContent='✅ เปิดการแจ้งเตือนแล้ว';
+          btn.disabled=true;
+          btn.dataset.pushEnabled='true';
+          btn.dataset.pushVerified='true';
+          return state;
+        }
+
+        if(state?.reason==='missing_on_server'||state?.reason==='repair_failed'||state?.reason==='server_check_failed'){
+          st.textContent='⚠️ การแจ้งเตือนในเครื่องยังไม่เชื่อมกับเซิร์ฟเวอร์ กดปุ่มด้านล่างเพื่อซ่อม';
+          btn.textContent='🛠️ ซ่อมการแจ้งเตือนงานวิน';
+          btn.disabled=false;
+          btn.dataset.pushEnabled='false';
+          btn.dataset.pushVerified='false';
+          return state;
+        }
+      }
+
       const sub=Notification.permission==='granted'&&window.marketGetPushSubscription
         ?await window.marketGetPushSubscription():null;
       if(sub){
-        st.textContent='✅ การแจ้งเตือนงานวินเปิดอยู่ — เครื่องนี้พร้อมรับงานแม้พักหน้าจอ';
-        btn.textContent='✅ เปิดการแจ้งเตือนแล้ว';
-        btn.disabled=true;
-        btn.dataset.pushEnabled='true';
+        // Local subscription alone is no longer treated as proof that backend
+        // can reach this device.
+        st.textContent='⚠️ พบการแจ้งเตือนในเครื่อง แต่ยังไม่ได้ยืนยันกับเซิร์ฟเวอร์';
+        btn.textContent='🛠️ ตรวจและซ่อมการแจ้งเตือน';
+        btn.disabled=false;
+        btn.dataset.pushEnabled='false';
+        btn.dataset.pushVerified='false';
       }else{
         st.textContent=Notification.permission==='denied'
           ?'❌ ปิดสิทธิ์แจ้งเตือนอยู่ กรุณาเปิด Notification ในการตั้งค่าเครื่อง/เว็บไซต์'
@@ -2808,8 +2847,14 @@
         btn.textContent='🔔 เปิดแจ้งเตือนงานวิน';
         btn.disabled=false;
         btn.dataset.pushEnabled='false';
+        btn.dataset.pushVerified='false';
       }
-    }catch(err){st.textContent='ตรวจสถานะ Push ไม่สำเร็จ';btn.disabled=false;}
+    }catch(err){
+      st.textContent='ตรวจสถานะ Push ไม่สำเร็จ: '+(err?.message||err);
+      btn.textContent='🛠️ ตรวจและซ่อมการแจ้งเตือน';
+      btn.disabled=false;
+      btn.dataset.pushVerified='false';
+    }
   }
 
   document.addEventListener('click',async e=>{
@@ -2819,12 +2864,14 @@
     if(b.disabled)return;
     b.disabled=true;
     try{
-      const sub=window.marketGetPushSubscription?await window.marketGetPushSubscription():null;
-      if(sub)return;
+      if(Notification.permission==='granted'&&typeof window.marketEnsurePushSubscription==='function'){
+        const state=await window.marketEnsurePushSubscription({repair:true});
+        if(state?.ok)return;
+      }
       if(typeof window.marketEnablePush!=='function')return alert('ระบบ Push ยังโหลดไม่เสร็จ กรุณาลองอีกครั้ง');
       await window.marketEnablePush();
     }finally{
-      await refreshRiderPushStatus();
+      await refreshRiderPushStatus({repair:true});
     }
   });
 
@@ -3015,7 +3062,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.22.85', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.22.86', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
