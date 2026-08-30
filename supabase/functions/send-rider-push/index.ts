@@ -91,9 +91,10 @@ Deno.serve(async(req)=>{
       if(record.accepted_at){
         return json({ok:true,event,skipped:true,reason:"batch_already_accepted",batch_id:batchId});
       }
-      if(!record.rider_job_id){
-        return json({ok:true,event,skipped:true,reason:"rider_job_not_attached_yet",batch_id:batchId});
-      }
+      // V0.5.22.87:
+      // A real waiting rider job is represented by an open delivery batch itself.
+      // rider_job_id can legitimately still be NULL while status='creating',
+      // so do NOT wait for rider_job_id before notifying approved riders.
 
       // Confirm this is still a delivery group, not pickup.
       const {data:group,error:groupErr}=await admin
