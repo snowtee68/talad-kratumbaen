@@ -1048,7 +1048,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=0.5.22.74',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=0.5.22.75',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
@@ -1342,7 +1342,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
     const pendingOrders=(activeOrders||[]).filter(o=>!batchedIds.has(String(o.id)));
     const ready=pendingOrders.filter(o=>o.status==='ready'),notReady=pendingOrders.filter(o=>o.status!=='ready');
     const cards=batches.map(deliveryBatchCard).join('');
-    const readiness=pendingOrders.length?`<div class="delivery-track"><b>${ready.length?`📦 พร้อมส่ง ${ready.length} ร้าน`:'⏳ ยังไม่มีร้านพร้อมส่ง'}${notReady.length?` · รออีก ${notReady.length} ร้าน`:''}</b>${ready.length&&notReady.length?`<div class="warning-banner" style="margin-top:8px">สามารถส่งเฉพาะ ${ready.length} ร้านที่พร้อมก่อนได้ ร้านที่เหลือค่อยเรียกวินรอบถัดไป (อาจมีค่าส่งเพิ่ม)</div>`:''}</div>`:'';
+    const readiness=pendingOrders.length?`<div class="delivery-track"><b>${ready.length?`📦 พร้อมส่ง ${ready.length} ร้าน`:'⏳ ยังไม่มีร้านพร้อมส่ง'}${notReady.length?` · รออีก ${notReady.length} ร้าน`:''}</b>${ready.length&&notReady.length?`<div class="warning-banner" style="margin-top:8px">ระบบจะรอร้านในชุดเดียวกันยืนยันรับเงินครบ แล้วเรียกวินรวมเที่ยวเดียว เพื่อไม่ให้ลูกค้าเสียค่าวินหลายรอบ</div>`:''}</div>`:'';
     return cards+readiness;
   }
   function customerGroupCard(g){
@@ -1350,7 +1350,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
     const pickup=g.fulfillment_method==='pickup';
     const batches=(g.batches||[]).filter(b=>b.status!=='cancelled'),batchedIds=new Set(batches.flatMap(b=>(b.batch_orders||[]).map(x=>String(x.order_id)))),unbatched=activeOrders.filter(o=>!batchedIds.has(String(o.id))),readyUnbatched=unbatched.filter(o=>o.status==='ready'),notReadyUnbatched=unbatched.filter(o=>o.status!=='ready');
     const pickupComplete=pickup&&activeOrders.length>0&&pickupDoneCount===activeOrders.length;
-    const deliveryState=pickup?(pickupComplete?`<div class="ready-banner">✅ รับสินค้าครบทุกร้านแล้ว · รายการเสร็จสมบูรณ์</div>`:allReady?`<div class="ready-banner">🏪 พร้อมรับ/รับแล้ว ${readyCount+pickupDoneCount}/${activeOrders.length} ร้าน${pickupDoneCount?`<br><small>รับสินค้าแล้ว ${pickupDoneCount} ร้าน · ยังรอรับ ${readyCount} ร้าน</small>`:''}${g.pickup_requested_at?`<br><small>เวลาที่ขอรับ: ${new Date(g.pickup_requested_at).toLocaleString('th-TH')}</small>`:''}</div>`:`<div class="warning-banner">🏪 รับเองที่ร้าน · พร้อม/รับแล้ว ${readyCount+pickupDoneCount}/${activeOrders.length} ร้าน${g.pickup_requested_at?`<br><small>เวลาที่ขอรับ: ${new Date(g.pickup_requested_at).toLocaleString('th-TH')}</small>`:''}</div>`):readyUnbatched.length?`<div class="mo-actions"><button class="mo-primary" data-create-delivery="${g.id}">🛵 ${notReadyUnbatched.length?`ส่งเฉพาะ ${readyUnbatched.length} ร้านที่พร้อม`:`เรียกวินรับสินค้า ${readyUnbatched.length} ร้าน`}</button></div>`:unbatched.length?`<button class="mo-primary" disabled style="opacity:.5">🛵 รอร้านพร้อมก่อนเรียกวิน</button>`:'';
+    const deliveryState=pickup?(pickupComplete?`<div class="ready-banner">✅ รับสินค้าครบทุกร้านแล้ว · รายการเสร็จสมบูรณ์</div>`:allReady?`<div class="ready-banner">🏪 พร้อมรับ/รับแล้ว ${readyCount+pickupDoneCount}/${activeOrders.length} ร้าน${pickupDoneCount?`<br><small>รับสินค้าแล้ว ${pickupDoneCount} ร้าน · ยังรอรับ ${readyCount} ร้าน</small>`:''}${g.pickup_requested_at?`<br><small>เวลาที่ขอรับ: ${new Date(g.pickup_requested_at).toLocaleString('th-TH')}</small>`:''}</div>`:`<div class="warning-banner">🏪 รับเองที่ร้าน · พร้อม/รับแล้ว ${readyCount+pickupDoneCount}/${activeOrders.length} ร้าน${g.pickup_requested_at?`<br><small>เวลาที่ขอรับ: ${new Date(g.pickup_requested_at).toLocaleString('th-TH')}</small>`:''}</div>`):(readyUnbatched.length&&notReadyUnbatched.length===0&&unbatched.length===readyUnbatched.length)?`<div class="warning-banner">⚠️ ระบบยังไม่พบงานวินอัตโนมัติของชุดนี้</div><div class="mo-actions"><button class="mo-secondary" data-create-delivery="${g.id}">🛠 ตรวจสอบ/เรียกวินอีกครั้ง</button></div>`:unbatched.length?`<div class="ready-banner">🛵 ระบบจะเรียกวินอัตโนมัติเมื่อร้านที่ยังใช้งานในชุดนี้ยืนยันรับเงินครบ</div>`:'';
     return `<article class="order-card ${customerFocusGroupId&&String(g.id)===String(customerFocusGroupId)?'focused-checkout-order':''}"><div class="order-card-head"><div><b>ชุดคำสั่งซื้อ #${esc(String(g.id).slice(0,8).toUpperCase())}</b><div class="mo-muted">${new Date(g.created_at).toLocaleString('th-TH')}</div></div><span class="status-pill">${esc(g.status||'กำลังดำเนินการ')}</span></div>${os.map(o=>{
       let refund='';
       if(o.refund_required){if((o.refund_status||'pending')==='pending')refund=o.refund_destination_submitted_at?`<div class="warning-banner">🔄 รอร้านคืนเงิน ${money(o.refund_amount||o.subtotal)} บาท<br><small>ช่องทางรับเงินคืน: ${esc(refundDestinationLabel(o,true))}</small></div><div class="mo-actions"><button class="mo-secondary" data-refund-destination="${o.id}">แก้ไขช่องทางรับเงินคืน</button></div>`:`<div class="warning-banner">💸 ต้องคืนเงิน ${money(o.refund_amount||o.subtotal)} บาท กรุณาระบุช่องทางรับเงินคืนก่อน</div><div class="mo-actions"><button class="mo-primary" data-refund-destination="${o.id}">ระบุช่องทางรับเงินคืน</button></div>`;else if(o.refund_status==='seller_submitted')refund=`<div class="ready-banner">💸 ร้านแจ้งคืนเงิน ${money(o.refund_amount||o.subtotal)} บาทแล้ว</div><div class="mo-actions">${o.refund_slip_path?`<button class="mo-secondary" onclick="window.marketOrderOpenRefundSlip('${o.id}','${esc(o.refund_slip_path)}')">ดูหลักฐานคืนเงิน</button>`:''}<button class="mo-primary" data-confirm-refund="${o.id}">✅ ได้รับเงินคืนแล้ว</button></div>`;else if(o.refund_status==='completed')refund=`<div class="ready-banner">✅ ยืนยันได้รับเงินคืน ${money(o.refund_amount||o.subtotal)} บาทแล้ว</div>`;}
@@ -1817,10 +1817,11 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
     const {data,error}=await db.rpc('market_shop_set_order_status',{p_order_id:orderId,p_status:status});
     if(error)return alert(error.message);
 
+    let autoDeliveryResult=null;
     if(status==='ready')sendOrderPush('order_ready',{order_id:orderId});
     else if(status==='preparing'){
       sendOrderPush('payment_confirmed',{order_id:orderId});
-      await autoCallRiderAfterPayment(orderId);
+      autoDeliveryResult=await autoCallRiderAfterPayment(orderId);
     }
 
     if(status==='preparing')sellerOrderTab='preparing';
@@ -1831,7 +1832,11 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
     alert(status==='ready'
       ?'แจ้งลูกค้าว่าสินค้าพร้อมแล้ว'
       :status==='preparing'
-        ?'✅ ยืนยันรับเงินแล้ว ระบบเริ่มเรียกวินอัตโนมัติสำหรับ Delivery'
+        ?(autoDeliveryResult?.reason==='waiting_other_shops'
+          ?`✅ ยืนยันรับเงินแล้ว\nรออีก ${autoDeliveryResult.waiting_count||0} ร้านยืนยันรับเงิน แล้วระบบจะเรียกวินรวมเที่ยวเดียวอัตโนมัติ`
+          :autoDeliveryResult===null
+            ?'✅ ยืนยันรับเงินแล้ว\n⚠️ ระบบเรียกวินอัตโนมัติไม่สำเร็จ กรุณาดูข้อความแจ้งเตือนและใช้ปุ่มตรวจสอบอีกครั้งเมื่อสินค้าพร้อม'
+            :'✅ ยืนยันรับเงินแล้ว\n🛵 ระบบเรียกวินอัตโนมัติแล้ว')
         :'อัปเดตสถานะแล้ว');
 
     openSellerShop(data?.shop_id||data||document.getElementById('sellerShopId')?.value);
@@ -1952,9 +1957,9 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
     const unbatched=active.filter(o=>!batchedIds.has(String(o.id)));
     const ready=unbatched.filter(o=>o.status==='ready'),notReady=unbatched.filter(o=>o.status!=='ready');
     if(!ready.length)return alert('ยังไม่มีร้านที่พร้อมส่ง');
-    const partial=notReady.length>0;
-    if(partial&&!confirm(`ตอนนี้พร้อม ${ready.length} ร้าน และยังไม่พร้อม ${notReady.length} ร้าน\n\nต้องการเรียกวินรับเฉพาะร้านที่พร้อมก่อนหรือไม่?\nร้านที่เหลือสามารถเรียกวินรอบถัดไปได้ และอาจมีค่าส่งเพิ่ม`))return;
-    if(!partial&&!confirm(`เรียกวินรับสินค้า ${ready.length} ร้านตอนนี้?`))return;
+    if(notReady.length>0)return alert(`ยังมี ${notReady.length} ร้านที่ยังไม่พร้อม ระบบจะรอเพื่อเรียกวินรวมเที่ยวเดียวและไม่ให้ลูกค้าเสียค่าวินหลายรอบ`);
+    if(!confirm(`ระบบอัตโนมัติยังไม่พบงานวิน\n\nต้องการลองเรียกวินใหม่สำหรับ ${ready.length} ร้านพร้อมกันหรือไม่?`))return;
+    const partial=false;
 
     const orderIds=ready.map(o=>o.id);
     const {data:batchId,error:batchErr}=await db.rpc('market_create_delivery_batch',{p_group_id:groupId,p_order_ids:orderIds});
