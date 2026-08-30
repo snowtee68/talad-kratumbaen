@@ -252,7 +252,7 @@
     if(orderNotifySoundRepeatTimer){clearInterval(orderNotifySoundRepeatTimer);orderNotifySoundRepeatTimer=null}
   }
   function startOrderSoundRepeat(){
-    // V0.5.22.82: notification sounds are event-based only.
+    // V0.5.22.83: notification sounds are event-based only.
     // Do not repeat sound merely because an unread banner/badge remains.
     // Repeating here caused customer devices to ring every 20 seconds from payment
     // through preparing / waiting-rider states.
@@ -1048,7 +1048,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=0.5.22.82',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=0.5.22.83',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
@@ -1764,17 +1764,53 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
     (document.getElementById('sellerOrdersOnly')?openSellerOrders:openSellerShop)(data?.shop_id||document.getElementById('sellerShopId')?.value);
   }
 
+  async function invokeRiderNewJobPush({batchId,riderJobId=null,pickupCount=null,fareTotal=null,retry=false}={}){
+    if(!batchId)return {ok:false,reason:'missing_batch_id'};
+    const detailParts=[];
+    if(Number.isFinite(Number(pickupCount))&&Number(pickupCount)>0)detailParts.push(`${Number(pickupCount)} จุดรับ`);
+    if(Number.isFinite(Number(fareTotal))&&Number(fareTotal)>0)detailParts.push(`ค่าส่งประมาณ ${Number(fareTotal)} บาท`);
+    const pushBody=detailParts.length?`มีงาน Delivery ใหม่ ${detailParts.join(' · ')}`:'มีงาน Delivery ใหม่รอรับ';
+    console.info('auto rider push invoke',{batch_id:batchId,rider_job_id:riderJobId||null,retry:!!retry});
+    try{
+      const {data:pushData,error:pushError}=await db.functions.invoke('send-rider-push',{body:{
+        event:'rider_job_created',
+        batch_id:batchId,
+        rider_job_id:riderJobId||null,
+        title:'🛵 มีงานวินใหม่',
+        body:pushBody,
+        url:'./?rider_jobs=1'
+      }});
+      if(pushError)throw pushError;
+      console.info('rider job push result',pushData);
+      return pushData||{ok:true};
+    }catch(err){
+      console.warn('rider new-job push failed',err?.message||err);
+      return {ok:false,error:err?.message||String(err)};
+    }
+  }
+
   async function autoCallRiderAfterPayment(orderId){
     try{
+      console.info('auto rider begin',{order_id:orderId});
       const {data:prep,error:prepErr}=await db.rpc('market_shop_auto_delivery_begin',{p_order_id:orderId});
       if(prepErr)throw prepErr;
       if(!prep||prep.skipped){
+        console.info('auto rider skipped',prep||null);
         if(prep?.reason==='waiting_other_shops'){
           if(typeof showOrderNotifyBanner==='function')showOrderNotifyBanner('✅ ยืนยันรับเงินแล้ว','รอร้านอื่นในชุดเดียวกันยืนยันรับเงินครบ แล้วระบบจะเรียกวินอัตโนมัติ',1);
         }
         return prep;
       }
-      if(prep.already_called)return prep;
+      if(prep.already_called){
+        console.info('auto rider existing batch',{order_id:orderId,batch_id:prep.batch_id||null});
+        await invokeRiderNewJobPush({
+          batchId:prep.batch_id,
+          riderJobId:prep.rider_job_id||null,
+          pickupCount:Array.isArray(prep.pickups)?prep.pickups.length:null,
+          retry:true
+        });
+        return prep;
+      }
 
       const pickups=Array.isArray(prep.pickups)?prep.pickups:[];
       if(!pickups.length)throw new Error('ไม่พบจุดรับสินค้าสำหรับเรียกวิน');
@@ -1793,20 +1829,12 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
       });
       if(finishErr)throw finishErr;
 
-      try{
-        const {data:pushData,error:pushError}=await db.functions.invoke('send-rider-push',{body:{
-          event:'rider_job_created',
-          batch_id:prep.batch_id,
-          rider_job_id:done?.rider_job_id||null,
-          title:'🛵 มีงานวินใหม่',
-          body:`มีงาน Delivery ใหม่ ${pickups.length} จุดรับ · ค่าส่งประมาณ ${fare.total} บาท`,
-          url:'./?rider_jobs=1'
-        }});
-        if(pushError)throw pushError;
-        console.info('rider job push result',pushData);
-      }catch(_pushErr){
-        console.warn('rider new-job push failed',_pushErr?.message||_pushErr);
-      }
+      await invokeRiderNewJobPush({
+        batchId:prep.batch_id,
+        riderJobId:done?.rider_job_id||null,
+        pickupCount:pickups.length,
+        fareTotal:fare.total
+      });
 
       if(typeof showOrderNotifyBanner==='function')showOrderNotifyBanner('🛵 เรียกวินอัตโนมัติแล้ว',`หลังร้านยืนยันรับเงิน · ${pickups.length} จุดรับ · ค่าส่งปลายทางประมาณ ${fare.total} บาท`,1);
       return done;
