@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.57 Guest Header 3-Column Fix loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.58 Guest Header 3-Column Fix loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -102,21 +102,31 @@
     const form=$('riderApplyForm'),status=$('riderApplyStatusBox'),approved=$('riderApprovedBox'),title=$('riderApplyTitle');
     if(!form)return;
     const a=myRiderApplication;
+    form.dataset.mode='apply';
     form.classList.remove('hidden');
     approved?.classList.add('hidden');
+
     if(a){
       form.elements.rider_name.value=a.display_name||currentDisplayName()||'';
       form.elements.rider_phone.value=a.phone||'';
       if(form.elements.service_area_consent)form.elements.service_area_consent.checked=Boolean(a.service_area);
       form.elements.vehicle_plate.value=a.vehicle_plate||'';
       if(status)status.innerHTML=`สถานะปัจจุบัน: <b>${riderApplicationStatusText(a.status)}</b>${a.admin_note?`<br><small>หมายเหตุ: ${esc(a.admin_note)}</small>`:''}`;
+
       if(a.status==='pending'){
         if(title)title.textContent='⏳ คำขอสมัครวิน';
         [...form.elements].forEach(el=>el.disabled=true);
         form.querySelector('button[type=submit]').textContent='รอ Admin ตรวจสอบ';
       }else if(a.status==='approved'){
         if(title)title.textContent='🛵 งานวิน';
-        form.classList.add('hidden'); approved?.classList.remove('hidden');
+        form.classList.add('hidden');
+        approved?.classList.remove('hidden');
+        const summary=$('riderApprovedProfileSummary');
+        if(summary)summary.innerHTML=`
+          <div><span>ชื่อที่ใช้ติดต่อ</span><b>${esc(a.display_name||'-')}</b></div>
+          <div><span>เบอร์โทร</span><b>${esc(a.phone||'-')}</b></div>
+          <div><span>ทะเบียนรถ</span><b>${esc(a.vehicle_plate||'-')}</b></div>
+        `;
       }else{
         if(title)title.textContent='🛵 สมัครเป็นวินโครงการ';
         [...form.elements].forEach(el=>el.disabled=false);
@@ -132,10 +142,27 @@
     }
   }
 
+  function editApprovedRiderProfile(){
+    const a=myRiderApplication;
+    const form=$('riderApplyForm'),approved=$('riderApprovedBox'),title=$('riderApplyTitle'),status=$('riderApplyStatusBox');
+    if(!a||a.status!=='approved'||!form)return;
+    approved?.classList.add('hidden');
+    form.classList.remove('hidden');
+    form.dataset.mode='edit';
+    [...form.elements].forEach(el=>el.disabled=false);
+    form.elements.rider_name.value=a.display_name||currentDisplayName()||'';
+    form.elements.rider_phone.value=a.phone||'';
+    form.elements.vehicle_plate.value=a.vehicle_plate||'';
+    if(form.elements.service_area_consent)form.elements.service_area_consent.checked=true;
+    if(title)title.textContent='✏️ แก้ไขข้อมูลวิน';
+    if(status)status.innerHTML='สถานะ: <b>✅ อนุมัติแล้ว</b><br><small>การแก้ข้อมูลไม่ทำให้สิทธิ์วินหาย และไม่ต้องสมัครใหม่</small>';
+    form.querySelector('button[type=submit]').textContent='💾 บันทึกข้อมูลวิน';
+  }
+
   async function openRiderApplication(){
     if(!session){
       openModal('authModal');
-      alert('กรุณาเข้าสู่ระบบก่อนสมัครเป็นวิน');
+      alert('การสมัครเป็นวินต้องเข้าสู่ระบบก่อน เพื่อผูกสิทธิ์วินกับบัญชีของคุณ');
       return;
     }
     await loadMyRiderApplication();
@@ -156,18 +183,21 @@
     const btn=f.querySelector('button[type=submit]');
     btn.disabled=true;btn.textContent='กำลังส่งใบสมัคร...';
     try{
-      const {error}=await db.rpc('market_apply_as_rider',{
+      const editing=f.dataset.mode==='edit' && myRiderApplication?.status==='approved';
+      const rpcName=editing?'market_update_my_rider_profile':'market_apply_as_rider';
+      const {error}=await db.rpc(rpcName,{
         p_display_name:name,p_phone:phone,p_service_area:area,p_vehicle_plate:plate
       });
       if(error)throw error;
       await loadMyRiderApplication();
       fillRiderApplicationModal();
-      alert('ส่งใบสมัครเป็นวินแล้ว กรุณารอ Admin ตรวจสอบ');
+      alert(editing?'บันทึกข้อมูลวินเรียบร้อยแล้ว':'ส่งใบสมัครเป็นวินแล้ว กรุณารอ Admin ตรวจสอบ');
     }catch(err){
       alert('ส่งใบสมัครไม่สำเร็จ: '+(err?.message||err));
     }finally{
       btn.disabled=false;
-      if(myRiderApplication?.status!=='pending')btn.textContent='ส่งใบสมัครเป็นวิน';
+      if(f.dataset.mode==='edit')btn.textContent='💾 บันทึกข้อมูลวิน';
+      else if(myRiderApplication?.status!=='pending')btn.textContent='ส่งใบสมัครเป็นวิน';
     }
   }
 
@@ -2243,6 +2273,7 @@
     $('promotionForm').addEventListener('submit',submitPromotion);
     $('riderJoinBtn')?.addEventListener('click',openRiderApplication);
     $('riderApplyForm')?.addEventListener('submit',submitRiderApplication);
+    $('riderEditProfileBtn')?.addEventListener('click',editApprovedRiderProfile);
     $('riderCloseApprovedBtn')?.addEventListener('click',()=>closeModal('riderApplyModal'));
     $('adminRiderApplicantList')?.addEventListener('click',ev=>{
       const approve=ev.target.closest('[data-rider-approve]');
@@ -2557,7 +2588,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.22.57', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.22.58', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
