@@ -236,16 +236,15 @@
     try{
       const C=window.AudioContext||window.webkitAudioContext,c=window.__marketOrderAudioContext||new C();window.__marketOrderAudioContext=c;c.resume?.();
       const now=c.currentTime;
-      // Strong ~8 second in-app alert. This only runs while the web/PWA is active.
-      const notes=[740,990,740,990,820,1100,820,1100,740,990,740,990,820,1100,820,1100];
+      // Short in-app chime: enough to notice, but not an alarm.
+      const notes=[820,1080,920];
       notes.forEach((freq,i)=>{
-        const d=i*.48,o=c.createOscillator(),g=c.createGain();
-        o.type='square';o.frequency.value=freq;
+        const d=i*.18,o=c.createOscillator(),g=c.createGain();
+        o.type='sine';o.frequency.value=freq;
         g.gain.setValueAtTime(.0001,now+d);
-        g.gain.exponentialRampToValueAtTime(.38,now+d+.025);
-        g.gain.setValueAtTime(.30,now+d+.28);
-        g.gain.exponentialRampToValueAtTime(.0001,now+d+.43);
-        o.connect(g);g.connect(c.destination);o.start(now+d);o.stop(now+d+.45);
+        g.gain.exponentialRampToValueAtTime(.22,now+d+.02);
+        g.gain.exponentialRampToValueAtTime(.0001,now+d+.15);
+        o.connect(g);g.connect(c.destination);o.start(now+d);o.stop(now+d+.17);
       });
     }catch(_){}
   }
@@ -253,12 +252,11 @@
     if(orderNotifySoundRepeatTimer){clearInterval(orderNotifySoundRepeatTimer);orderNotifySoundRepeatTimer=null}
   }
   function startOrderSoundRepeat(){
+    // V0.5.22.78: notification sounds are event-based only.
+    // Do not repeat sound merely because an unread banner/badge remains.
+    // Repeating here caused customer devices to ring every 20 seconds from payment
+    // through preparing / waiting-rider states.
     stopOrderSoundRepeat();
-    if(Number(orderNotifyState.unread||0)<=0)return;
-    // Repeat only while the page/PWA is visible. Background alerts remain Web Push controlled by the OS.
-    orderNotifySoundRepeatTimer=setInterval(()=>{
-      if(document.visibilityState==='visible'&&Number(orderNotifyState.unread||0)>0)playOrderNotificationSound();
-    },20000);
   }
   function renderOrderNotifyBadge(){
     const nav=document.getElementById('marketOrdersBtn'),b=nav?.querySelector('.order-notify-badge');
@@ -271,7 +269,9 @@
     const b=document.getElementById('orderNotifyBanner');if(!b)return;
     b.querySelector('.order-notify-title').textContent=title;b.querySelector('.order-notify-detail').textContent=detail||'แตะเพื่อดูออเดอร์';
     b.classList.add('show');clearTimeout(b._hideTimer);b._hideTimer=setTimeout(()=>b.classList.remove('show'),6500);
-    orderNotifyState.unread=Math.min(999,Number(orderNotifyState.unread||0)+Math.max(1,count));saveOrderNotifyState();renderOrderNotifyBadge();playOrderNotificationSound();startOrderSoundRepeat();
+    orderNotifyState.unread=Math.min(999,Number(orderNotifyState.unread||0)+Math.max(1,count));saveOrderNotifyState();renderOrderNotifyBadge();
+    // One sound per real notification event. No repeating loop.
+    playOrderNotificationSound();
   }
   function markNotificationAreaViewed(){
     orderNotifyState.unread=0;saveOrderNotifyState();renderOrderNotifyBadge();stopOrderSoundRepeat();document.getElementById('orderNotifyBanner')?.classList.remove('show');
@@ -1048,7 +1048,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=0.5.22.75',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=0.5.22.78',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
@@ -1793,7 +1793,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
       if(finishErr)throw finishErr;
 
       try{
-        await db.functions.invoke('send-rider-push',{body:{
+        const {data:pushData,error:pushError}=await db.functions.invoke('send-rider-push',{body:{
           event:'rider_job_created',
           batch_id:prep.batch_id,
           rider_job_id:done?.rider_job_id||null,
@@ -1801,7 +1801,11 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
           body:`มีงาน Delivery ใหม่ ${pickups.length} จุดรับ · ค่าส่งประมาณ ${fare.total} บาท`,
           url:'./?rider_jobs=1'
         }});
-      }catch(_pushErr){console.warn('rider push request skipped',_pushErr);}
+        if(pushError)throw pushError;
+        console.info('rider job push result',pushData);
+      }catch(_pushErr){
+        console.warn('rider new-job push failed',_pushErr?.message||_pushErr);
+      }
 
       if(typeof showOrderNotifyBanner==='function')showOrderNotifyBanner('🛵 เรียกวินอัตโนมัติแล้ว',`หลังร้านยืนยันรับเงิน · ${pickups.length} จุดรับ · ค่าส่งปลายทางประมาณ ${fare.total} บาท`,1);
       return done;
@@ -1812,14 +1816,42 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
     }
   }
 
+  async function notifyAssignedRiderShopReady(orderId){
+    try{
+      const {data:ctx,error:ctxErr}=await db.rpc('market_shop_rider_ready_context',{p_order_id:orderId});
+      if(ctxErr)throw ctxErr;
+      if(!ctx?.batch_id)return {sent:0,reason:'no_delivery_batch'};
+      if(!ctx?.rider_assigned)return {sent:0,reason:'waiting_rider',batch_id:ctx.batch_id};
+
+      const {data,error}=await db.functions.invoke('send-rider-push',{body:{
+        event:'rider_shop_ready',
+        batch_id:ctx.batch_id,
+        order_id:orderId,
+        shop_name:ctx.shop_name||'ร้านค้า',
+        title:'📦 สินค้าพร้อมให้เข้ารับแล้ว',
+        body:`${ctx.shop_name||'ร้านค้า'} เตรียมสินค้าเสร็จแล้ว เข้ารับได้เลย`,
+        url:'./?rider_jobs=1'
+      }});
+      if(error)throw error;
+      return data||{sent:0};
+    }catch(err){
+      console.warn('assigned rider ready push:',err?.message||err);
+      return {sent:0,error:err?.message||String(err)};
+    }
+  }
+
   async function sellerSetStatus(orderId,status){
     if(status==='awaiting_payment'&&!confirm('ยืนยันว่าร้านยังไม่พบยอดชำระ?'))return;
     const {data,error}=await db.rpc('market_shop_set_order_status',{p_order_id:orderId,p_status:status});
     if(error)return alert(error.message);
 
-    let autoDeliveryResult=null;
-    if(status==='ready')sendOrderPush('order_ready',{order_id:orderId});
-    else if(status==='preparing'){
+    let autoDeliveryResult=null,readyRiderPushResult=null;
+    if(status==='ready'){
+      sendOrderPush('order_ready',{order_id:orderId});
+      // "พร้อมจัดส่ง" is NOT another rider call. It tells the rider who already
+      // accepted this batch that this shop's parcel is ready for pickup.
+      readyRiderPushResult=await notifyAssignedRiderShopReady(orderId);
+    }else if(status==='preparing'){
       sendOrderPush('payment_confirmed',{order_id:orderId});
       autoDeliveryResult=await autoCallRiderAfterPayment(orderId);
     }
@@ -1830,7 +1862,11 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
     sellerOrderPage=1;
 
     alert(status==='ready'
-      ?'แจ้งลูกค้าว่าสินค้าพร้อมแล้ว'
+      ?(readyRiderPushResult?.sent>0
+        ?'✅ สินค้าพร้อมแล้ว\nแจ้งวินที่รับงานแล้วให้เข้ารับสินค้าเรียบร้อย'
+        :readyRiderPushResult?.reason==='waiting_rider'
+          ?'✅ สินค้าพร้อมแล้ว\nขณะนี้ยังไม่มีวินรับงาน เมื่อวินรับงานจะเห็นสถานะร้านว่าพร้อมรับสินค้า'
+          :'✅ สินค้าพร้อมแล้ว\nแจ้งลูกค้าแล้ว')
       :status==='preparing'
         ?(autoDeliveryResult?.reason==='waiting_other_shops'
           ?`✅ ยืนยันรับเงินแล้ว\nรออีก ${autoDeliveryResult.waiting_count||0} ร้านยืนยันรับเงิน แล้วระบบจะเรียกวินรวมเที่ยวเดียวอัตโนมัติ`
@@ -1839,7 +1875,11 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
             :'✅ ยืนยันรับเงินแล้ว\n🛵 ระบบเรียกวินอัตโนมัติแล้ว')
         :'อัปเดตสถานะแล้ว');
 
-    openSellerShop(data?.shop_id||data||document.getElementById('sellerShopId')?.value);
+    const sid=data?.shop_id||data||document.getElementById('sellerShopId')?.value;
+    // After confirming payment/status from the seller Orders page, stay on the Orders page.
+    // The old code always called openSellerShop(), which is the shop Settings/Product screen.
+    if(document.getElementById('sellerOrdersOnly'))await openSellerOrders(sid,orderId);
+    else await openSellerShop(sid);
   }
 
   async function sellerRejectOrder(orderId){

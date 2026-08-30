@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.75 Guest Header 3-Column Fix loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.78 Guest Header 3-Column Fix loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -151,6 +151,7 @@
   let riderWaitingJobsBaseline=false;
   let riderSoundRepeatTimer=null;
   let riderWaitingJobPollTimer=null;
+  const RIDER_WAITING_SEEN_KEY='market_rider_waiting_seen_v1';
 
   function armRiderAlertAudio(){
     if(riderAlertAudioArmed)return;
@@ -218,18 +219,36 @@
         .map(j=>String(j.batch_id||''))
         .filter(Boolean)
     );
+
+    // Persist waiting IDs so a job that arrived while the rider screen was not open
+    // is still recognized as NEW on the next foreground refresh instead of becoming
+    // a silent "baseline" job.
+    let previous=riderWaitingJobIds;
     if(!riderWaitingJobsBaseline){
-      riderWaitingJobIds=next;
+      try{
+        const saved=JSON.parse(localStorage.getItem(RIDER_WAITING_SEEN_KEY)||'[]');
+        previous=new Set(Array.isArray(saved)?saved.map(String):[]);
+      }catch(_e){previous=new Set();}
       riderWaitingJobsBaseline=true;
-      return;
     }
-    const added=[...next].filter(id=>!riderWaitingJobIds.has(id));
+
+    const added=[...next].filter(id=>!previous.has(id));
     riderWaitingJobIds=next;
+    try{localStorage.setItem(RIDER_WAITING_SEEN_KEY,JSON.stringify([...next]));}catch(_e){}
+
     if(notify&&added.length){
+      // In-page sound works after the rider has interacted with the PWA once.
+      // Background/screen-off delivery is handled by Web Push + OS notification.
       playRiderNewJobSound();
       try{
         if('Notification' in window&&Notification.permission==='granted'){
-          new Notification('🛵 มีงานวินใหม่',{body:`มีงานใหม่รอรับ ${added.length} งาน`,tag:'market-rider-new-job'});
+          new Notification('🛵 มีงานวินใหม่',{
+            body:`มีงานใหม่รอรับ ${added.length} งาน`,
+            tag:'market-rider-new-job',
+            renotify:true,
+            requireInteraction:true,
+            silent:false
+          });
         }
       }catch(_e){}
       showNotice(`🛵 มีงานวินใหม่ ${added.length} งาน`);
@@ -270,8 +289,10 @@
     const shopHtml=shops.length?shops.map((s,i)=>{
       const map=riderMapLink(s.latitude,s.longitude,s.name);
       const coord=riderCoordinateText(s.latitude,s.longitude);
-      return `<div class="rider-stop">
+      const ready=String(s.order_status||'')==='ready';
+      return `<div class="rider-stop ${ready?'rider-stop-ready':''}">
         <b>${i+1}. ${esc(s.name||'ร้านค้า')}</b>
+        <div class="${ready?'rider-shop-ready':'rider-shop-preparing'}">${ready?'✅ สินค้าพร้อมให้เข้ารับ':'⏳ ร้านกำลังเตรียมสินค้า'}</div>
         ${s.address?`<small>${esc(s.address)}</small>`:''}
         <small>📌 พิกัด: ${esc(coord)}</small>
         <div class="rider-contact-actions">
@@ -2994,7 +3015,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.22.75', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.22.78', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
