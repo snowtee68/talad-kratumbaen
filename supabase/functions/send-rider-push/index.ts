@@ -109,7 +109,7 @@ Deno.serve(async(req)=>{
 
       title="🛵 มีงานวินใหม่";
       message="มีงาน Delivery ใหม่รอรับ";
-      targetUrl="./?rider_jobs=1";
+      targetUrl=`./?rider_jobs=1&rider_batch=${encodeURIComponent(batchId)}`;
 
       console.info("rider database webhook",{
         type:body.type,
@@ -200,7 +200,7 @@ Deno.serve(async(req)=>{
         ?`${body.shop_name||"ร้านค้า"} เตรียมสินค้าเสร็จแล้ว เข้ารับได้เลย`
         :"มีงาน Delivery ใหม่รอรับ"),
       tag:isReady?`rider-ready-${batchId}-${orderId||"shop"}`:`rider-job-${batchId}`,
-      url:targetUrl||"./?rider_jobs=1"
+      url:targetUrl||`./?rider_jobs=1&rider_batch=${encodeURIComponent(batchId)}`
     });
 
     let sent=0,failed=0;

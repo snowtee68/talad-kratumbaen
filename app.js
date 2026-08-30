@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.87 Guest Header 3-Column Fix loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.88 Guest Header 3-Column Fix loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -354,7 +354,7 @@
 
   async function acceptRiderJob(batchId){
     if(!db||!session||myRiderApplication?.status!=='approved')return alert('บัญชีนี้ยังไม่ได้รับสิทธิ์วิน');
-    // V0.5.22.87: do not reject from a client-side preflight.
+    // V0.5.22.88: do not reject from a client-side preflight.
     // The inbox RPC already filters pickup/cancelled jobs, and the atomic
     // market_rider_accept_delivery_batch RPC remains the server-side authority.
     if(!confirm('ยืนยันรับงานนี้? เมื่อรับแล้วงานจะถูกล็อกให้คุณทันที'))return;
@@ -2880,23 +2880,103 @@
   });
 
   // Notification click: open rider jobs directly after app becomes active.
-  async function openRiderJobsFromDeepLink(){
+  // V0.5.22.88 keeps a pending route independent of the address bar because
+  // iOS Home Screen PWA can focus the app without preserving ?rider_jobs=1.
+  let pendingRiderNotificationUrl=null;
+  let riderDeepLinkOpening=false;
+
+  function riderDeepLinkUrl(raw=null){
     try{
-      const u=new URL(location.href);
-      if(u.searchParams.get('rider_jobs')!=='1')return;
-      if(session&&myRiderApplication?.status==='approved'){
-        await openRiderApplication();
-        await loadRiderJobInbox({quiet:true});
-        u.searchParams.delete('rider_jobs');
-        history.replaceState(null,'',u.pathname+(u.searchParams.toString()?'?'+u.searchParams:'')+u.hash);
+      const u=new URL(raw||location.href,location.href);
+      return u.searchParams.get('rider_jobs')==='1'?u:null;
+    }catch(_e){return null}
+  }
+
+  async function readPersistedNotificationRoute(){
+    if(!('caches' in window))return null;
+    try{
+      const cache=await caches.open('market-notification-route-v1');
+      const key=new URL('./__notification_route__',location.href).href;
+      const res=await cache.match(key);
+      if(!res)return null;
+      const data=await res.json();
+      const age=Date.now()-Number(data?.at||0);
+      if(!data?.url||age<0||age>10*60*1000){
+        await cache.delete(key);
+        return null;
       }
+      return String(data.url);
+    }catch(_e){return null}
+  }
+
+  async function clearPersistedNotificationRoute(){
+    if(!('caches' in window))return;
+    try{
+      const cache=await caches.open('market-notification-route-v1');
+      await cache.delete(new URL('./__notification_route__',location.href).href);
     }catch(_e){}
   }
-  window.addEventListener('focus',()=>setTimeout(openRiderJobsFromDeepLink,250));
+
+  async function openRiderJobsFromDeepLink(rawUrl=null){
+    if(riderDeepLinkOpening)return false;
+    let route=riderDeepLinkUrl(rawUrl||pendingRiderNotificationUrl||location.href);
+    if(!route){
+      const persisted=await readPersistedNotificationRoute();
+      route=riderDeepLinkUrl(persisted);
+      if(route)pendingRiderNotificationUrl=route.href;
+    }
+    if(!route)return false;
+
+    // refreshAuth may still be finishing when iOS launches the PWA from a push.
+    if(!session){
+      try{await refreshAuth()}catch(_e){}
+    }
+    if(!session)return false;
+
+    riderDeepLinkOpening=true;
+    try{
+      // Do not rely on stale myRiderApplication from the previous app lifecycle.
+      await loadMyRiderApplication();
+      if(myRiderApplication?.status!=='approved')return false;
+
+      await openRiderApplication();
+      await loadRiderJobInbox({quiet:true});
+
+      const batchId=route.searchParams.get('rider_batch');
+      if(batchId){
+        setTimeout(()=>{
+          const el=document.querySelector(`[data-rider-accept-batch="${CSS.escape(batchId)}"]`);
+          el?.scrollIntoView?.({block:'center',behavior:'smooth'});
+        },120);
+      }
+
+      pendingRiderNotificationUrl=null;
+      await clearPersistedNotificationRoute();
+
+      // Clean notification routing params without depending on them for routing.
+      try{
+        const u=new URL(location.href);
+        u.searchParams.delete('rider_jobs');
+        u.searchParams.delete('rider_batch');
+        history.replaceState(null,'',u.pathname+(u.searchParams.toString()?'?'+u.searchParams:'')+u.hash);
+      }catch(_e){}
+      return true;
+    }catch(err){
+      console.warn('Open rider notification deep link failed',err);
+      return false;
+    }finally{
+      riderDeepLinkOpening=false;
+    }
+  }
+
+  window.addEventListener('focus',()=>setTimeout(()=>openRiderJobsFromDeepLink(),300));
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible')setTimeout(()=>openRiderJobsFromDeepLink(),250);
+  });
   navigator.serviceWorker?.addEventListener?.('message',ev=>{
     if(ev.data?.type==='MARKET_NOTIFICATION_DEEPLINK'&&String(ev.data.url||'').includes('rider_jobs=1')){
-      try{history.replaceState(null,'',new URL(ev.data.url,location.href).href)}catch(_e){}
-      setTimeout(openRiderJobsFromDeepLink,200);
+      pendingRiderNotificationUrl=String(ev.data.url);
+      setTimeout(()=>openRiderJobsFromDeepLink(pendingRiderNotificationUrl),120);
     }
   });
   setTimeout(()=>{refreshRiderPushStatus();openRiderJobsFromDeepLink();},1200);
@@ -3062,7 +3142,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.22.87', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.22.88', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });

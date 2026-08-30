@@ -1,14 +1,14 @@
-const CACHE_NAME = 'talad-kratumbaen-v0.5.22.87';
+const CACHE_NAME = 'talad-kratumbaen-v0.5.22.88';
 const CORE = [
   './',
   './index.html',
   './styles.css',
   './app.js',
   './manifest.webmanifest',
-  './icons/icon-192.png?v=0.5.22.87',
-  './icons/icon-512.png?v=0.5.22.87',
-  './icons/icon-maskable-512.png?v=0.5.22.87',
-  './icons/apple-touch-icon.png?v=0.5.22.87'
+  './icons/icon-192.png?v=0.5.22.88',
+  './icons/icon-512.png?v=0.5.22.88',
+  './icons/icon-maskable-512.png?v=0.5.22.88',
+  './icons/apple-touch-icon.png?v=0.5.22.88'
 ];
 
 self.addEventListener('install', (event) => {
@@ -73,14 +73,25 @@ self.addEventListener('notificationclick', event => {
     let target;
     try{target=new URL(raw,self.registration.scope).href}catch(_e){target=self.registration.scope}
 
+    // V0.5.22.88: iOS/PWA may focus an existing window while dropping/normalizing
+    // the query string. Persist the intended route in Cache Storage first so
+    // app.js can recover it after launch/focus even if client.navigate() is ignored.
+    try{
+      const routeCache=await caches.open('market-notification-route-v1');
+      await routeCache.put(
+        new Request(new URL('./__notification_route__',self.registration.scope).href),
+        new Response(JSON.stringify({url:target,at:Date.now()}),{
+          headers:{'Content-Type':'application/json','Cache-Control':'no-store'}
+        })
+      );
+    }catch(_e){}
+
     const windows=await clients.matchAll({type:'window',includeUncontrolled:true});
     if(windows.length){
       const client=windows[0];
-      // iOS/PWA can ignore or normalize client.navigate(). Send the route directly too.
       try{client.postMessage({type:'MARKET_NOTIFICATION_DEEPLINK',url:target})}catch(_e){}
-      try{if('focus' in client)await client.focus()}catch(_e){}
-      // Also update browser URL where supported, but routing no longer depends on this.
       try{if('navigate' in client)await client.navigate(target)}catch(_e){}
+      try{if('focus' in client)await client.focus()}catch(_e){}
       return;
     }
     if(clients.openWindow)await clients.openWindow(target);
