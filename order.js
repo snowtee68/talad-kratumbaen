@@ -478,7 +478,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
       if(typeof e.stopImmediatePropagation==='function')e.stopImmediatePropagation();
       renderCart();
     },true);
-    document.getElementById('marketOrdersBtn')?.addEventListener('click',()=>{if(!session)return requireLogin();return Number(orderNotifyState.activeSellerOrders||0)>0?openSellerOrdersFromNav():openOrdersRoleHub();});
+    document.getElementById('marketOrdersBtn')?.addEventListener('click',()=>{if(!session)return requireLogin();return openOrdersRoleHub();});
     document.addEventListener('click',e=>{
       if(e.target.closest('[data-mo-close]'))return closeModal();
       const orderBtn=e.target.closest('[data-market-order-shop]');
@@ -537,6 +537,9 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
       if(e.target.closest('#enableOrderPushBtn'))return enableOrderPush();
       if(e.target.closest('#disableOrderPushBtn'))return disableOrderPush();
       if(e.target.closest('#testOrderPushBtn'))return testOrderPush();
+      if(e.target.closest('#enableSellerPushBtn'))return enableSellerPush();
+      if(e.target.closest('#disableSellerPushBtn'))return disableSellerPush();
+      if(e.target.closest('#testSellerPushBtn'))return testSellerPush();
       const rd=e.target.closest('[data-refund-destination]');if(rd)return openRefundDestination(rd.dataset.refundDestination);
       if(e.target.closest('#saveRefundDestinationBtn'))return saveRefundDestination();
       const rtype=e.target.closest('#refundDestinationType');if(rtype)return renderRefundDestinationFields();
@@ -1045,7 +1048,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=0.5.22.70',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=0.5.22.73',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
@@ -1119,6 +1122,86 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
     }catch(err){alert('ส่ง Push ทดสอบไม่สำเร็จ: '+(err?.message||err))}
     finally{if(btn){btn.disabled=false;btn.textContent=old;}}
   }
+
+  async function refreshSellerPushUI(){
+    const st=document.getElementById('sellerPushStatus'),on=document.getElementById('enableSellerPushBtn'),off=document.getElementById('disableSellerPushBtn'),test=document.getElementById('testSellerPushBtn');
+    if(!st)return;
+    if(!('serviceWorker' in navigator)||!('PushManager' in window)){
+      st.textContent='อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Web Push';
+      if(on)on.style.display='none';if(off)off.style.display='none';if(test)test.style.display='none';
+      return;
+    }
+    try{
+      const perm=Notification.permission,sub=perm==='granted'?await getOrderPushSubscription():null;
+      if(sub){
+        st.innerHTML='✅ <b>เครื่องนี้พร้อมรับแจ้งเตือนออเดอร์ร้าน</b><br><small>ออเดอร์ใหม่และสถานะสำคัญสามารถแจ้งผ่าน Push ได้ แม้ปิดหน้าเว็บหรือพักหน้าจอ ตามสิทธิ์ของอุปกรณ์</small>';
+        if(on)on.style.display='none';if(off)off.style.display='';if(test)test.style.display='';
+      }else{
+        st.textContent=perm==='denied'?'❌ Browser ปิดสิทธิ์แจ้งเตือน กรุณาเปิดจากการตั้งค่าของเว็บไซต์':'ยังไม่ได้เปิดการแจ้งเตือนออเดอร์ร้านบนอุปกรณ์นี้';
+        if(on)on.style.display='';if(off)off.style.display='none';if(test)test.style.display='none';
+      }
+    }catch(err){st.textContent='ตรวจสถานะแจ้งเตือนไม่สำเร็จ: '+(err?.message||err);}
+  }
+
+  async function enableSellerPush(){
+    if(!session)return requireLogin();
+    const btn=document.getElementById('enableSellerPushBtn'),st=document.getElementById('sellerPushStatus'),old=btn?.textContent||'เปิดแจ้งเตือนออเดอร์ร้าน';
+    if(btn){btn.disabled=true;btn.textContent='⏳ กำลังเปิดการแจ้งเตือน...';}
+    if(st)st.textContent='กำลังติดต่อระบบแจ้งเตือนของอุปกรณ์ กรุณารอสักครู่...';
+    let timeout;
+    try{
+      const job=(async()=>{
+        const permission=await Notification.requestPermission();
+        if(permission!=='granted')throw new Error('ยังไม่ได้อนุญาตการแจ้งเตือน');
+        const {data:cfg,error:cfgErr}=await db.from('market_push_config').select('vapid_public_key').eq('id',1).maybeSingle();
+        if(cfgErr||!cfg?.vapid_public_key)throw new Error('ยังไม่ได้ตั้งค่า Push Public Key');
+        const reg=await getOrderPushRegistration();
+        let sub=await reg.pushManager.getSubscription();
+        if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:vapidKeyToBytes(cfg.vapid_public_key)});
+        const j=sub.toJSON(),payload={user_id:session.user.id,endpoint:j.endpoint,p256dh:j.keys?.p256dh,auth:j.keys?.auth,user_agent:navigator.userAgent,updated_at:new Date().toISOString()};
+        const {error}=await db.from('market_push_subscriptions').upsert(payload,{onConflict:'user_id,endpoint'});if(error)throw error;
+      })();
+      const timer=new Promise((_,reject)=>{timeout=setTimeout(()=>reject(new Error('การเปิดแจ้งเตือนใช้เวลานานเกินไป กรุณาลองอีกครั้ง')),20000)});
+      await Promise.race([job,timer]);clearTimeout(timeout);
+      await refreshSellerPushUI();
+      // Same device subscription is shared by buyer/seller/rider roles for this account.
+      // Refresh buyer UI too if it is currently rendered.
+      await refreshOrderPushUI();
+    }catch(err){
+      clearTimeout(timeout);if(st)st.textContent='❌ เปิดการแจ้งเตือนไม่สำเร็จ';
+      alert('เปิดการแจ้งเตือนออเดอร์ร้านไม่สำเร็จ: '+(err?.message||err));
+    }finally{if(btn){btn.disabled=false;btn.textContent=old;}}
+  }
+
+  async function disableSellerPush(){
+    if(!session)return requireLogin();
+    const btn=document.getElementById('disableSellerPushBtn'),old=btn?.textContent||'ปิดการแจ้งเตือนเครื่องนี้';
+    if(btn){btn.disabled=true;btn.textContent='⏳ กำลังปิด...';}
+    try{
+      const sub=await getOrderPushSubscription();
+      if(sub){
+        await db.from('market_push_subscriptions').delete().eq('user_id',session.user.id).eq('endpoint',sub.endpoint);
+        await sub.unsubscribe();
+      }
+      await refreshSellerPushUI();
+      await refreshOrderPushUI();
+    }catch(err){alert('ปิด Push Notification ไม่สำเร็จ: '+(err?.message||err))}
+    finally{if(btn){btn.disabled=false;btn.textContent=old;}}
+  }
+
+  async function testSellerPush(){
+    if(!session)return requireLogin();
+    const btn=document.getElementById('testSellerPushBtn'),old=btn?.textContent||'🔔 ส่งแจ้งเตือนทดสอบ';
+    if(btn){btn.disabled=true;btn.textContent='⏳ กำลังส่งทดสอบ...';}
+    try{
+      const {data,error}=await db.functions.invoke('send-order-push',{body:{event:'test_push'}});
+      if(error)throw error;
+      if(!data?.sent)throw new Error('ยังไม่พบอุปกรณ์ที่รับ Push ได้');
+      alert(`ส่ง Push ทดสอบแล้ว ${data.sent} อุปกรณ์`);
+    }catch(err){alert('ส่ง Push ทดสอบไม่สำเร็จ: '+(err?.message||err))}
+    finally{if(btn){btn.disabled=false;btn.textContent=old;}}
+  }
+
   async function sendOrderPush(eventName,{order_id=null,group_id=null,shop_id=null}={}){
     // Business notifications are sent by Database Trigger -> order-push-webhook.
     // Keep this function as a compatibility no-op to avoid duplicate notifications.
@@ -1385,10 +1468,21 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
         </div>
         <button type="button" class="mo-secondary seller-settings-link" data-seller-settings="${esc(shopId)}">⚙️ ตั้งค่าร้าน / สินค้า</button>
       </div>
+      <div id="sellerPushSettings" class="payment-card">
+        <b>🔔 การแจ้งเตือนออเดอร์ร้าน</b>
+        <div class="mo-muted" id="sellerPushStatus">กำลังตรวจสอบ...</div>
+        <div class="mo-actions">
+          <button id="enableSellerPushBtn" class="mo-primary">เปิดแจ้งเตือนออเดอร์ร้าน</button>
+          <button id="disableSellerPushBtn" class="mo-secondary" style="display:none">ปิดการแจ้งเตือนเครื่องนี้</button>
+          <button id="testSellerPushBtn" class="mo-secondary" style="display:none">🔔 ส่งแจ้งเตือนทดสอบ</button>
+        </div>
+        <div class="mo-muted"><small>การเปิด/ปิดเป็นสิทธิ์ของอุปกรณ์และบัญชีนี้ จึงใช้ Push subscription เดียวกับการแจ้งเตือนฝั่งลูกค้าและวินบนเครื่องเดียวกัน</small></div>
+      </div>
       <section class="seller-section seller-orders-only">
         ${renderSellerOrderSections(orders||[])}
       </section>
     `,true);
+    await refreshSellerPushUI();
 
     if(focusOrderId){
       setTimeout(()=>{
