@@ -880,7 +880,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
     const unavailable=groups.map(g=>({g,av:shopAvailability(by[String(g.shop_id)],checkoutShopBy[String(g.shop_id)]||null)})).filter(x=>!x.av.ok);
     if(unavailable.length)return alert('ยังสั่งซื้อไม่ได้:\n'+unavailable.map(x=>`• ${x.g.shop_name}: ${x.av.msg}`).join('\n'));
     const total=getCart().reduce((s,x)=>s+x.price*x.qty,0);
-    openModal(`<h2 class="mo-title">ยืนยันคำสั่งซื้อ</h2><div class="checkout-summary">${groups.map(g=>`<div style="display:flex;justify-content:space-between;gap:10px;margin:5px 0"><span>${esc(g.shop_name)}</span><b>${money(g.items.reduce((s,x)=>s+x.price*x.qty,0))} บาท</b></div>`).join('')}<hr><div style="display:flex;justify-content:space-between"><b>รวมค่าสินค้า</b><b>${money(total)} บาท</b></div></div>${deliveryEnabled?`<fieldset class="payment-card" style="margin-top:14px"><legend><b>วิธีรับสินค้า</b></legend><label style="display:flex;gap:10px;align-items:flex-start;padding:10px 0"><input type="radio" name="fulfillmentMethod" value="delivery" checked style="width:22px;height:22px"><span><b>🛵 จัดส่งถึงบ้าน</b><br><span class="mo-muted">รอทุกร้านพร้อม แล้วเรียกวินรับรวมเที่ยวเดียว</span></span></label><label style="display:flex;gap:10px;align-items:flex-start;padding:10px 0"><input type="radio" name="fulfillmentMethod" value="pickup" style="width:22px;height:22px"><span><b>🏪 รับเองที่ร้าน</b><br><span class="mo-muted">ไม่มีค่าส่ง ไปรับสินค้าตามร้านในชุดคำสั่งซื้อ</span></span></label></fieldset>`:`<fieldset class="payment-card" style="margin-top:14px"><legend><b>วิธีรับสินค้า</b></legend><div class="ready-banner">🏪 ขณะนี้ระบบ Delivery ปิดชั่วคราว — รับสินค้าเองที่ร้านเท่านั้น</div><label style="display:flex;gap:10px;align-items:flex-start;padding:10px 0"><input type="radio" name="fulfillmentMethod" value="pickup" checked style="width:22px;height:22px"><span><b>🏪 รับเองที่ร้าน</b><br><span class="mo-muted">ไม่มีค่าส่ง ไปรับสินค้าตามร้านในชุดคำสั่งซื้อ</span></span></label></fieldset>`}<div id="deliveryCheckoutFields" class="${deliveryEnabled?'':'hidden'}"><div id="deliveryFarePreview" class="delivery-fare-preview"><div class="fare-preview-icon">🛵</div><div><small>ค่าจัดส่งโดยประมาณ</small><strong id="deliveryFarePreviewAmount">ปักหมุดเพื่อคำนวณ</strong><span id="deliveryFarePreviewDetail">รองรับเส้นทางรวมไม่เกิน 10 กม.</span></div></div><div class="warning-banner">หลังสร้างออเดอร์ ระบบจะแสดง QR ของแต่ละร้านให้ชำระแยกกัน ส่วนค่าจัดส่งชำระให้วินเมื่อได้รับสินค้า</div><div class="mo-actions"><button type="button" id="showDeliveryFareInfoBtn" class="mo-secondary">ⓘ ดูวิธีคิดค่าจัดส่ง</button></div></div><div id="pickupCheckoutFields" class="${deliveryEnabled?'hidden':''}"><div class="ready-banner">🏪 เลือกรับเองที่ร้าน — ไม่มีค่าจัดส่ง</div><label style="display:block;margin:10px 0"><b>เวลาที่ต้องการรับ</b><select id="pickupTimeChoice" style="margin-top:6px"><option value="asap">รับเร็วที่สุดเมื่อร้านทำเสร็จ</option><option value="30">ประมาณ 30 นาทีจากนี้</option><option value="60">ประมาณ 1 ชั่วโมงจากนี้</option><option value="custom">เลือกเวลาเอง</option></select></label><label id="pickupCustomWrap" class="hidden"><b>วันและเวลาที่ต้องการรับ</b><input id="pickupCustomTime" type="datetime-local"></label><div class="mo-muted">หากสั่งหลายร้าน ลูกค้าต้องไปรับสินค้าที่แต่ละร้านด้วยตนเอง</div></div><div class="mo-form two"><label>ชื่อผู้รับ *<input id="coName" autocomplete="name" required></label><label>เบอร์โทร *<input id="coPhone" inputmode="tel" autocomplete="tel" required></label><div id="deliveryAddressFields" class="full delivery-address-box"><div class="delivery-address-title"><b>📍 ที่อยู่จัดส่ง</b><span class="mo-muted">กรอกเฉพาะช่องที่เกี่ยวข้อง</span></div><div class="mo-form two"><label class="full">บ้านเลขที่ / อาคาร / หมู่บ้าน *<input id="coHouse" autocomplete="street-address" placeholder="เช่น 123/45 หมู่บ้าน..."></label><label>หมู่<input id="coMoo" inputmode="numeric" placeholder="เช่น 5"></label><label>ซอย<input id="coSoi" placeholder="เช่น สุคนธวิท 12"></label><label>ถนน<input id="coRoad" placeholder="ชื่อถนน"></label><label>จังหวัด *<select id="coProvince"><option value="">เลือกจังหวัด</option></select></label><label>อำเภอ / เขต *<select id="coDistrict"><option value="">เลือกอำเภอ / เขต</option></select></label><label>ตำบล / แขวง *<select id="coSubdistrict"><option value="">เลือกตำบล / แขวง</option></select></label><label>รหัสไปรษณีย์<input id="coPostal" inputmode="numeric" maxlength="5" placeholder="ระบบเติมให้อัตโนมัติ" readonly></label><label class="full">จุดสังเกต / รายละเอียดเพิ่มเติม<input id="coLandmark" placeholder="เช่น บ้านประตูสีฟ้า ตรงข้ามร้าน..."></label></div><input id="coLat" type="hidden"><input id="coLng" type="hidden"><div id="deliveryLocationStatus" class="delivery-location-status">⚠️ ยังไม่ได้ปักหมุดตำแหน่งสำหรับวิน</div><div id="checkoutRouteStatus" class="delivery-location-status">ℹ️ ระบบจะตรวจสอบระยะทางรวมก่อนสร้างออเดอร์ · สูงสุด 10 กม.</div><label class="save-address-check"><input id="saveDeliveryAddress" type="checkbox" checked> บันทึกที่อยู่นี้ไว้ใช้ครั้งต่อไป</label></div></div><div class="mo-actions"><button id="useDeliveryLocationBtn" class="mo-secondary">📍 ปักหมุดจากตำแหน่งปัจจุบัน</button><button id="submitCheckoutBtn" class="mo-primary">สร้างออเดอร์</button></div>`);updateFulfillmentUI();fillSavedDeliveryAddress();if(deliveryEnabled){refreshCheckoutFarePreview();maybeShowDeliveryFareInfo();}
+    openModal(`<h2 class="mo-title">ยืนยันคำสั่งซื้อ</h2><div class="checkout-summary">${groups.map(g=>`<div style="display:flex;justify-content:space-between;gap:10px;margin:5px 0"><span>${esc(g.shop_name)}</span><b>${money(g.items.reduce((s,x)=>s+x.price*x.qty,0))} บาท</b></div>`).join('')}<hr><div style="display:flex;justify-content:space-between"><b>รวมค่าสินค้า</b><b>${money(total)} บาท</b></div></div>${deliveryEnabled?`<fieldset class="payment-card" style="margin-top:14px"><legend><b>วิธีรับสินค้า</b></legend><label style="display:flex;gap:10px;align-items:flex-start;padding:10px 0"><input type="radio" name="fulfillmentMethod" value="delivery" checked style="width:22px;height:22px"><span><b>🛵 จัดส่งถึงบ้าน</b><br><span class="mo-muted">ร้านยืนยันรับเงินครบแล้ว ระบบเรียกวินอัตโนมัติรวมเที่ยวเดียว</span></span></label><label style="display:flex;gap:10px;align-items:flex-start;padding:10px 0"><input type="radio" name="fulfillmentMethod" value="pickup" style="width:22px;height:22px"><span><b>🏪 รับเองที่ร้าน</b><br><span class="mo-muted">ไม่มีค่าส่ง ไปรับสินค้าตามร้านในชุดคำสั่งซื้อ</span></span></label></fieldset>`:`<fieldset class="payment-card" style="margin-top:14px"><legend><b>วิธีรับสินค้า</b></legend><div class="ready-banner">🏪 ขณะนี้ระบบ Delivery ปิดชั่วคราว — รับสินค้าเองที่ร้านเท่านั้น</div><label style="display:flex;gap:10px;align-items:flex-start;padding:10px 0"><input type="radio" name="fulfillmentMethod" value="pickup" checked style="width:22px;height:22px"><span><b>🏪 รับเองที่ร้าน</b><br><span class="mo-muted">ไม่มีค่าส่ง ไปรับสินค้าตามร้านในชุดคำสั่งซื้อ</span></span></label></fieldset>`}<div id="deliveryCheckoutFields" class="${deliveryEnabled?'':'hidden'}"><div id="deliveryFarePreview" class="delivery-fare-preview"><div class="fare-preview-icon">🛵</div><div><small>ค่าจัดส่งโดยประมาณ</small><strong id="deliveryFarePreviewAmount">ปักหมุดเพื่อคำนวณ</strong><span id="deliveryFarePreviewDetail">รองรับเส้นทางรวมไม่เกิน 10 กม.</span></div></div><div class="warning-banner">หลังสร้างออเดอร์ ระบบจะแสดง QR ของแต่ละร้านให้ชำระแยกกัน ส่วนค่าจัดส่งชำระให้วินเมื่อได้รับสินค้า</div><div class="mo-actions"><button type="button" id="showDeliveryFareInfoBtn" class="mo-secondary">ⓘ ดูวิธีคิดค่าจัดส่ง</button></div></div><div id="pickupCheckoutFields" class="${deliveryEnabled?'hidden':''}"><div class="ready-banner">🏪 เลือกรับเองที่ร้าน — ไม่มีค่าจัดส่ง</div><label style="display:block;margin:10px 0"><b>เวลาที่ต้องการรับ</b><select id="pickupTimeChoice" style="margin-top:6px"><option value="asap">รับเร็วที่สุดเมื่อร้านทำเสร็จ</option><option value="30">ประมาณ 30 นาทีจากนี้</option><option value="60">ประมาณ 1 ชั่วโมงจากนี้</option><option value="custom">เลือกเวลาเอง</option></select></label><label id="pickupCustomWrap" class="hidden"><b>วันและเวลาที่ต้องการรับ</b><input id="pickupCustomTime" type="datetime-local"></label><div class="mo-muted">หากสั่งหลายร้าน ลูกค้าต้องไปรับสินค้าที่แต่ละร้านด้วยตนเอง</div></div><div class="mo-form two"><label>ชื่อผู้รับ *<input id="coName" autocomplete="name" required></label><label>เบอร์โทร *<input id="coPhone" inputmode="tel" autocomplete="tel" required></label><div id="deliveryAddressFields" class="full delivery-address-box"><div class="delivery-address-title"><b>📍 ที่อยู่จัดส่ง</b><span class="mo-muted">กรอกเฉพาะช่องที่เกี่ยวข้อง</span></div><div class="mo-form two"><label class="full">บ้านเลขที่ / อาคาร / หมู่บ้าน *<input id="coHouse" autocomplete="street-address" placeholder="เช่น 123/45 หมู่บ้าน..."></label><label>หมู่<input id="coMoo" inputmode="numeric" placeholder="เช่น 5"></label><label>ซอย<input id="coSoi" placeholder="เช่น สุคนธวิท 12"></label><label>ถนน<input id="coRoad" placeholder="ชื่อถนน"></label><label>จังหวัด *<select id="coProvince"><option value="">เลือกจังหวัด</option></select></label><label>อำเภอ / เขต *<select id="coDistrict"><option value="">เลือกอำเภอ / เขต</option></select></label><label>ตำบล / แขวง *<select id="coSubdistrict"><option value="">เลือกตำบล / แขวง</option></select></label><label>รหัสไปรษณีย์<input id="coPostal" inputmode="numeric" maxlength="5" placeholder="ระบบเติมให้อัตโนมัติ" readonly></label><label class="full">จุดสังเกต / รายละเอียดเพิ่มเติม<input id="coLandmark" placeholder="เช่น บ้านประตูสีฟ้า ตรงข้ามร้าน..."></label></div><input id="coLat" type="hidden"><input id="coLng" type="hidden"><div id="deliveryLocationStatus" class="delivery-location-status">⚠️ ยังไม่ได้ปักหมุดตำแหน่งสำหรับวิน</div><div id="checkoutRouteStatus" class="delivery-location-status">ℹ️ ระบบจะตรวจสอบระยะทางรวมก่อนสร้างออเดอร์ · สูงสุด 10 กม.</div><label class="save-address-check"><input id="saveDeliveryAddress" type="checkbox" checked> บันทึกที่อยู่นี้ไว้ใช้ครั้งต่อไป</label></div></div><div class="mo-actions"><button id="useDeliveryLocationBtn" class="mo-secondary">📍 ปักหมุดจากตำแหน่งปัจจุบัน</button><button id="submitCheckoutBtn" class="mo-primary">สร้างออเดอร์</button></div>`);updateFulfillmentUI();fillSavedDeliveryAddress();if(deliveryEnabled){refreshCheckoutFarePreview();maybeShowDeliveryFareInfo();}
     // v0.5.22.8: always render coupon selector as part of checkout opening.
     setTimeout(()=>{
       const method=document.querySelector('input[name="fulfillmentMethod"]:checked')?.value||'delivery';
@@ -1045,7 +1045,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=0.5.22.67',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=0.5.22.68',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
@@ -1505,7 +1505,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
   function sellerOrderDeliveryInfo(o){
     if(o.group?.fulfillment_method==='pickup')return '';
     const batch=(o.group?.batches||[]).filter(b=>b.status!=='cancelled').find(b=>(b.batch_orders||[]).some(x=>String(x.order_id)===String(o.id)));
-    if(!batch)return o.status==='ready'?`<div class="ready-banner">🛵 พร้อมให้ลูกค้าเรียกวิน</div>`:'';
+    if(!batch)return o.status==='ready'?`<div class="ready-banner">🛵 กำลังเตรียมสินค้า · ระบบเรียกวินอัตโนมัติหลังยืนยันรับเงิน</div>`:'';
     const phone=batch.rider_phone||'',arrived=!!batch.delivery_arrived_at,done=batch.status==='completed',issue=batch.delivery_issue_status==='open';
     const label=done?'ส่งสำเร็จ':arrived?'วินส่งมอบแล้ว · รอลูกค้ายืนยัน':deliveryBatchStatusText(batch.status);
     return `<div class="delivery-track"><b>🛵 ${esc(label)}</b>${batch.rider_name||phone?`<div class="rider-contact"><b>วิน: ${esc(batch.rider_name||'ไม่ระบุชื่อ')}</b>${phone?` · ${esc(phone)} <a href="tel:${esc(phone)}">📞 โทรหาวิน</a>`:''}</div>`:`<div class="mo-muted">รอวินรับงาน</div>`}${batch.delivery_fee?`<div class="mo-muted">ค่าส่งประมาณ ${money(batch.delivery_fee)} บาท${batch.distance_km?` · ${Number(batch.distance_km).toFixed(1)} กม.`:''}</div>`:''}${batch.accepted_at?`<div class="mo-muted">รับงาน ${new Date(batch.accepted_at).toLocaleString('th-TH')}</div>`:''}${batch.delivery_arrived_at?`<div class="mo-muted">ถึงปลายทาง ${new Date(batch.delivery_arrived_at).toLocaleString('th-TH')}</div>`:''}${batch.customer_confirmed_at?`<div class="mo-muted">ลูกค้ายืนยันรับ ${new Date(batch.customer_confirmed_at).toLocaleString('th-TH')}</div>`:''}${issue?`<div class="warning-banner">⚠️ ลูกค้าแจ้งปัญหา: ${esc(batch.delivery_issue_note||'')}</div>`:''}${batch.proof_path&&!batch.proof_deleted_at?`<div class="mo-actions"><button class="mo-secondary" data-view-delivery-proof="${batch.id}">📷 ดูหลักฐานส่งมอบ</button></div>`:batch.proof_deleted_at?`<div class="mo-muted">📷 หลักฐานถูกลบตามนโยบายแล้ว</div>`:''}</div>`;
@@ -1650,7 +1650,81 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
     alert(data?.group_completed?'✅ ลูกค้ารับสินค้าครบทุกร้านแล้ว ชุดคำสั่งซื้อเสร็จสมบูรณ์':'✅ ปิดการรับสินค้าของร้านนี้แล้ว');
     (document.getElementById('sellerOrdersOnly')?openSellerOrders:openSellerShop)(data?.shop_id||document.getElementById('sellerShopId')?.value);
   }
-  async function sellerSetStatus(orderId,status){if(status==='awaiting_payment'&&!confirm('ยืนยันว่าร้านยังไม่พบยอดชำระ?'))return;const {data,error}=await db.rpc('market_shop_set_order_status',{p_order_id:orderId,p_status:status});if(error)return alert(error.message);if(status==='ready')sendOrderPush('order_ready',{order_id:orderId});else if(status==='preparing')sendOrderPush('payment_confirmed',{order_id:orderId});if(status==='preparing')sellerOrderTab='preparing';else if(status==='ready')sellerOrderTab='ready';else sellerOrderTab='action';sellerOrderPage=1;alert(status==='ready'?'แจ้งลูกค้าว่าสินค้าพร้อมแล้ว':'อัปเดตสถานะแล้ว');openSellerShop(data?.shop_id||data||document.getElementById('sellerShopId')?.value);}
+
+  async function autoCallRiderAfterPayment(orderId){
+    try{
+      const {data:prep,error:prepErr}=await db.rpc('market_shop_auto_delivery_begin',{p_order_id:orderId});
+      if(prepErr)throw prepErr;
+      if(!prep||prep.skipped){
+        if(prep?.reason==='waiting_other_shops'){
+          if(typeof showOrderNotifyBanner==='function')showOrderNotifyBanner('✅ ยืนยันรับเงินแล้ว','รอร้านอื่นในชุดเดียวกันยืนยันรับเงินครบ แล้วระบบจะเรียกวินอัตโนมัติ',1);
+        }
+        return prep;
+      }
+      if(prep.already_called)return prep;
+
+      const pickups=Array.isArray(prep.pickups)?prep.pickups:[];
+      if(!pickups.length)throw new Error('ไม่พบจุดรับสินค้าสำหรับเรียกวิน');
+      const drop=prep.dropoff||{};
+      const stops=[...pickups,drop];
+      const km=routeKm(stops),fare=fareFor(km,pickups.length);
+      if(!fare)throw new Error('เส้นทางรวมเกิน 10 กม. ซึ่งเกินพื้นที่ทดสอบของระบบวิน');
+
+      const {data:done,error:finishErr}=await db.rpc('market_shop_auto_delivery_finish',{
+        p_order_id:orderId,
+        p_batch_id:prep.batch_id,
+        p_stops:stops,
+        p_distance_km:+km.toFixed(3),
+        p_fare_estimate:fare.total,
+        p_extra_stop_fee:fare.extra
+      });
+      if(finishErr)throw finishErr;
+
+      try{
+        await db.functions.invoke('send-rider-push',{body:{
+          event:'rider_job_created',
+          batch_id:prep.batch_id,
+          rider_job_id:done?.rider_job_id||null,
+          title:'🛵 มีงานวินใหม่',
+          body:`มีงาน Delivery ใหม่ ${pickups.length} จุดรับ · ค่าส่งประมาณ ${fare.total} บาท`,
+          url:'./?rider_jobs=1'
+        }});
+      }catch(_pushErr){console.warn('rider push request skipped',_pushErr);}
+
+      if(typeof showOrderNotifyBanner==='function')showOrderNotifyBanner('🛵 เรียกวินอัตโนมัติแล้ว',`หลังร้านยืนยันรับเงิน · ${pickups.length} จุดรับ · ค่าส่งปลายทางประมาณ ${fare.total} บาท`,1);
+      return done;
+    }catch(err){
+      console.warn('Auto rider after payment:',err?.message||err);
+      if(typeof showOrderNotifyBanner==='function')showOrderNotifyBanner('⚠️ ยืนยันรับเงินแล้ว แต่เรียกวินอัตโนมัติไม่สำเร็จ',err?.message||'กรุณาตรวจสอบข้อมูลจัดส่ง',1);
+      return null;
+    }
+  }
+
+  async function sellerSetStatus(orderId,status){
+    if(status==='awaiting_payment'&&!confirm('ยืนยันว่าร้านยังไม่พบยอดชำระ?'))return;
+    const {data,error}=await db.rpc('market_shop_set_order_status',{p_order_id:orderId,p_status:status});
+    if(error)return alert(error.message);
+
+    if(status==='ready')sendOrderPush('order_ready',{order_id:orderId});
+    else if(status==='preparing'){
+      sendOrderPush('payment_confirmed',{order_id:orderId});
+      await autoCallRiderAfterPayment(orderId);
+    }
+
+    if(status==='preparing')sellerOrderTab='preparing';
+    else if(status==='ready')sellerOrderTab='ready';
+    else sellerOrderTab='action';
+    sellerOrderPage=1;
+
+    alert(status==='ready'
+      ?'แจ้งลูกค้าว่าสินค้าพร้อมแล้ว'
+      :status==='preparing'
+        ?'✅ ยืนยันรับเงินแล้ว ระบบเริ่มเรียกวินอัตโนมัติสำหรับ Delivery'
+        :'อัปเดตสถานะแล้ว');
+
+    openSellerShop(data?.shop_id||data||document.getElementById('sellerShopId')?.value);
+  }
+
   async function sellerRejectOrder(orderId){
     const reason=prompt('เหตุผลที่ปฏิเสธออเดอร์\nเช่น สินค้าหมด / ร้านใกล้ปิด / ทำไม่ทัน / อื่น ๆ');if(reason===null)return;if(!reason.trim())return alert('กรุณาระบุเหตุผล');
     if(!confirm('ยืนยันปฏิเสธออเดอร์นี้?\nหากลูกค้ายังไม่ชำระจะจบรายการทันที หากชำระแล้วระบบจะเข้าสู่ขั้นตอนคืนเงิน'))return;
