@@ -1042,7 +1042,7 @@
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=0.5.22.64',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=0.5.22.66',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
@@ -1091,6 +1091,10 @@
       alert('เปิด Push Notification ไม่สำเร็จ: '+(err?.message||err));
     }finally{if(btn){btn.disabled=false;btn.textContent=old;}}
   }
+  window.marketEnablePush=enableOrderPush;
+  window.marketRefreshPushUI=refreshOrderPushUI;
+  window.marketGetPushSubscription=getOrderPushSubscription;
+
   async function disableOrderPush(){
     const btn=document.getElementById('disableOrderPushBtn'),old=btn?.textContent||'ปิดการแจ้งเตือนเครื่องนี้';
     if(btn){btn.disabled=true;btn.textContent='⏳ กำลังปิด...';}
@@ -1771,7 +1775,7 @@
       // ขอให้ระบบ Push เดิมส่งแจ้งเตือนไปยังวินที่ได้รับอนุมัติ
       // ถ้า Edge Function รุ่นเดิมยังไม่รองรับ event นี้ จะไม่ทำให้งานเรียกวินล้มเหลว
       try{
-        await db.functions.invoke('send-order-push',{body:{
+        await db.functions.invoke('send-rider-push',{body:{
           event:'rider_job_created',
           batch_id:batchId,
           rider_job_id:jobId,

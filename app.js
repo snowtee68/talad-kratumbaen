@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.64 Guest Header 3-Column Fix loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.66 Guest Header 3-Column Fix loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -147,6 +147,10 @@
 
   let riderJobsRealtimeChannel=null;
   let riderAlertAudioArmed=false;
+  let riderWaitingJobIds=new Set();
+  let riderWaitingJobsBaseline=false;
+  let riderSoundRepeatTimer=null;
+  let riderWaitingJobPollTimer=null;
 
   function armRiderAlertAudio(){
     if(riderAlertAudioArmed)return;
@@ -188,6 +192,48 @@
     return ({creating:'รอวินรับงาน',waiting_rider:'รอวินรับงาน',created:'รอวินรับงาน',open:'รอวินรับงาน',
       accepted:'รับงานแล้ว',pickup_started:'กำลังไปรับสินค้า',picked_up:'รับสินค้าแล้ว',
       delivering:'กำลังจัดส่ง',completed:'ส่งสำเร็จ',cancelled:'ยกเลิก'})[s]||s||'-';
+  }
+
+
+  function stopRiderNewJobSound(){
+    if(riderSoundRepeatTimer){clearTimeout(riderSoundRepeatTimer);riderSoundRepeatTimer=null;}
+  }
+
+  function playRiderNewJobSound(){
+    stopRiderNewJobSound();
+    playRiderAlertSound();
+    // เตือนซ้ำอีก 2 รอบเพื่อให้ได้ยินง่ายขึ้น แต่ไม่วนไม่รู้จบ
+    let n=0;
+    const again=()=>{
+      if(++n>2)return;
+      riderSoundRepeatTimer=setTimeout(()=>{playRiderAlertSound();again();},2200);
+    };
+    again();
+  }
+
+  function syncRiderWaitingJobs(jobs,{notify=true}={}){
+    const next=new Set(
+      (Array.isArray(jobs)?jobs:[])
+        .filter(j=>Boolean(j?.can_accept))
+        .map(j=>String(j.batch_id||''))
+        .filter(Boolean)
+    );
+    if(!riderWaitingJobsBaseline){
+      riderWaitingJobIds=next;
+      riderWaitingJobsBaseline=true;
+      return;
+    }
+    const added=[...next].filter(id=>!riderWaitingJobIds.has(id));
+    riderWaitingJobIds=next;
+    if(notify&&added.length){
+      playRiderNewJobSound();
+      try{
+        if('Notification' in window&&Notification.permission==='granted'){
+          new Notification('🛵 มีงานวินใหม่',{body:`มีงานใหม่รอรับ ${added.length} งาน`,tag:'market-rider-new-job'});
+        }
+      }catch(_e){}
+      showNotice(`🛵 มีงานวินใหม่ ${added.length} งาน`);
+    }
   }
 
   function riderMapLink(lat,lng,label='จุดหมาย'){
@@ -276,6 +322,7 @@
       const {data,error}=await db.rpc('market_my_rider_job_inbox');
       if(error)throw error;
       const jobs=Array.isArray(data)?data:(data?.jobs||[]);
+      syncRiderWaitingJobs(jobs,{notify:true});
       if(box)box.innerHTML=jobs.length?jobs.map(riderJobCard).join(''):'<div class="rider-job-empty">✅ ตอนนี้ยังไม่มีงานใหม่</div>';
       return jobs;
     }catch(err){
@@ -370,6 +417,10 @@
       try{db.removeChannel(riderJobsRealtimeChannel)}catch(_e){}
     }
     riderJobsRealtimeChannel=null;
+    if(riderWaitingJobPollTimer){clearInterval(riderWaitingJobPollTimer);riderWaitingJobPollTimer=null;}
+    stopRiderNewJobSound();
+    riderWaitingJobIds=new Set();
+    riderWaitingJobsBaseline=false;
   }
 
   function startRiderJobRealtime(){
@@ -378,16 +429,20 @@
     try{
       riderJobsRealtimeChannel=db.channel('market-rider-jobs-'+session.user.id)
         .on('postgres_changes',{event:'INSERT',schema:'public',table:'market_delivery_batches'},async()=>{
-          notifyRiderNewJob();
-          if(!$('riderApplyModal')?.classList.contains('hidden'))await loadRiderJobInbox({quiet:true});
+          await loadRiderJobInbox({quiet:true});
         })
         .on('postgres_changes',{event:'UPDATE',schema:'public',table:'market_delivery_batches'},async(payload)=>{
           const changed=payload?.new||{};
           const mine=changed.rider_phone&&myRiderApplication?.phone&&String(changed.rider_phone)===String(myRiderApplication.phone);
           if(mine)playRiderAlertSound();
-          if(!$('riderApplyModal')?.classList.contains('hidden'))await loadRiderJobInbox({quiet:true});
+          await loadRiderJobInbox({quiet:true});
         })
         .subscribe();
+      if(!riderWaitingJobPollTimer){
+        riderWaitingJobPollTimer=setInterval(()=>{
+          if(document.visibilityState==='visible'&&myRiderApplication?.status==='approved')loadRiderJobInbox({quiet:true});
+        },30000);
+      }
     }catch(err){console.warn('rider realtime skipped',err);}
   }
 
@@ -2702,6 +2757,63 @@
     const file=input.files?.[0];
     if(file)submitRiderDeliveryProof(input.dataset.riderProofInput,file);
   });
+
+  async function refreshRiderPushStatus(){
+    const st=$('riderPushStatus'),btn=$('riderEnablePushBtn');
+    if(!st||!btn)return;
+    try{
+      if(!('Notification' in window)||!('serviceWorker' in navigator)||!('PushManager' in window)){
+        st.textContent='อุปกรณ์/เบราว์เซอร์นี้ไม่รองรับ Web Push';
+        btn.style.display='none';return;
+      }
+      const sub=Notification.permission==='granted'&&window.marketGetPushSubscription
+        ?await window.marketGetPushSubscription():null;
+      if(sub){
+        st.textContent='✅ เครื่องนี้พร้อมรับงานวินแม้พักหน้าจอ';
+        btn.textContent='✅ เปิดแจ้งเตือนแล้ว';btn.disabled=true;
+      }else{
+        st.textContent=Notification.permission==='denied'
+          ?'❌ ปิดสิทธิ์แจ้งเตือนอยู่ กรุณาเปิด Notification ในการตั้งค่าเครื่อง/เว็บไซต์'
+          :'ยังไม่ได้เปิด Push Notification บนเครื่องนี้';
+        btn.textContent='เปิดแจ้งเตือนงานวิน';btn.disabled=false;
+      }
+    }catch(err){st.textContent='ตรวจสถานะ Push ไม่สำเร็จ';btn.disabled=false;}
+  }
+
+  document.addEventListener('click',async e=>{
+    const b=e.target?.closest?.('#riderEnablePushBtn');
+    if(!b)return;
+    e.preventDefault();
+    if(typeof window.marketEnablePush!=='function')return alert('ระบบ Push ยังโหลดไม่เสร็จ กรุณาลองอีกครั้ง');
+    await window.marketEnablePush();
+    await refreshRiderPushStatus();
+  });
+
+  document.addEventListener('click',e=>{
+    if(e.target?.closest?.('#riderEditProfileBtn,#refreshRiderJobsBtn'))setTimeout(refreshRiderPushStatus,150);
+  });
+
+  // Notification click: open rider jobs directly after app becomes active.
+  async function openRiderJobsFromDeepLink(){
+    try{
+      const u=new URL(location.href);
+      if(u.searchParams.get('rider_jobs')!=='1')return;
+      if(session&&myRiderApplication?.status==='approved'){
+        await openRiderApplication();
+        await loadRiderJobInbox({quiet:true});
+        u.searchParams.delete('rider_jobs');
+        history.replaceState(null,'',u.pathname+(u.searchParams.toString()?'?'+u.searchParams:'')+u.hash);
+      }
+    }catch(_e){}
+  }
+  window.addEventListener('focus',()=>setTimeout(openRiderJobsFromDeepLink,250));
+  navigator.serviceWorker?.addEventListener?.('message',ev=>{
+    if(ev.data?.type==='MARKET_NOTIFICATION_DEEPLINK'&&String(ev.data.url||'').includes('rider_jobs=1')){
+      try{history.replaceState(null,'',new URL(ev.data.url,location.href).href)}catch(_e){}
+      setTimeout(openRiderJobsFromDeepLink,200);
+    }
+  });
+  setTimeout(()=>{refreshRiderPushStatus();openRiderJobsFromDeepLink();},1200);
 })();
 
 /* === PWA install experience: Main v5.7.9.14 === */
@@ -2864,7 +2976,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.22.64', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.22.66', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });

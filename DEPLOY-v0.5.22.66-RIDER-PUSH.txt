@@ -1,0 +1,29 @@
+V0.5.22.66 ต้องทำเพิ่ม 3 ขั้นตอนเพื่อให้แจ้งเตือนตอนพัก/ล็อกหน้าจอ
+
+1) รัน SQL:
+upgrade-v0.5.22.66-rider-background-push.sql
+
+2) Deploy Supabase Edge Function:
+supabase/functions/send-rider-push/index.ts
+ชื่อ Function ต้องเป็น: send-rider-push
+
+3) Edge Function ต้องมี Secrets:
+SUPABASE_URL
+SUPABASE_ANON_KEY
+SUPABASE_SERVICE_ROLE_KEY
+VAPID_PUBLIC_KEY
+VAPID_PRIVATE_KEY
+VAPID_SUBJECT
+
+VAPID_PUBLIC_KEY ต้องเป็นคู่เดียวกับ market_push_config.vapid_public_key ที่ Web App ใช้ subscribe อยู่แล้ว
+ถ้าระบบ send-order-push เดิมใช้งาน Push ทดสอบได้ แนะนำใช้ VAPID key คู่เดิม ไม่สร้างคู่ใหม่
+
+ฝั่งวิน:
+- Login
+- เปิดหน้า งานวิน
+- กด “เปิดแจ้งเตือนงานวิน” 1 ครั้งบนเครื่องนั้น
+- อนุญาต Notification
+จากนั้น Push ถูกส่งโดย Server/Service Worker จึงไม่ต้องเปิดหน้างานวินค้างไว้
+
+หมายเหตุ iPhone/iPad:
+Web Push ที่เชื่อถือได้ควรใช้งานผ่าน Web App ที่ Add to Home Screen และอนุญาต Notification
