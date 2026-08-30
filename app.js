@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.61 Guest Header 3-Column Fix loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.62 Guest Header 3-Column Fix loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -154,23 +154,74 @@
       delivering:'กำลังจัดส่ง',completed:'ส่งสำเร็จ',cancelled:'ยกเลิก'})[s]||s||'-';
   }
 
+  function riderMapLink(lat,lng,label='จุดหมาย'){
+    const a=Number(lat),b=Number(lng);
+    if(!Number.isFinite(a)||!Number.isFinite(b)||!a||!b)return '';
+    return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${a},${b}`)}&travelmode=driving`;
+  }
+
+  function riderCoordinateText(lat,lng){
+    const a=Number(lat),b=Number(lng);
+    if(!Number.isFinite(a)||!Number.isFinite(b)||!a||!b)return 'ยังไม่มีพิกัด';
+    return `${a.toFixed(6)}, ${b.toFixed(6)}`;
+  }
+
+  function riderProgressAction(job){
+    if(!job?.is_mine)return '';
+    const s=String(job.status||'');
+    if(s==='accepted')return `<button type="button" class="primary rider-next-job" data-rider-advance-batch="${esc(job.batch_id)}" data-rider-next="pickup_started">🛵 เริ่มไปรับสินค้า</button>`;
+    if(s==='pickup_started')return `<button type="button" class="primary rider-next-job" data-rider-advance-batch="${esc(job.batch_id)}" data-rider-next="picked_up">📦 รับสินค้าครบแล้ว</button>`;
+    if(s==='picked_up')return `<button type="button" class="primary rider-next-job" data-rider-advance-batch="${esc(job.batch_id)}" data-rider-next="delivering">🏠 เริ่มนำส่งลูกค้า</button>`;
+    if(s==='delivering'&&!job.delivery_arrived_at)return `<button type="button" class="primary rider-next-job" data-rider-advance-batch="${esc(job.batch_id)}" data-rider-next="arrived">📍 ถึงจุดส่งแล้ว</button>`;
+    if(s==='delivering'&&job.delivery_arrived_at)return `<div class="rider-job-owned">✅ ถึงจุดส่งแล้ว · รอลูกค้ายืนยันรับสินค้า</div>`;
+    return `<div class="rider-job-owned">งานของคุณ · ${esc(riderJobInboxStatusLabel(job.status))}</div>`;
+  }
+
   function riderJobCard(job){
     const waiting=Boolean(job?.can_accept);
     const mine=Boolean(job?.is_mine);
     const shops=Array.isArray(job?.shops)?job.shops:[];
-    const shopHtml=shops.length?shops.map((s,i)=>`<div class="rider-stop"><b>${i+1}. ${esc(s.name||'ร้านค้า')}</b>${s.address?`<small>${esc(s.address)}</small>`:''}${s.phone?`<a href="tel:${esc(s.phone)}">${esc(s.phone)}</a>`:''}</div>`).join(''):'<div class="muted">ไม่พบรายละเอียดร้าน</div>';
+    const shopHtml=shops.length?shops.map((s,i)=>{
+      const map=riderMapLink(s.latitude,s.longitude,s.name);
+      const coord=riderCoordinateText(s.latitude,s.longitude);
+      return `<div class="rider-stop">
+        <b>${i+1}. ${esc(s.name||'ร้านค้า')}</b>
+        ${s.address?`<small>${esc(s.address)}</small>`:''}
+        <small>📌 พิกัด: ${esc(coord)}</small>
+        <div class="rider-contact-actions">
+          ${s.phone?`<a class="rider-mini-btn" href="tel:${esc(s.phone)}">☎ โทรร้าน</a>`:''}
+          ${map?`<a class="rider-mini-btn map" href="${esc(map)}" target="_blank" rel="noopener">🧭 นำทางไปจุดรับ</a>`:''}
+        </div>
+      </div>`;
+    }).join(''):'<div class="muted">ไม่พบรายละเอียดร้าน</div>';
+
     const customer=job?.customer_name||'-',phone=job?.customer_phone||'',address=job?.delivery_address||'-';
+    const deliveryMap=riderMapLink(job?.delivery_lat,job?.delivery_lng,'จุดส่งลูกค้า');
+    const deliveryCoord=riderCoordinateText(job?.delivery_lat,job?.delivery_lng);
     const fee=Number(job?.delivery_fee||0),km=Number(job?.distance_km||0);
+
     return `<article class="rider-job-card ${waiting?'waiting':mine?'mine':''}">
       <div class="rider-job-card-head">
         <div><b>งาน #${esc(String(job?.batch_id||'').slice(0,8).toUpperCase())}</b><small>${esc(riderJobInboxStatusLabel(job?.status))}</small></div>
         <div class="rider-job-price">${fee?fee.toLocaleString('th-TH')+' บาท':'-'}</div>
       </div>
       <div class="rider-job-meta">${km?`📏 ${km.toFixed(1)} กม.`:''}${shops.length?` · 🏪 ${shops.length} จุดรับ`:''}</div>
+
       <div class="rider-job-section"><strong>จุดรับสินค้า</strong>${shopHtml}</div>
-      <div class="rider-job-section"><strong>จุดส่งลูกค้า</strong><div>👤 ${esc(customer)}</div>${phone?`<a href="tel:${esc(phone)}">☎ ${esc(phone)}</a>`:''}<div>📍 ${esc(address)}</div></div>
-      ${waiting?`<button type="button" class="primary rider-accept-job" data-rider-accept-batch="${esc(job.batch_id)}">✅ รับงานนี้</button>`:
-        mine?`<div class="rider-job-owned">งานของคุณ · ${esc(riderJobInboxStatusLabel(job.status))}</div>`:''}
+
+      <div class="rider-job-section">
+        <strong>จุดส่งลูกค้า</strong>
+        <div>👤 ${esc(customer)}</div>
+        ${phone?`<a href="tel:${esc(phone)}">☎ ${esc(phone)}</a>`:''}
+        <div>📍 ${esc(address)}</div>
+        <small>📌 พิกัด: ${esc(deliveryCoord)}</small>
+        <div class="rider-contact-actions">
+          ${phone?`<a class="rider-mini-btn" href="tel:${esc(phone)}">☎ โทรลูกค้า</a>`:''}
+          ${deliveryMap?`<a class="rider-mini-btn map" href="${esc(deliveryMap)}" target="_blank" rel="noopener">🧭 นำทางไปจุดส่ง</a>`:''}
+        </div>
+      </div>
+
+      ${waiting?`<button type="button" class="primary rider-accept-job" data-rider-accept-batch="${esc(job.batch_id)}">✅ รับงานนี้</button>`:riderProgressAction(job)}
     </article>`;
   }
 
@@ -205,6 +256,29 @@
       await loadRiderJobInbox();
     }catch(err){
       alert('รับงานไม่สำเร็จ: '+(err?.message||err));
+      await loadRiderJobInbox({quiet:true});
+    }
+  }
+
+
+  async function advanceRiderJob(batchId,nextStatus){
+    if(!db||!session||myRiderApplication?.status!=='approved')return alert('บัญชีนี้ยังไม่ได้รับสิทธิ์วิน');
+    const labels={
+      pickup_started:'เริ่มไปรับสินค้า',
+      picked_up:'ยืนยันว่ารับสินค้าครบแล้ว',
+      delivering:'เริ่มนำส่งลูกค้า',
+      arrived:'ยืนยันว่าถึงจุดส่งแล้ว'
+    };
+    if(!confirm(`${labels[nextStatus]||'ดำเนินการขั้นถัดไป'} ใช่หรือไม่?`))return;
+    const btn=document.querySelector(`[data-rider-advance-batch="${CSS.escape(String(batchId))}"]`);
+    if(btn){btn.disabled=true;btn.textContent='กำลังอัปเดต...';}
+    try{
+      const {error}=await db.rpc('market_rider_advance_delivery_batch',{p_batch_id:batchId,p_action:nextStatus});
+      if(error)throw error;
+      await loadRiderJobInbox();
+      showNotice('อัปเดตสถานะงานวินแล้ว');
+    }catch(err){
+      alert('อัปเดตงานไม่สำเร็จ: '+(err?.message||err));
       await loadRiderJobInbox({quiet:true});
     }
   }
@@ -2532,6 +2606,8 @@
   document.addEventListener('click',e=>{
     const accept=e.target.closest?.('[data-rider-accept-batch]');
     if(accept){e.preventDefault();acceptRiderJob(accept.dataset.riderAcceptBatch);return;}
+    const advance=e.target.closest?.('[data-rider-advance-batch]');
+    if(advance){e.preventDefault();advanceRiderJob(advance.dataset.riderAdvanceBatch,advance.dataset.riderNext);return;}
     if(e.target.closest?.('#refreshRiderJobsBtn')){e.preventDefault();loadRiderJobInbox();return;}
   });
 })();
@@ -2696,7 +2772,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.22.61', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.22.62', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
