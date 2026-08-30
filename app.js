@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.69 Guest Header 3-Column Fix loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.70 Guest Header 3-Column Fix loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -286,7 +286,7 @@
     const deliveryCoord=riderCoordinateText(job?.delivery_lat,job?.delivery_lng);
     const fee=Number(job?.delivery_fee||0),km=Number(job?.distance_km||0);
 
-    return `<article class="rider-job-card ${waiting?'waiting':mine?'mine':''}">
+    return `<article class="rider-job-card ${waiting?'waiting':mine?'mine':''}" data-rider-job-batch="${esc(job.batch_id)}">
       <div class="rider-job-card-head">
         <div><b>งาน #${esc(String(job?.batch_id||'').slice(0,8).toUpperCase())}</b><small>${esc(riderJobInboxStatusLabel(job?.status))}</small></div>
         <div class="rider-job-price">${fee?fee.toLocaleString('th-TH')+' บาท':'-'}</div>
@@ -333,6 +333,20 @@
 
   async function acceptRiderJob(batchId){
     if(!db||!session||myRiderApplication?.status!=='approved')return alert('บัญชีนี้ยังไม่ได้รับสิทธิ์วิน');
+    // Preflight prevents a stale rider card from being accepted after the customer switches to self-pickup.
+    try{
+      const {data:live,error:liveErr}=await db.from('market_delivery_batches')
+        .select('id,status,accepted_at,group:market_delivery_groups(fulfillment_method)')
+        .eq('id',batchId).maybeSingle();
+      if(liveErr)throw liveErr;
+      const openStatuses=['creating','waiting_rider','created','open'];
+      if(!live||live.accepted_at||!openStatuses.includes(String(live.status||''))||live.group?.fulfillment_method==='pickup'){
+        await loadRiderJobInbox({quiet:true});
+        return alert('งานนี้ถูกยกเลิกหรือเปลี่ยนเป็นรับเองที่ร้านแล้ว');
+      }
+    }catch(err){
+      console.warn('rider accept preflight skipped',err?.message||err);
+    }
     if(!confirm('ยืนยันรับงานนี้? เมื่อรับแล้วงานจะถูกล็อกให้คุณทันที'))return;
     const btn=document.querySelector(`[data-rider-accept-batch="${CSS.escape(String(batchId))}"]`);
     if(btn){btn.disabled=true;btn.textContent='กำลังรับงาน...';}
@@ -435,6 +449,10 @@
           const changed=payload?.new||{};
           const mine=changed.rider_phone&&myRiderApplication?.phone&&String(changed.rider_phone)===String(myRiderApplication.phone);
           if(mine)playRiderAlertSound();
+          // Remove stale waiting card immediately when customer cancels rider dispatch / switches to pickup.
+          if(changed.id&&(changed.status==='cancelled'||changed.accepted_at)){
+            document.querySelector(`[data-rider-job-batch="${CSS.escape(String(changed.id))}"]`)?.remove();
+          }
           await loadRiderJobInbox({quiet:true});
         })
         .subscribe();
@@ -2976,7 +2994,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.22.69', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.22.70', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
