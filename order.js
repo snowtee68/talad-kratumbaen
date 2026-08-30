@@ -460,7 +460,10 @@
   function wire(){
     document.addEventListener('pointerdown',armOrderNotificationAudio,{once:true,capture:true});
     document.addEventListener('keydown',armOrderNotificationAudio,{once:true,capture:true});
-    document.addEventListener('click',e=>{if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(false);if(e.target.closest('#closeDeliveryFareInfoBtn'))return closeModal();
+    document.addEventListener('click',e=>{
+    const switchPickup=e.target.closest?.('[data-switch-pickup-batch]');
+    if(switchPickup){e.preventDefault();switchDeliveryToPickup(switchPickup.dataset.switchPickupBatch);return;}
+if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(false);if(e.target.closest('#closeDeliveryFareInfoBtn'))return closeModal();
       if(e.target?.closest?.('#orderNotifyBanner')){
         e.preventDefault();markNotificationAreaViewed();session?openAccountHub():requireLogin();
       }
@@ -1042,7 +1045,7 @@
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=0.5.22.66',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=0.5.22.67',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
@@ -1703,6 +1706,26 @@
     if(se||!data?.signedUrl)return alert(se?.message||'เปิดหลักฐานไม่สำเร็จ');
     window.open(data.signedUrl,'_blank');
   }
+
+  async function switchDeliveryToPickup(batchId){
+    if(!db||!session?.user?.id)return;
+    if(!confirm('เปลี่ยนเป็นมารับสินค้าเองที่ร้านใช่หรือไม่?\n\nออเดอร์สินค้าจะไม่ถูกยกเลิก และสามารถเปลี่ยนได้เฉพาะตอนที่ยังไม่มีวินรับงานเท่านั้น'))return;
+    const btn=document.querySelector(`[data-switch-pickup-batch="${CSS.escape(String(batchId))}"]`);
+    if(btn){btn.disabled=true;btn.textContent='กำลังเปลี่ยนเป็นรับเอง...';}
+    try{
+      const {data,error}=await db.rpc('market_customer_switch_delivery_to_pickup',{p_batch_id:batchId});
+      if(error)throw error;
+      alert('🏪 เปลี่ยนเป็นมารับเองที่ร้านแล้ว\n\nออเดอร์สินค้ายังอยู่ตามเดิม และไม่มีค่าจัดส่ง เพราะค่าจัดส่งวินเรียกเก็บปลายทาง');
+      if(typeof showOrderNotifyBanner==='function'){
+        showOrderNotifyBanner('🏪 เปลี่ยนเป็นรับเองที่ร้าน','ออเดอร์ยังอยู่ตามเดิม และยกเลิกเฉพาะการเรียกวิน',1);
+      }
+      if(typeof loadOrders==='function')await loadOrders();
+    }catch(err){
+      alert('เปลี่ยนเป็นรับเองที่ร้านไม่สำเร็จ: '+(err?.message||err));
+      if(btn){btn.disabled=false;btn.textContent='🏪 เปลี่ยนเป็นมารับเองที่ร้าน';}
+    }
+  }
+
   async function customerConfirmDelivery(batchId){
     if(!confirm('ยืนยันว่าคุณได้รับสินค้าครบและถูกต้องแล้ว? หลังยืนยันงานจัดส่งจะเสร็จสมบูรณ์'))return;
     const {data,error}=await db.rpc('market_customer_confirm_delivery',{p_batch_id:batchId});
@@ -1796,4 +1819,24 @@
   // v0.5.22.8: coupon UI is loaded directly by openCheckout; only channel changes reload it.
 
   document.addEventListener('change',e=>{if(e.target?.matches('input[name="fulfillmentMethod"]')){updateFulfillmentUI();if(document.getElementById('checkoutCouponPanel'))loadCheckoutCoupons(groupedCart(),e.target.value||'delivery').catch(err=>console.warn('coupon checkout',err));}if(e.target?.id==='pickupTimeChoice')updatePickupCustomUI();});
+
+  function decorateCustomerWaitingRiderPickupButtons(){
+    document.querySelectorAll('[data-delivery-batch-id], [data-batch-id]').forEach(card=>{
+      const batchId=card.getAttribute('data-delivery-batch-id')||card.getAttribute('data-batch-id');
+      if(!batchId||card.querySelector('[data-switch-pickup-batch]'))return;
+      const text=(card.textContent||'').replace(/\s+/g,' ').trim();
+      const waiting=/กำลังหาวิน|รอวิน|waiting_rider/i.test(text);
+      const accepted=/วินรับงานแล้ว|accepted|กำลังไปรับ|รับสินค้าครบ|กำลังนำส่ง|ถึงจุดส่ง/i.test(text);
+      if(waiting&&!accepted){
+        const wrap=document.createElement('div');
+        wrap.className='switch-pickup-wrap';
+        wrap.innerHTML=`<button type="button" class="secondary switch-pickup-btn" data-switch-pickup-batch="${String(batchId).replace(/"/g,'&quot;')}">🏪 เปลี่ยนเป็นมารับเองที่ร้าน</button><small>ใช้ได้เฉพาะตอนที่ยังไม่มีวินรับงาน</small>`;
+        card.appendChild(wrap);
+      }
+    });
+  }
+
+  setInterval(()=>{
+    if(document.visibilityState==='visible')decorateCustomerWaitingRiderPickupButtons();
+  },4000);
 })();
