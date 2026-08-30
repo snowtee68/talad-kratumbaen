@@ -31,9 +31,27 @@ Deno.serve(async(req)=>{
 
     const body=await req.json().catch(()=>({}));
     const isDbWebhook=
-      body?.schema==="public" &&
-      body?.table==="market_delivery_batches" &&
-      body?.record?.id;
+      (body?.schema==="public" &&
+       body?.table==="market_delivery_batches" &&
+       body?.record?.id) ||
+      (body?.source==="pg_net_trigger" &&
+       body?.event==="rider_job_created" &&
+       body?.batch_id);
+
+    // Normalize the compact payload sent by our pg_net trigger into the same
+    // record shape used by a Supabase Database Webhook.
+    if(body?.source==="pg_net_trigger" && body?.batch_id){
+      body.schema="public";
+      body.table="market_delivery_batches";
+      body.type="UPDATE";
+      body.record={
+        id:body.batch_id,
+        group_id:body.group_id,
+        rider_job_id:body.rider_job_id,
+        status:body.status,
+        accepted_at:body.accepted_at||null
+      };
+    }
 
     // Database Webhook has no end-user JWT. It is authenticated with a dedicated
     // secret header configured in Supabase Database Webhooks.
