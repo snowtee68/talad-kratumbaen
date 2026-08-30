@@ -1048,7 +1048,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=0.5.22.73',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=0.5.22.74',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
@@ -1074,27 +1074,37 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
   async function enableOrderPush(){
     if(!session)return requireLogin();
     const btn=document.getElementById('enableOrderPushBtn'),st=document.getElementById('orderPushStatus'),old=btn?.textContent||'เปิดการแจ้งเตือนบนมือถือ';
+    const step=(msg)=>{if(st)st.textContent=msg;};
     if(btn){btn.disabled=true;btn.textContent='⏳ กำลังเปิดการแจ้งเตือน...';}
-    if(st)st.textContent='กำลังติดต่อระบบแจ้งเตือนของอุปกรณ์ กรุณารอสักครู่...';
-    let timeout;
     try{
-      const job=(async()=>{
-        const permission=await Notification.requestPermission();
-        if(permission!=='granted')throw new Error('ยังไม่ได้อนุญาตการแจ้งเตือน');
-        const {data:cfg,error:cfgErr}=await db.from('market_push_config').select('vapid_public_key').eq('id',1).maybeSingle();
-        if(cfgErr||!cfg?.vapid_public_key)throw new Error('ยังไม่ได้ตั้งค่า Push Public Key');
-        const reg=await getOrderPushRegistration();
-        let sub=await reg.pushManager.getSubscription();
-        if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:vapidKeyToBytes(cfg.vapid_public_key)});
-        const j=sub.toJSON(),payload={user_id:session.user.id,endpoint:j.endpoint,p256dh:j.keys?.p256dh,auth:j.keys?.auth,user_agent:navigator.userAgent,updated_at:new Date().toISOString()};
-        const {error}=await db.from('market_push_subscriptions').upsert(payload,{onConflict:'user_id,endpoint'});if(error)throw error;
-      })();
-      const timer=new Promise((_,reject)=>{timeout=setTimeout(()=>reject(new Error('การเปิดแจ้งเตือนใช้เวลานานเกินไป กรุณาลองอีกครั้ง')),20000)});
-      await Promise.race([job,timer]);clearTimeout(timeout);
+      step('1/5 กำลังขอสิทธิ์การแจ้งเตือนจากอุปกรณ์...');
+      const permission=await Notification.requestPermission();
+      if(permission!=='granted')throw new Error('อุปกรณ์ยังไม่ได้อนุญาตการแจ้งเตือน');
+
+      step('2/5 กำลังอ่านการตั้งค่า Push ของระบบ...');
+      const {data:cfg,error:cfgErr}=await db.from('market_push_config').select('vapid_public_key').eq('id',1).maybeSingle();
+      if(cfgErr)throw new Error('อ่านการตั้งค่า Push ไม่สำเร็จ: '+cfgErr.message);
+      if(!cfg?.vapid_public_key)throw new Error('ยังไม่ได้ตั้งค่า Push Public Key');
+
+      step('3/5 กำลังลงทะเบียน Service Worker...');
+      const reg=await getOrderPushRegistration();
+
+      step('4/5 กำลังสร้าง Push subscription ของอุปกรณ์...');
+      let sub=await reg.pushManager.getSubscription();
+      if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:vapidKeyToBytes(cfg.vapid_public_key)});
+
+      step('5/5 กำลังบันทึกอุปกรณ์กับระบบ...');
+      const j=sub.toJSON(),payload={user_id:session.user.id,endpoint:j.endpoint,p256dh:j.keys?.p256dh,auth:j.keys?.auth,user_agent:navigator.userAgent,updated_at:new Date().toISOString()};
+      const {error}=await db.from('market_push_subscriptions').upsert(payload,{onConflict:'user_id,endpoint'});
+      if(error)throw new Error('บันทึก Push subscription ไม่สำเร็จ: '+error.message);
+
+      step('✅ เปิดการแจ้งเตือนสำเร็จ กำลังตรวจสอบสถานะ...');
       await refreshOrderPushUI();
+      await refreshSellerPushUI();
     }catch(err){
-      clearTimeout(timeout);if(st)st.textContent='❌ เปิดการแจ้งเตือนไม่สำเร็จ';
-      alert('เปิด Push Notification ไม่สำเร็จ: '+(err?.message||err));
+      const msg=err?.message||String(err);
+      step('❌ เปิดการแจ้งเตือนไม่สำเร็จ: '+msg);
+      alert('เปิด Push Notification ไม่สำเร็จ: '+msg);
     }finally{if(btn){btn.disabled=false;btn.textContent=old;}}
   }
   window.marketEnablePush=enableOrderPush;
@@ -1146,30 +1156,37 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
   async function enableSellerPush(){
     if(!session)return requireLogin();
     const btn=document.getElementById('enableSellerPushBtn'),st=document.getElementById('sellerPushStatus'),old=btn?.textContent||'เปิดแจ้งเตือนออเดอร์ร้าน';
+    const step=(msg)=>{if(st)st.textContent=msg;};
     if(btn){btn.disabled=true;btn.textContent='⏳ กำลังเปิดการแจ้งเตือน...';}
-    if(st)st.textContent='กำลังติดต่อระบบแจ้งเตือนของอุปกรณ์ กรุณารอสักครู่...';
-    let timeout;
     try{
-      const job=(async()=>{
-        const permission=await Notification.requestPermission();
-        if(permission!=='granted')throw new Error('ยังไม่ได้อนุญาตการแจ้งเตือน');
-        const {data:cfg,error:cfgErr}=await db.from('market_push_config').select('vapid_public_key').eq('id',1).maybeSingle();
-        if(cfgErr||!cfg?.vapid_public_key)throw new Error('ยังไม่ได้ตั้งค่า Push Public Key');
-        const reg=await getOrderPushRegistration();
-        let sub=await reg.pushManager.getSubscription();
-        if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:vapidKeyToBytes(cfg.vapid_public_key)});
-        const j=sub.toJSON(),payload={user_id:session.user.id,endpoint:j.endpoint,p256dh:j.keys?.p256dh,auth:j.keys?.auth,user_agent:navigator.userAgent,updated_at:new Date().toISOString()};
-        const {error}=await db.from('market_push_subscriptions').upsert(payload,{onConflict:'user_id,endpoint'});if(error)throw error;
-      })();
-      const timer=new Promise((_,reject)=>{timeout=setTimeout(()=>reject(new Error('การเปิดแจ้งเตือนใช้เวลานานเกินไป กรุณาลองอีกครั้ง')),20000)});
-      await Promise.race([job,timer]);clearTimeout(timeout);
+      step('1/5 กำลังขอสิทธิ์การแจ้งเตือนจากอุปกรณ์...');
+      const permission=await Notification.requestPermission();
+      if(permission!=='granted')throw new Error('อุปกรณ์ยังไม่ได้อนุญาตการแจ้งเตือน');
+
+      step('2/5 กำลังอ่านการตั้งค่า Push ของระบบ...');
+      const {data:cfg,error:cfgErr}=await db.from('market_push_config').select('vapid_public_key').eq('id',1).maybeSingle();
+      if(cfgErr)throw new Error('อ่านการตั้งค่า Push ไม่สำเร็จ: '+cfgErr.message);
+      if(!cfg?.vapid_public_key)throw new Error('ยังไม่ได้ตั้งค่า Push Public Key');
+
+      step('3/5 กำลังลงทะเบียน Service Worker...');
+      const reg=await getOrderPushRegistration();
+
+      step('4/5 กำลังสร้าง Push subscription ของอุปกรณ์...');
+      let sub=await reg.pushManager.getSubscription();
+      if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:vapidKeyToBytes(cfg.vapid_public_key)});
+
+      step('5/5 กำลังบันทึกอุปกรณ์กับระบบ...');
+      const j=sub.toJSON(),payload={user_id:session.user.id,endpoint:j.endpoint,p256dh:j.keys?.p256dh,auth:j.keys?.auth,user_agent:navigator.userAgent,updated_at:new Date().toISOString()};
+      const {error}=await db.from('market_push_subscriptions').upsert(payload,{onConflict:'user_id,endpoint'});
+      if(error)throw new Error('บันทึก Push subscription ไม่สำเร็จ: '+error.message);
+
+      step('✅ เปิดการแจ้งเตือนออเดอร์ร้านสำเร็จ กำลังตรวจสอบสถานะ...');
       await refreshSellerPushUI();
-      // Same device subscription is shared by buyer/seller/rider roles for this account.
-      // Refresh buyer UI too if it is currently rendered.
       await refreshOrderPushUI();
     }catch(err){
-      clearTimeout(timeout);if(st)st.textContent='❌ เปิดการแจ้งเตือนไม่สำเร็จ';
-      alert('เปิดการแจ้งเตือนออเดอร์ร้านไม่สำเร็จ: '+(err?.message||err));
+      const msg=err?.message||String(err);
+      step('❌ เปิดการแจ้งเตือนออเดอร์ร้านไม่สำเร็จ: '+msg);
+      alert('เปิดการแจ้งเตือนออเดอร์ร้านไม่สำเร็จ: '+msg);
     }finally{if(btn){btn.disabled=false;btn.textContent=old;}}
   }
 
