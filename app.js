@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.89 Guest Header 3-Column Fix loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.90 Guest Header 3-Column Fix loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -354,7 +354,7 @@
 
   async function acceptRiderJob(batchId){
     if(!db||!session||myRiderApplication?.status!=='approved')return alert('บัญชีนี้ยังไม่ได้รับสิทธิ์วิน');
-    // V0.5.22.89: do not reject from a client-side preflight.
+    // V0.5.22.90: do not reject from a client-side preflight.
     // The inbox RPC already filters pickup/cancelled jobs, and the atomic
     // market_rider_accept_delivery_batch RPC remains the server-side authority.
     if(!confirm('ยืนยันรับงานนี้? เมื่อรับแล้วงานจะถูกล็อกให้คุณทันที'))return;
@@ -2098,7 +2098,7 @@
     const {data:p,error:profileError}=await db.from('market_profiles').select('*').eq('id',session.user.id).maybeSingle();
     if(profileError)throw profileError;
     profile=p;
-    try{await db.auth.updateUser({data:{display_name:displayName}});}catch(_err){}
+    try{await db.auth.updateUser({data:{display_name:displayName,terms_version:'1.0',terms_accepted_at:new Date().toISOString()}});}catch(_err){}
     updateAccountUI();
     fillProfileDisplayName();
     await loadMyRiderApplication();
@@ -2524,6 +2524,7 @@
       }catch(err){alert('เข้าสู่ระบบไม่สำเร็จ: '+friendlyAuthError(err.message));}
       finally{btn.disabled=false;btn.textContent='เข้าสู่ระบบ';}
     });
+    $('openTermsBtn')?.addEventListener('click',()=>openModal('termsModal'));
     $('signUpBtn').addEventListener('click',async()=>{
       if(!db)return alert('ยังไม่ได้ตั้งค่า Supabase');
       const form=$('authForm');
@@ -2533,6 +2534,7 @@
       const phone=normalizeLoginPhone(fd.get('phone'));
       const password=String(fd.get('password')||'');
       const displayName=cleanDisplayName(fd.get('display_name'));
+      if(!$('signupTermsAccepted')?.checked)return alert('กรุณาอ่านและยอมรับข้อตกลงและเงื่อนไขก่อนสมัครสมาชิก');
       if(displayName.length<2)return alert('กรุณาตั้งชื่อที่ใช้แสดงอย่างน้อย 2 ตัวอักษร');
       if(password.length<6)return alert('กรุณากรอกรหัสผ่านอย่างน้อย 6 ตัว');
       if(method==='email'&&!email)return alert('กรุณากรอกอีเมล');
@@ -2542,7 +2544,7 @@
         const signupEmail=method==='phone'?phoneLoginEmail(phone):email;
         const options=method==='phone'
           ? {data:{signup_method:'phone_alias',phone_local:'0'+phone.slice(3),phone_e164:phone,display_name:displayName}}
-          : {emailRedirectTo:window.location.origin,data:{display_name:displayName}};
+          : {emailRedirectTo:window.location.origin,data:{display_name:displayName,terms_version:'1.0',terms_accepted_at:new Date().toISOString()}};
         const {data,error}=await db.auth.signUp({email:signupEmail,password,options});
         if(error)throw error;
         if(data.session){
@@ -2880,7 +2882,7 @@
   });
 
   // Notification click: open rider jobs directly after app becomes active.
-  // V0.5.22.89 keeps a pending route independent of the address bar because
+  // V0.5.22.90 keeps a pending route independent of the address bar because
   // iOS Home Screen PWA can focus the app without preserving ?rider_jobs=1.
   let pendingRiderNotificationUrl=null;
   let riderDeepLinkOpening=false;
@@ -3142,7 +3144,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.22.89', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.22.90', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });

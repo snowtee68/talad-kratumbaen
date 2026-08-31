@@ -8,8 +8,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="ตลาดกระทุ่มแบน">
-  <link rel="manifest" href="manifest.webmanifest?v=0.5.22.89">
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=0.5.22.89">
+  <link rel="manifest" href="manifest.webmanifest?v=0.5.22.90">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=0.5.22.90">
   <title>ตลาดกระทุ่มแบน</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,7 +17,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
-  <link rel="stylesheet" href="styles.css?v=0.5.22.89">
+  <link rel="stylesheet" href="styles.css?v=0.5.22.90">
 <link rel="stylesheet" href="order.css?v=0.5.20.42-restore">
 <style>
 #adminPanel .admin-control-center{margin-bottom:18px}
@@ -38,7 +38,7 @@
 #adminPanel .admin-coupon-links button{min-height:72px}
 @media(max-width:760px){#adminPanel .admin-control-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#adminPanel .admin-control-btn{min-height:82px}#adminPanel .admin-coupon-links{grid-template-columns:1fr}}
 
-/* Guest header layout — V0.5.22.89: fixed 3-column guest actions */
+/* Guest header layout — V0.5.22.90: fixed 3-column guest actions */
 body.guest-session .site-header .header-dashboard-nav{
   display:grid;grid-template-columns:minmax(0,1fr);gap:18px;align-items:start;padding-top:18px;padding-bottom:18px
 }
@@ -85,7 +85,7 @@ body:not(.guest-session) .site-header #guestSignUpBtn{display:none!important}
 }
 </style>
 
-<link rel="stylesheet" href="responsive-ui-v0.5.22.70.css?v=0.5.22.89">
+<link rel="stylesheet" href="responsive-ui-v0.5.22.70.css?v=0.5.22.90">
 
 <style id="riderReadyStateStyle">
 .rider-shop-ready{display:inline-block;margin:5px 0 6px;padding:5px 8px;border-radius:999px;background:#e9f8ee;color:#137333;font-size:12px;font-weight:900}
@@ -112,7 +112,7 @@ body:not(.guest-session) .site-header #guestSignUpBtn{display:none!important}
 
 <main id="top">
   <section class="market-photo-banner" aria-label="บรรยากาศตลาดกระทุ่มแบน">
-  <img src="assets/krathumbaen-market-banner.jpg?v=0.5.22.89" alt="บรรยากาศริมคลองตลาดกระทุ่มแบน" loading="eager" decoding="async">
+  <img src="assets/krathumbaen-market-banner.jpg?v=0.5.22.90" alt="บรรยากาศริมคลองตลาดกระทุ่มแบน" loading="eager" decoding="async">
   <div class="market-photo-overlay">
     <div class="container market-photo-copy">
       <b>ค้นร้านง่าย</b>
@@ -252,7 +252,7 @@ body:not(.guest-session) .site-header #guestSignUpBtn{display:none!important}
   </section>
 </main>
 
-<footer><div class="container support-footer"><div>ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ <span class="version-badge">V0.5.22.89</span></div><a class="support-openchat-link" href="https://line.me/ti/g2/26r6PGveA0bN-PKo8YNyw7dd2lF_ejymNdCNKw?utm_source=invitation&utm_medium=link_copy&utm_campaign=default" target="_blank" rel="noopener noreferrer">💬 สอบถาม / แจ้งปัญหาการใช้งาน</a></div></footer>
+<footer><div class="container support-footer"><div>ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ <span class="version-badge">V0.5.22.90</span></div><a class="support-openchat-link" href="https://line.me/ti/g2/26r6PGveA0bN-PKo8YNyw7dd2lF_ejymNdCNKw?utm_source=invitation&utm_medium=link_copy&utm_campaign=default" target="_blank" rel="noopener noreferrer">💬 สอบถาม / แจ้งปัญหาการใช้งาน</a></div></footer>
 
 <nav class="floating-navigation" aria-label="ทางลัดหน้าเว็บ">
   <button id="floatingBackBtn" type="button" class="floating-nav-button" aria-label="ย้อนกลับ">← <span>กลับ</span></button>
@@ -261,6 +261,16 @@ body:not(.guest-session) .site-header #guestSignUpBtn{display:none!important}
 </nav>
 
 
+<div id="termsModal" class="modal hidden"><div class="backdrop" data-close="termsModal"></div><div class="modal-card"><button class="close" data-close="termsModal">×</button>
+<h2>📄 ข้อตกลงและเงื่อนไขการใช้งานระบบ</h2><p class="muted">ฉบับที่ 1.0 · สำหรับระบบตลาดชุมชนและการจัดส่งสินค้า</p>
+<p>“กระทุ่มแบนไปด้วยกัน” จัดทำขึ้นเพื่อเป็นพื้นที่กลางสำหรับเชื่อมโยงร้านค้า ผู้ซื้อ และผู้ให้บริการจัดส่งสินค้าในชุมชน โดยไม่มีค่าธรรมเนียมการใช้งานแพลตฟอร์มในส่วนที่โครงการกำหนด</p>
+<h3>1. การชำระเงิน</h3><p>แพลตฟอร์มไม่ได้ทำหน้าที่รับ เก็บ หรือพักเงินแทนผู้ใช้งาน การชำระค่าสินค้าเป็นการชำระโดยตรงระหว่างผู้ซื้อกับร้านค้า และค่าบริการจัดส่งเป็นการชำระโดยตรงระหว่างผู้ใช้บริการกับผู้ให้บริการจัดส่ง</p>
+<h3>2. สินค้าและการจัดส่ง</h3><p>ร้านค้าเป็นผู้รับผิดชอบต่อสินค้า ราคา คุณภาพ ความถูกต้อง และการจัดเตรียมสินค้า ส่วนผู้ให้บริการจัดส่งเป็นผู้รับผิดชอบต่อการรับและจัดส่งตามงานที่ได้รับ หากเกิดปัญหา ผู้เกี่ยวข้องควรตรวจสอบสาเหตุและประสานแก้ไขร่วมกันตามข้อเท็จจริงของแต่ละกรณี โดยแพลตฟอร์มอาจช่วยอำนวยความสะดวกด้านข้อมูลหรือการประสานงานเท่าที่สามารถดำเนินการได้</p>
+<h3>3. สิ่งของและการใช้งานที่ต้องห้าม</h3><p>ห้ามใช้แพลตฟอร์มเพื่อซื้อขาย รับ ส่ง หรือดำเนินกิจกรรมที่ผิดกฎหมาย รวมถึงสินค้าหรือบริการที่กฎหมายห้าม หากตรวจพบหรือมีเหตุอันควรเชื่อว่ามีการใช้งานโดยมิชอบ แพลตฟอร์มขอสงวนสิทธิ์ระงับการใช้งาน ตรวจสอบข้อมูลที่เกี่ยวข้อง และดำเนินการหรือให้ความร่วมมือกับหน่วยงานที่มีอำนาจตามที่กฎหมายกำหนด</p>
+<h3>4. ข้อมูลส่วนบุคคล</h3><p>ข้อมูลที่จำเป็นต่อการให้บริการ เช่น ชื่อ เบอร์โทรศัพท์ ที่อยู่ หรือข้อมูลจุดรับ–ส่ง จะถูกใช้เพื่อดำเนินการตามวัตถุประสงค์ของบริการ การติดต่อ การจัดส่ง การรักษาความปลอดภัย และการแก้ไขปัญหาที่เกี่ยวข้อง โดยการจัดเก็บ ใช้ และเปิดเผยข้อมูลจะดำเนินการตามนโยบายความเป็นส่วนตัวและกฎหมายที่เกี่ยวข้อง</p>
+<h3>5. บทบาทของแพลตฟอร์ม</h3><p>แพลตฟอร์มทำหน้าที่เป็นพื้นที่เชื่อมโยงผู้ใช้งาน และไม่ได้เป็นผู้จำหน่ายสินค้า ผู้ให้บริการจัดส่ง หรือคู่สัญญาในการซื้อขายและการจัดส่งระหว่างผู้ใช้งาน เว้นแต่ในส่วนที่แพลตฟอร์มดำเนินการเองโดยตรง ทั้งนี้ไม่มีข้อความใดในเงื่อนไขนี้เป็นการยกเว้นความรับผิดที่ไม่อาจยกเว้นได้ตามกฎหมาย</p>
+<h3>6. การยอมรับเงื่อนไข</h3><p>การสมัครสมาชิก การส่งคำสั่งซื้อ การรับงาน หรือการใช้บริการที่เกี่ยวข้อง ถือว่าผู้ใช้งานรับทราบและตกลงปฏิบัติตามข้อตกลง เงื่อนไข และนโยบายที่เกี่ยวข้องของแพลตฟอร์ม</p>
+<button type="button" class="primary" data-close="termsModal">เข้าใจแล้ว</button></div></div>
 <div id="installAppModal" class="modal hidden"><div class="backdrop" data-close="installAppModal"></div><div class="modal-card small install-modal-card"><button class="close" data-close="installAppModal">×</button><h2>📲 ติดตั้ง ตลาดกระทุ่มแบน</h2><div id="installAppInstructions" class="install-app-instructions"></div></div></div>
 
 <div id="favoritesModal" class="modal hidden"><div class="backdrop" data-close="favoritesModal"></div><div class="modal-card"><button class="close" data-close="favoritesModal">×</button><div class="section-head"><div><span class="eyebrow red">บัญชีของฉัน</span><h2>❤️ ร้านชื่นชอบของฉัน</h2></div><span id="favoriteCount"></span></div><div id="favoriteGrid" class="grid compact"></div></div></div>
@@ -317,7 +327,10 @@ body:not(.guest-session) .site-header #guestSignUpBtn{display:none!important}
   </div>
 </div>
 
-<div id="authModal" class="modal hidden"><div class="backdrop" data-close="authModal"></div><div class="modal-card small"><button class="close" data-close="authModal">×</button><h2>เข้าสู่ระบบ / สมัครสมาชิก</h2><p>เลือกเข้าสู่ระบบด้วยอีเมล หรือเบอร์โทรศัพท์</p><form id="authForm"><div class="auth-method-switch"><button type="button" class="auth-method active" data-auth-method="email">📧 อีเมล</button><button type="button" class="auth-method" data-auth-method="phone">📱 เบอร์โทร</button></div><input type="hidden" name="auth_method" value="email"><label id="authEmailLabel">อีเมล<input name="email" type="email" autocomplete="email"></label><label id="authPhoneLabel" class="hidden">เบอร์โทรศัพท์<input name="phone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="0812345678"></label><div id="authPhoneHelp" class="auth-help hidden">ไม่ใช้ OTP/SMS · ใช้เบอร์โทร + รหัสผ่าน</div><label>ชื่อที่ใช้แสดงในระบบ <small class="muted">(ใช้ตอนสมัครสมาชิก)</small><input name="display_name" type="text" maxlength="50" autocomplete="nickname" placeholder="เช่น พี่นัท / เจ๊ภา / วรวุฒิ"></label><label>รหัสผ่าน<span class="password-field"><input name="password" type="password" minlength="6" required><button type="button" class="password-toggle" data-password-toggle aria-label="แสดงรหัสผ่าน" title="แสดงรหัสผ่าน">👁️</button></span></label><div class="row"><button type="submit" class="primary">เข้าสู่ระบบ</button><button type="button" id="signUpBtn" class="ghost">สมัครสมาชิก</button></div><button type="button" id="forgotPasswordBtn" class="text-button">ลืมรหัสผ่าน</button></form></div></div>
+<div id="authModal" class="modal hidden"><div class="backdrop" data-close="authModal"></div><div class="modal-card small"><button class="close" data-close="authModal">×</button><h2>เข้าสู่ระบบ / สมัครสมาชิก</h2><p>เลือกเข้าสู่ระบบด้วยอีเมล หรือเบอร์โทรศัพท์</p><form id="authForm"><div class="auth-method-switch"><button type="button" class="auth-method active" data-auth-method="email">📧 อีเมล</button><button type="button" class="auth-method" data-auth-method="phone">📱 เบอร์โทร</button></div><input type="hidden" name="auth_method" value="email"><label id="authEmailLabel">อีเมล<input name="email" type="email" autocomplete="email"></label><label id="authPhoneLabel" class="hidden">เบอร์โทรศัพท์<input name="phone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="0812345678"></label><div id="authPhoneHelp" class="auth-help hidden">ไม่ใช้ OTP/SMS · ใช้เบอร์โทร + รหัสผ่าน</div><label>ชื่อที่ใช้แสดงในระบบ <small class="muted">(ใช้ตอนสมัครสมาชิก)</small><input name="display_name" type="text" maxlength="50" autocomplete="nickname" placeholder="เช่น พี่นัท / เจ๊ภา / วรวุฒิ"></label><label>รหัสผ่าน<span class="password-field"><input name="password" type="password" minlength="6" required><button type="button" class="password-toggle" data-password-toggle aria-label="แสดงรหัสผ่าน" title="แสดงรหัสผ่าน">👁️</button></span></label><div id="signupTermsRow" class="auth-help" style="margin:10px 0">
+<label class="check" style="align-items:flex-start"><input id="signupTermsAccepted" type="checkbox" style="margin-top:4px"> <span>สำหรับการสมัครสมาชิก ฉันได้อ่านและยอมรับ <button type="button" id="openTermsBtn" class="text-button" style="display:inline;padding:0">ข้อตกลงและเงื่อนไขการใช้งาน</button></span></label>
+</div>
+<div class="row"><button type="submit" class="primary">เข้าสู่ระบบ</button><button type="button" id="signUpBtn" class="ghost">สมัครสมาชิก</button></div><button type="button" id="forgotPasswordBtn" class="text-button">ลืมรหัสผ่าน</button></form></div></div>
 
 <div id="shopModal" class="modal hidden"><div class="backdrop" data-close="shopModal"></div><div class="modal-card"><button class="close" data-close="shopModal">×</button><h2 id="shopFormTitle">เพิ่มร้านของฉัน</h2><p>ข้อมูลจะรอการตรวจสอบก่อนเผยแพร่</p><form id="shopForm"><input type="hidden" name="id"><div class="form-grid">
 <label>ชื่อร้าน *<input name="name" required></label><label>หมวดหมู่ *<select name="category_id" id="categorySelect" required></select></label>
@@ -383,7 +396,7 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
-<script src="app.js?v=0.5.22.89"></script>
+<script src="app.js?v=0.5.22.90"></script>
 
 <nav class="unified-app-dock" aria-label="เมนูหลัก">
   <button type="button" data-dock-action="home" aria-label="หน้าหลัก">
@@ -400,7 +413,7 @@ if ('serviceWorker' in navigator) {
   </button>
 </nav>
 
-<script src="order.js?v=0.5.22.89"></script>
+<script src="order.js?v=0.5.22.90"></script>
 
 
 <script>
