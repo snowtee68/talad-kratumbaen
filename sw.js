@@ -1,14 +1,14 @@
-const CACHE_NAME = 'talad-kratumbaen-v0.5.22.90';
+const CACHE_NAME = 'talad-kratumbaen-v0.5.22.91';
 const CORE = [
   './',
   './index.html',
   './styles.css',
   './app.js',
   './manifest.webmanifest',
-  './icons/icon-192.png?v=0.5.22.90',
-  './icons/icon-512.png?v=0.5.22.90',
-  './icons/icon-maskable-512.png?v=0.5.22.90',
-  './icons/apple-touch-icon.png?v=0.5.22.90'
+  './icons/icon-192.png?v=0.5.22.91',
+  './icons/icon-512.png?v=0.5.22.91',
+  './icons/icon-maskable-512.png?v=0.5.22.91',
+  './icons/apple-touch-icon.png?v=0.5.22.91'
 ];
 
 self.addEventListener('install', (event) => {
@@ -73,7 +73,7 @@ self.addEventListener('notificationclick', event => {
     let target;
     try{target=new URL(raw,self.registration.scope).href}catch(_e){target=self.registration.scope}
 
-    // V0.5.22.90: iOS/PWA may focus an existing window while dropping/normalizing
+    // V0.5.22.91: iOS/PWA may focus an existing window while dropping/normalizing
     // the query string. Persist the intended route in Cache Storage first so
     // app.js can recover it after launch/focus even if client.navigate() is ignored.
     try{
