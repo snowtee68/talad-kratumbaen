@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.91 Guest Header 3-Column Fix loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.92 Guest Header 3-Column Fix loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -354,7 +354,7 @@
 
   async function acceptRiderJob(batchId){
     if(!db||!session||myRiderApplication?.status!=='approved')return alert('บัญชีนี้ยังไม่ได้รับสิทธิ์วิน');
-    // V0.5.22.91: do not reject from a client-side preflight.
+    // V0.5.22.92: do not reject from a client-side preflight.
     // The inbox RPC already filters pickup/cancelled jobs, and the atomic
     // market_rider_accept_delivery_batch RPC remains the server-side authority.
     if(!confirm('ยืนยันรับงานนี้? เมื่อรับแล้วงานจะถูกล็อกให้คุณทันที'))return;
@@ -2524,7 +2524,20 @@
       }catch(err){alert('เข้าสู่ระบบไม่สำเร็จ: '+friendlyAuthError(err.message));}
       finally{btn.disabled=false;btn.textContent='เข้าสู่ระบบ';}
     });
-    $('openTermsBtn')?.addEventListener('click',()=>openModal('termsModal'));
+    $('openTermsBtn')?.addEventListener('click',()=>{
+      const terms=$('termsModal');
+      if(terms)terms.dataset.returnToAuth='1';
+      closeModal('authModal');
+      openModal('termsModal');
+    });
+    $('termsModal')?.addEventListener('click',ev=>{
+      const closer=ev.target.closest?.('[data-close="termsModal"]');
+      if(!closer)return;
+      const terms=$('termsModal');
+      const shouldReturn=terms?.dataset?.returnToAuth==='1';
+      if(terms)delete terms.dataset.returnToAuth;
+      if(shouldReturn)setTimeout(()=>openModal('authModal'),0);
+    });
     $('signUpBtn').addEventListener('click',async()=>{
       if(!db)return alert('ยังไม่ได้ตั้งค่า Supabase');
       const form=$('authForm');
@@ -2882,7 +2895,7 @@
   });
 
   // Notification click: open rider jobs directly after app becomes active.
-  // V0.5.22.91 keeps a pending route independent of the address bar because
+  // V0.5.22.92 keeps a pending route independent of the address bar because
   // iOS Home Screen PWA can focus the app without preserving ?rider_jobs=1.
   let pendingRiderNotificationUrl=null;
   let riderDeepLinkOpening=false;
@@ -3144,7 +3157,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.22.91', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.22.92', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });

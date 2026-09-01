@@ -889,3 +889,7 @@ fieldset{border:1px solid var(--line);border-radius:14px;padding:14px}legend{fon
   .site-header #missionBtn{font-size:15px}
   .site-header .header-user-pill{font-size:12px}
 }
+
+
+/* v0.5.22.92: terms modal must always be above normal modals */
+#termsModal{z-index:2200!important}
