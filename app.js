@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.92 Guest Header 3-Column Fix loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.93 Mission Coupon Repair loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -354,7 +354,7 @@
 
   async function acceptRiderJob(batchId){
     if(!db||!session||myRiderApplication?.status!=='approved')return alert('บัญชีนี้ยังไม่ได้รับสิทธิ์วิน');
-    // V0.5.22.92: do not reject from a client-side preflight.
+    // V0.5.22.93: do not reject from a client-side preflight.
     // The inbox RPC already filters pickup/cancelled jobs, and the atomic
     // market_rider_accept_delivery_batch RPC remains the server-side authority.
     if(!confirm('ยืนยันรับงานนี้? เมื่อรับแล้วงานจะถูกล็อกให้คุณทันที'))return;
@@ -1548,8 +1548,9 @@
     if(missionRewardClaimExpired(settings))return alert('Mission นี้สิ้นสุดระยะเวลารับรางวัลแล้ว');
     if(!session){openModal('authModal');return alert('กรุณาเข้าสู่ระบบก่อนทำ Mission');}
     const box=$('missionContent');openModal('missionModal');if(box)box.innerHTML='<h2>🎯 Mission กระทุ่มแบน</h2><p>กำลังตรวจสอบความคืบหน้า...</p>';
-    try{const [p,reward]=await Promise.all([loadMissionProgress(true),loadMissionReward(true)]);if(p.allDone&&db){try{await db.rpc('market_sync_mission_coupon_claim');}catch(syncErr){console.warn('mission coupon sync skipped',syncErr);}}const percent=Math.round(p.done/p.total*100);
-      box.innerHTML=`<div class="mission-head"><div><span class="eyebrow red">ภารกิจเริ่มต้น</span><h2>🎯 Mission กระทุ่มแบน</h2><p>ลองใช้ฟังก์ชันต่าง ๆ ของตลาดให้ครบ ${p.total} ภารกิจ</p></div><strong class="mission-score">${p.done}/${p.total}</strong></div>${missionRewardHtml(reward,p.allDone)}<div class="mission-progress"><span style="width:${percent}%"></span></div><div class="mission-list">${p.items.map(m=>`<article class="mission-item ${m.done?'done':''}"><div class="mission-icon">${m.done?'✅':m.icon}</div><div class="mission-copy"><b>${esc(m.title)}</b><small>${esc(m.detail)}</small><div class="mission-mini-progress"><span style="width:${Math.min(100,Math.round(m.value/m.goal*100))}%"></span></div></div><strong>${m.value}/${m.goal}</strong></article>`).join('')}</div>${p.allDone?`<div class="mission-complete">🎉 Mission สำเร็จครบแล้ว!<small>${reward?.reward_active&&reward?.reward_title?'คุณได้รับสิทธิ์รางวัลตามที่แสดงด้านบน':'ขณะนี้ Admin ยังไม่ได้เปิดรางวัลสำหรับ Mission นี้'}</small></div>`:'<div class="mission-note">ระบบตรวจ Mission ให้อัตโนมัติ ไม่ต้องกดยืนยันว่าทำแล้ว</div>'}`;
+    try{const [p,reward]=await Promise.all([loadMissionProgress(true),loadMissionReward(true)]);let missionCouponClaimed=false;if(p.allDone&&db){try{const {data,error}=await db.rpc('market_sync_mission_coupon_claim');if(error)throw error;missionCouponClaimed=Boolean(data?.claimed);}catch(syncErr){console.warn('mission coupon sync skipped',syncErr);}}const percent=Math.round(p.done/p.total*100);
+      box.innerHTML=`<div class="mission-head"><div><span class="eyebrow red">ภารกิจเริ่มต้น</span><h2>🎯 Mission กระทุ่มแบน</h2><p>ลองใช้ฟังก์ชันต่าง ๆ ของตลาดให้ครบ ${p.total} ภารกิจ</p></div><strong class="mission-score">${p.done}/${p.total}</strong></div>${missionRewardHtml(reward,p.allDone)}<div class="mission-progress"><span style="width:${percent}%"></span></div><div class="mission-list">${p.items.map(m=>`<article class="mission-item ${m.done?'done':''}"><div class="mission-icon">${m.done?'✅':m.icon}</div><div class="mission-copy"><b>${esc(m.title)}</b><small>${esc(m.detail)}</small><div class="mission-mini-progress"><span style="width:${Math.min(100,Math.round(m.value/m.goal*100))}%"></span></div></div><strong>${m.value}/${m.goal}</strong></article>`).join('')}</div>${p.allDone?`<div class="mission-complete">🎉 Mission สำเร็จครบแล้ว!<small>${missionCouponClaimed?'คูปองรางวัลถูกเก็บไว้ใน “คูปองของฉัน” อัตโนมัติแล้ว':reward?.reward_active&&reward?.reward_title?'คุณได้รับสิทธิ์รางวัลตามที่แสดงด้านบน':'ขณะนี้ Admin ยังไม่ได้เปิดรางวัลสำหรับ Mission นี้'}</small>${missionCouponClaimed?'<button type="button" id="openMissionCouponWalletBtn" class="primary" style="margin-top:10px">🎟️ เปิดคูปองของฉัน</button>':''}</div>`:'<div class="mission-note">ระบบตรวจ Mission ให้อัตโนมัติ ไม่ต้องกดยืนยันว่าทำแล้ว</div>'}`;
+      $('openMissionCouponWalletBtn')?.addEventListener('click',()=>{closeModal('missionModal');openCouponWallet();});
     }catch(err){const msg=err?.message||String(err||'ไม่ทราบสาเหตุ');box.innerHTML=`<h2>🎯 Mission กระทุ่มแบน</h2><div class="mission-note">โหลด Mission ไม่สำเร็จ<br><small>${esc(msg)}</small></div>`;console.error('Mission load failed',err);}
   }
 
@@ -2895,7 +2896,7 @@
   });
 
   // Notification click: open rider jobs directly after app becomes active.
-  // V0.5.22.92 keeps a pending route independent of the address bar because
+  // V0.5.22.93 keeps a pending route independent of the address bar because
   // iOS Home Screen PWA can focus the app without preserving ?rider_jobs=1.
   let pendingRiderNotificationUrl=null;
   let riderDeepLinkOpening=false;
@@ -3157,7 +3158,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.22.92', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.22.93', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
