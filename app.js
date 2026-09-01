@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.93 Mission Coupon Repair loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.94 Mission Coupon Repair loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -94,8 +94,8 @@
     const btn=$('riderJoinBtn'),label=$('riderJoinLabel');
     if(!btn||!label)return;
     const st=myRiderApplication?.status;
-    label.textContent=st==='approved'?'งานวิน':st==='pending'?'รอตรวจสอบวิน':st==='rejected'?'สมัครเป็นวินโครงการ':'สมัครเป็นวินโครงการ';
-    btn.title=st==='approved'?'บัญชีวินของฉัน':st==='pending'?'ดูสถานะคำขอสมัครวิน':'สมัครเป็นวินส่งของ';
+    label.textContent=st==='approved'?'งาน Rider':st==='pending'?'รอตรวจสอบใบสมัคร Rider':st==='rejected'?'สมัครเป็น Rider โครงการ':'สมัครเป็น Rider โครงการ';
+    btn.title=st==='approved'?'บัญชี Rider ของฉัน':st==='pending'?'ดูสถานะคำขอสมัครเป็น Rider':'สมัครเป็น Rider ส่งของ';
   }
 
   function fillRiderApplicationModal(){
@@ -114,11 +114,11 @@
       if(status)status.innerHTML=`สถานะปัจจุบัน: <b>${riderApplicationStatusText(a.status)}</b>${a.admin_note?`<br><small>หมายเหตุ: ${esc(a.admin_note)}</small>`:''}`;
 
       if(a.status==='pending'){
-        if(title)title.textContent='⏳ คำขอสมัครวิน';
+        if(title)title.textContent='⏳ คำขอสมัครเป็น Rider';
         [...form.elements].forEach(el=>el.disabled=true);
         form.querySelector('button[type=submit]').textContent='รอ Admin ตรวจสอบ';
       }else if(a.status==='approved'){
-        if(title)title.textContent='🛵 งานวิน';
+        if(title)title.textContent='🛵 งาน Rider';
         form.classList.add('hidden');
         approved?.classList.remove('hidden');
         const summary=$('riderApprovedProfileSummary');
@@ -130,17 +130,17 @@
         loadRiderJobInbox();
         startRiderJobRealtime();
       }else{
-        if(title)title.textContent='🛵 สมัครเป็นวินโครงการ';
+        if(title)title.textContent='🛵 สมัครเป็น Rider โครงการ';
         [...form.elements].forEach(el=>el.disabled=false);
-        form.querySelector('button[type=submit]').textContent='ส่งใบสมัครเป็นวิน';
+        form.querySelector('button[type=submit]').textContent='ส่งใบสมัครเป็น Rider';
       }
     }else{
-      if(title)title.textContent='🛵 สมัครเป็นวินโครงการ';
+      if(title)title.textContent='🛵 สมัครเป็น Rider โครงการ';
       if(status)status.textContent='กรอกข้อมูลเพื่อส่งให้ Admin ตรวจสอบ';
       [...form.elements].forEach(el=>el.disabled=false);
       form.reset();
       form.elements.rider_name.value=currentDisplayName()||'';
-      form.querySelector('button[type=submit]').textContent='ส่งใบสมัครเป็นวิน';
+      form.querySelector('button[type=submit]').textContent='ส่งใบสมัครเป็น Rider';
     }
   }
 
@@ -190,7 +190,7 @@
 
   function riderJobInboxStatusLabel(status){
     const s=String(status||'');
-    return ({creating:'รอวินรับงาน',waiting_rider:'รอวินรับงาน',created:'รอวินรับงาน',open:'รอวินรับงาน',
+    return ({creating:'รอ Rider รับงาน',waiting_rider:'รอ Rider รับงาน',created:'รอ Rider รับงาน',open:'รอ Rider รับงาน',
       accepted:'รับงานแล้ว',pickup_started:'กำลังไปรับสินค้า',picked_up:'รับสินค้าแล้ว',
       delivering:'กำลังจัดส่ง',completed:'ส่งสำเร็จ',cancelled:'ยกเลิก'})[s]||s||'-';
   }
@@ -242,7 +242,7 @@
       playRiderNewJobSound();
       try{
         if('Notification' in window&&Notification.permission==='granted'){
-          new Notification('🛵 มีงานวินใหม่',{
+          new Notification('🛵 มีงาน Rider ใหม่',{
             body:`มีงานใหม่รอรับ ${added.length} งาน`,
             tag:'market-rider-new-job',
             renotify:true,
@@ -251,7 +251,7 @@
           });
         }
       }catch(_e){}
-      showNotice(`🛵 มีงานวินใหม่ ${added.length} งาน`);
+      showNotice(`🛵 มีงาน Rider ใหม่ ${added.length} งาน`);
     }
   }
 
@@ -276,7 +276,7 @@
     if(s==='delivering'&&!job.delivery_arrived_at)return `<div class="rider-proof-action">
       <input class="rider-proof-input" type="file" accept="image/*" capture="environment" data-rider-proof-input="${esc(job.batch_id)}" hidden>
       <button type="button" class="primary rider-next-job" data-rider-proof-batch="${esc(job.batch_id)}">📷 ถ่ายภาพส่งมอบ / ถึงจุดส่ง</button>
-      <small>ต้องแนบภาพส่งมอบก่อนจบขั้นตอนของวิน</small>
+      <small>ต้องแนบภาพส่งมอบก่อนจบขั้นตอนของ Rider</small>
     </div>`;
     if(s==='delivering'&&job.delivery_arrived_at)return `<div class="rider-job-owned">✅ ถึงจุดส่งแล้ว · รอลูกค้ายืนยันรับสินค้า</div>`;
     return `<div class="rider-job-owned">งานของคุณ · ${esc(riderJobInboxStatusLabel(job.status))}</div>`;
@@ -335,10 +335,10 @@
   async function loadRiderJobInbox({quiet=false}={}){
     const box=$('riderJobInbox');
     if(!db||!session||myRiderApplication?.status!=='approved'){
-      if(box)box.innerHTML='<p class="muted">บัญชีนี้ยังไม่ได้รับสิทธิ์วิน</p>';
+      if(box)box.innerHTML='<p class="muted">บัญชีนี้ยังไม่ได้รับสิทธิ์เป็น Rider</p>';
       return [];
     }
-    if(box&&!quiet)box.innerHTML='<p class="muted">กำลังโหลดงานวิน...</p>';
+    if(box&&!quiet)box.innerHTML='<p class="muted">กำลังโหลดงาน Rider...</p>';
     try{
       const {data,error}=await db.rpc('market_my_rider_job_inbox');
       if(error)throw error;
@@ -347,14 +347,14 @@
       if(box)box.innerHTML=jobs.length?jobs.map(riderJobCard).join(''):'<div class="rider-job-empty">✅ ตอนนี้ยังไม่มีงานใหม่</div>';
       return jobs;
     }catch(err){
-      if(box)box.innerHTML=`<p class="muted">โหลดงานวินไม่สำเร็จ: ${esc(err?.message||err)}</p>`;
+      if(box)box.innerHTML=`<p class="muted">โหลดงาน Rider ไม่สำเร็จ: ${esc(err?.message||err)}</p>`;
       return [];
     }
   }
 
   async function acceptRiderJob(batchId){
-    if(!db||!session||myRiderApplication?.status!=='approved')return alert('บัญชีนี้ยังไม่ได้รับสิทธิ์วิน');
-    // V0.5.22.93: do not reject from a client-side preflight.
+    if(!db||!session||myRiderApplication?.status!=='approved')return alert('บัญชีนี้ยังไม่ได้รับสิทธิ์เป็น Rider');
+    // V0.5.22.94: do not reject from a client-side preflight.
     // The inbox RPC already filters pickup/cancelled jobs, and the atomic
     // market_rider_accept_delivery_batch RPC remains the server-side authority.
     if(!confirm('ยืนยันรับงานนี้? เมื่อรับแล้วงานจะถูกล็อกให้คุณทันที'))return;
@@ -373,7 +373,7 @@
 
 
   async function advanceRiderJob(batchId,nextStatus){
-    if(!db||!session||myRiderApplication?.status!=='approved')return alert('บัญชีนี้ยังไม่ได้รับสิทธิ์วิน');
+    if(!db||!session||myRiderApplication?.status!=='approved')return alert('บัญชีนี้ยังไม่ได้รับสิทธิ์เป็น Rider');
     const labels={
       pickup_started:'เริ่มไปรับสินค้า',
       picked_up:'ยืนยันว่ารับสินค้าครบแล้ว',
@@ -387,7 +387,7 @@
       const {error}=await db.rpc('market_rider_advance_delivery_batch',{p_batch_id:batchId,p_action:nextStatus});
       if(error)throw error;
       await loadRiderJobInbox();
-      showNotice('อัปเดตสถานะงานวินแล้ว');
+      showNotice('อัปเดตสถานะงาน Rider แล้ว');
     }catch(err){
       alert('อัปเดตงานไม่สำเร็จ: '+(err?.message||err));
       await loadRiderJobInbox({quiet:true});
@@ -396,7 +396,7 @@
 
 
   async function submitRiderDeliveryProof(batchId,file){
-    if(!db||!session||myRiderApplication?.status!=='approved')return alert('บัญชีนี้ยังไม่ได้รับสิทธิ์วิน');
+    if(!db||!session||myRiderApplication?.status!=='approved')return alert('บัญชีนี้ยังไม่ได้รับสิทธิ์เป็น Rider');
     if(!file)return;
     let path='';
     const btn=document.querySelector(`[data-rider-proof-batch="${CSS.escape(String(batchId))}"]`);
@@ -430,10 +430,10 @@
     playRiderAlertSound();
     try{
       if('Notification' in window && Notification.permission==='granted'){
-        new Notification('🛵 มีงานวินใหม่',{body:'มีงาน Delivery ใหม่รอรับ กด “งานวิน” เพื่อดูรายละเอียด',tag:'market-rider-new-job'});
+        new Notification('🛵 มีงาน Rider ใหม่',{body:'มีงาน Delivery ใหม่รอรับ กด “งาน Rider” เพื่อดูรายละเอียด',tag:'market-rider-new-job'});
       }
     }catch(_e){}
-    if(document.visibilityState==='visible')showNotice('🛵 มีงานวินใหม่รอรับ');
+    if(document.visibilityState==='visible')showNotice('🛵 มีงาน Rider ใหม่รอรับ');
   }
 
   function stopRiderJobRealtime(){
@@ -486,15 +486,15 @@
     form.elements.rider_phone.value=a.phone||'';
     form.elements.vehicle_plate.value=a.vehicle_plate||'';
     if(form.elements.service_area_consent)form.elements.service_area_consent.checked=true;
-    if(title)title.textContent='✏️ แก้ไขข้อมูลวิน';
-    if(status)status.innerHTML='สถานะ: <b>✅ อนุมัติแล้ว</b><br><small>การแก้ข้อมูลไม่ทำให้สิทธิ์วินหาย และไม่ต้องสมัครใหม่</small>';
-    form.querySelector('button[type=submit]').textContent='💾 บันทึกข้อมูลวิน';
+    if(title)title.textContent='✏️ แก้ไขข้อมูล Rider';
+    if(status)status.innerHTML='สถานะ: <b>✅ อนุมัติแล้ว</b><br><small>การแก้ข้อมูลไม่ทำให้สิทธิ์การเป็น Rider หาย และไม่ต้องสมัครใหม่</small>';
+    form.querySelector('button[type=submit]').textContent='💾 บันทึกข้อมูล Rider';
   }
 
   async function openRiderApplication(){
     if(!session){
       openModal('authModal');
-      alert('การสมัครเป็นวินต้องเข้าสู่ระบบก่อน เพื่อผูกสิทธิ์วินกับบัญชีของคุณ');
+      alert('การสมัครเป็น Rider ต้องเข้าสู่ระบบก่อน เพื่อผูกสิทธิ์ Rider กับบัญชีของคุณ');
       return;
     }
     await loadMyRiderApplication();
@@ -523,20 +523,20 @@
       if(error)throw error;
       await loadMyRiderApplication();
       fillRiderApplicationModal();
-      alert(editing?'บันทึกข้อมูลวินเรียบร้อยแล้ว':'ส่งใบสมัครเป็นวินแล้ว กรุณารอ Admin ตรวจสอบ');
+      alert(editing?'บันทึกข้อมูล Rider เรียบร้อยแล้ว':'ส่งใบสมัครเป็น Rider แล้ว กรุณารอ Admin ตรวจสอบ');
     }catch(err){
       alert('ส่งใบสมัครไม่สำเร็จ: '+(err?.message||err));
     }finally{
       btn.disabled=false;
-      if(f.dataset.mode==='edit')btn.textContent='💾 บันทึกข้อมูลวิน';
-      else if(myRiderApplication?.status!=='pending')btn.textContent='ส่งใบสมัครเป็นวิน';
+      if(f.dataset.mode==='edit')btn.textContent='💾 บันทึกข้อมูล Rider';
+      else if(myRiderApplication?.status!=='pending')btn.textContent='ส่งใบสมัครเป็น Rider';
     }
   }
 
   async function loadAdminRiderApplicants(){
     const box=$('adminRiderApplicantList');
     if(!box||!db||profile?.role!=='admin')return;
-    box.innerHTML='<p class="muted">กำลังโหลดคำขอสมัครวิน...</p>';
+    box.innerHTML='<p class="muted">กำลังโหลดคำขอสมัครเป็น Rider...</p>';
     try{
       const {data,error}=await db.rpc('market_admin_rider_applications');
       if(error)throw error;
@@ -549,11 +549,11 @@
           <small class="muted" style="display:block">${riderApplicationStatusText(a.status)} · สมัคร ${a.created_at?new Date(a.created_at).toLocaleString('th-TH'):'-'}</small></div>
           <div>${a.status==='pending'?`<button type="button" class="primary" data-rider-approve="${a.user_id}">✅ อนุมัติ</button> <button type="button" class="danger" data-rider-reject="${a.user_id}">ไม่อนุมัติ</button>`:`<span class="muted">${riderApplicationStatusText(a.status)}</span>`}</div>
         </div>
-      </div>`).join(''):'<p class="muted">ยังไม่มีคำขอสมัครวิน</p>';
+      </div>`).join(''):'<p class="muted">ยังไม่มีคำขอสมัครเป็น Rider</p>';
       const status=$('riderRegistryStatus');
       if(status&&pending.length)status.textContent=`มีคำขอรอตรวจสอบ ${pending.length} คน`;
     }catch(err){
-      box.innerHTML=`<p class="muted">โหลดคำขอสมัครวินไม่ได้: ${esc(err?.message||err)}</p>`;
+      box.innerHTML=`<p class="muted">โหลดคำขอสมัครเป็น Rider ไม่ได้: ${esc(err?.message||err)}</p>`;
     }
   }
 
@@ -564,7 +564,7 @@
       note=prompt('เหตุผลที่ยังไม่อนุมัติ (ผู้สมัครจะเห็นข้อความนี้)')||'';
       if(note===null)return;
     }
-    if(!confirm(approve?'อนุมัติผู้สมัครคนนี้เป็นวินในระบบ?':'ยืนยันไม่อนุมัติคำขอนี้?'))return;
+    if(!confirm(approve?'อนุมัติผู้สมัครคนนี้เป็น Rider ในระบบ?':'ยืนยันไม่อนุมัติคำขอนี้?'))return;
     try{
       const {error}=await db.rpc('market_admin_decide_rider_application',{
         p_user_id:userId,p_approve:approve,p_admin_note:note
@@ -572,20 +572,20 @@
       if(error)throw error;
       await loadAdminRiderApplicants();
       await loadRiderAdminPanel();
-      showNotice(approve?'อนุมัติวินเรียบร้อยแล้ว และเพิ่มเข้ารายชื่อวินในระบบแล้ว':'อัปเดตคำขอสมัครวินแล้ว');
+      showNotice(approve?'อนุมัติ Rider เรียบร้อยแล้ว และเพิ่มเข้ารายชื่อ Rider ในระบบแล้ว':'อัปเดตคำขอสมัครเป็น Rider แล้ว');
     }catch(err){
       alert('อัปเดตคำขอไม่สำเร็จ: '+(err?.message||err));
     }
   }
 
   function riderJobStatusLabel(status){
-    return ({created:'รอวินรับงาน',accepted:'วินรับงานแล้ว',pickup_started:'กำลังไปรับสินค้า',picked_up:'รับสินค้าแล้ว',delivering:'กำลังจัดส่ง',completed:'ส่งสำเร็จ',cancelled:'ยกเลิก'})[status]||status||'-';
+    return ({created:'รอ Rider รับงาน',accepted:'Rider รับงานแล้ว',pickup_started:'กำลังไปรับสินค้า',picked_up:'รับสินค้าแล้ว',delivering:'กำลังจัดส่ง',completed:'ส่งสำเร็จ',cancelled:'ยกเลิก'})[status]||status||'-';
   }
   async function loadRiderAdminPanel(){
     if(!db||profile?.role!=='admin')return;
     loadAdminRiderApplicants();
     const list=$('adminRiderList'),jobs=$('adminRiderJobs'),status=$('riderRegistryStatus');
-    if(list)list.innerHTML='<p class="muted">กำลังโหลดรายชื่อวิน...</p>';
+    if(list)list.innerHTML='<p class="muted">กำลังโหลดรายชื่อ Rider...</p>';
     if(jobs)jobs.innerHTML='<p class="muted">กำลังโหลดงาน Delivery...</p>';
     try{
       const [{data:riders,error:e1},{data:recent,error:e2}]=await Promise.all([
@@ -595,11 +595,11 @@
       if(e1)throw e1;if(e2)throw e2;
       const rows=riders||[];
       if(status)status.textContent=`${rows.length.toLocaleString('th-TH')} คนในทะเบียน`;
-      if(list)list.innerHTML=rows.length?rows.map(r=>{const systemRider=r.source==='rider_profiles';const sourceLabel=systemRider?' · บัญชีวินในระบบ':r.source==='admin'?' · Admin เพิ่ม':' · พบจากงาน Delivery';const action=systemRider?'<span class="muted" style="font-size:12px">จัดการสถานะจากระบบวิน</span>':`<button type="button" class="${r.enabled?'danger':'secondary'}" data-rider-toggle="${r.id}" data-rider-enabled="${r.enabled?'true':'false'}">${r.enabled?'ปิดใช้งาน':'เปิดใช้งาน'}</button>`;return `<div style="display:grid;grid-template-columns:minmax(150px,1.5fr) minmax(125px,1fr) minmax(90px,.7fr) minmax(110px,.8fr) minmax(110px,.9fr);gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid #eee"><div><b>${esc(r.display_name||'ไม่ระบุชื่อ')}</b><small class="muted" style="display:block">${r.enabled?'🟢 เปิดใช้งาน':'⚫ ปิดใช้งาน'}${sourceLabel}</small></div><div><a href="tel:${esc(r.phone||'')}">${esc(r.phone||'-')}</a></div><div><b>${Number(r.active_jobs||0)}</b><small class="muted" style="display:block">งานกำลังทำ</small></div><div><b>${Number(r.completed_jobs||0)}</b><small class="muted" style="display:block">ส่งสำเร็จ</small></div>${action}</div>`}).join(''):'<p class="muted">ยังไม่มีวินในระบบ</p>';
+      if(list)list.innerHTML=rows.length?rows.map(r=>{const systemRider=r.source==='rider_profiles';const sourceLabel=systemRider?' · บัญชี Rider ในระบบ':r.source==='admin'?' · Admin เพิ่ม':' · พบจากงาน Delivery';const action=systemRider?'<span class="muted" style="font-size:12px">จัดการสถานะจากระบบ Rider</span>':`<button type="button" class="${r.enabled?'danger':'secondary'}" data-rider-toggle="${r.id}" data-rider-enabled="${r.enabled?'true':'false'}">${r.enabled?'ปิดใช้งาน':'เปิดใช้งาน'}</button>`;return `<div style="display:grid;grid-template-columns:minmax(150px,1.5fr) minmax(125px,1fr) minmax(90px,.7fr) minmax(110px,.8fr) minmax(110px,.9fr);gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid #eee"><div><b>${esc(r.display_name||'ไม่ระบุชื่อ')}</b><small class="muted" style="display:block">${r.enabled?'🟢 เปิดใช้งาน':'⚫ ปิดใช้งาน'}${sourceLabel}</small></div><div><a href="tel:${esc(r.phone||'')}">${esc(r.phone||'-')}</a></div><div><b>${Number(r.active_jobs||0)}</b><small class="muted" style="display:block">งานกำลังทำ</small></div><div><b>${Number(r.completed_jobs||0)}</b><small class="muted" style="display:block">ส่งสำเร็จ</small></div>${action}</div>`}).join(''):'<p class="muted">ยังไม่มี Rider ในระบบ</p>';
       const jr=recent||[];
-      if(jobs)jobs.innerHTML=jr.length?jr.map(j=>{const genuinelyWaiting=['creating','waiting_rider','created','open'].includes(String(j.status||''));const hasRider=!!(j.rider_name||j.rider_phone);const riderTitle=hasRider?(j.rider_name||'ไม่ระบุชื่อวิน'):(genuinelyWaiting?'รอวินรับงาน':'ไม่พบข้อมูลวิน (งานเก่า)');const riderSub=j.rider_phone?`<a href="tel:${esc(j.rider_phone)}">${esc(j.rider_phone)}</a>`:(genuinelyWaiting?'ยังไม่มีเบอร์':'ไม่มีข้อมูลผู้รับงานที่บันทึกไว้');return `<div style="display:grid;grid-template-columns:minmax(130px,1fr) minmax(170px,1.5fr) minmax(120px,1fr) minmax(120px,1fr);gap:10px;padding:9px 0;border-bottom:1px solid #eee"><div><b>${esc(String(j.batch_id||'').slice(0,8).toUpperCase())}</b><small class="muted" style="display:block">${j.rider_job_id?esc(String(j.rider_job_id).slice(0,10)):'-'}</small></div><div><b>${hasRider?'🛵 ':genuinelyWaiting?'⏳ ':'⚠️ '}${esc(riderTitle)}</b><small style="display:block">${riderSub}</small></div><div><b>${esc(riderJobStatusLabel(j.status))}</b><small class="muted" style="display:block">${j.accepted_at?new Date(j.accepted_at).toLocaleString('th-TH'):'-'}</small></div><div><b>${j.delivery_fee?Number(j.delivery_fee).toLocaleString('th-TH')+' บาท':'-'}</b><small class="muted" style="display:block">${j.distance_km?Number(j.distance_km).toFixed(1)+' กม.':''}</small></div></div>`}).join(''):'<p class="muted">ยังไม่มีงาน Delivery</p>';
+      if(jobs)jobs.innerHTML=jr.length?jr.map(j=>{const genuinelyWaiting=['creating','waiting_rider','created','open'].includes(String(j.status||''));const hasRider=!!(j.rider_name||j.rider_phone);const riderTitle=hasRider?(j.rider_name||'ไม่ระบุชื่อ Rider'):(genuinelyWaiting?'รอ Rider รับงาน':'ไม่พบข้อมูล Rider (งานเก่า)');const riderSub=j.rider_phone?`<a href="tel:${esc(j.rider_phone)}">${esc(j.rider_phone)}</a>`:(genuinelyWaiting?'ยังไม่มีเบอร์':'ไม่มีข้อมูลผู้รับงานที่บันทึกไว้');return `<div style="display:grid;grid-template-columns:minmax(130px,1fr) minmax(170px,1.5fr) minmax(120px,1fr) minmax(120px,1fr);gap:10px;padding:9px 0;border-bottom:1px solid #eee"><div><b>${esc(String(j.batch_id||'').slice(0,8).toUpperCase())}</b><small class="muted" style="display:block">${j.rider_job_id?esc(String(j.rider_job_id).slice(0,10)):'-'}</small></div><div><b>${hasRider?'🛵 ':genuinelyWaiting?'⏳ ':'⚠️ '}${esc(riderTitle)}</b><small style="display:block">${riderSub}</small></div><div><b>${esc(riderJobStatusLabel(j.status))}</b><small class="muted" style="display:block">${j.accepted_at?new Date(j.accepted_at).toLocaleString('th-TH'):'-'}</small></div><div><b>${j.delivery_fee?Number(j.delivery_fee).toLocaleString('th-TH')+' บาท':'-'}</b><small class="muted" style="display:block">${j.distance_km?Number(j.distance_km).toFixed(1)+' กม.':''}</small></div></div>`}).join(''):'<p class="muted">ยังไม่มีงาน Delivery</p>';
     }catch(err){
-      const msg='ยังโหลดทะเบียนวินไม่ได้: '+(err?.message||'กรุณารัน SQL V0.5.22.15');
+      const msg='ยังโหลดทะเบียน Rider ไม่ได้: '+(err?.message||'กรุณารัน SQL V0.5.22.15');
       if(list)list.innerHTML=`<p class="muted">${esc(msg)}</p>`;
       if(jobs)jobs.innerHTML='';
     }
@@ -608,19 +608,19 @@
     ev.preventDefault();
     if(!db||profile?.role!=='admin')return alert('เฉพาะ Admin เท่านั้น');
     const f=ev.currentTarget,name=f.elements.rider_name.value.trim(),phone=f.elements.rider_phone.value.trim();
-    if(!name||!phone)return alert('กรอกชื่อและเบอร์โทรวินให้ครบ');
+    if(!name||!phone)return alert('กรอกชื่อและเบอร์โทร Rider ให้ครบ');
     try{
       const {error}=await db.rpc('market_admin_upsert_rider',{p_name:name,p_phone:phone});
       if(error)throw error;
-      f.reset();await loadRiderAdminPanel();showNotice('บันทึกวินในทะเบียนแล้ว');
-    }catch(err){alert('เพิ่มวินไม่สำเร็จ: '+(err?.message||err));}
+      f.reset();await loadRiderAdminPanel();showNotice('บันทึก Rider ในทะเบียนแล้ว');
+    }catch(err){alert('เพิ่ม Rider ไม่สำเร็จ: '+(err?.message||err));}
   }
   async function toggleAdminRider(id,enabled){
     if(!db||profile?.role!=='admin')return;
     try{
       const {error}=await db.rpc('market_admin_set_rider_enabled',{p_rider_id:id,p_enabled:!enabled});
       if(error)throw error;await loadRiderAdminPanel();
-    }catch(err){alert('เปลี่ยนสถานะวินไม่สำเร็จ: '+(err?.message||err));}
+    }catch(err){alert('เปลี่ยนสถานะ Rider ไม่สำเร็จ: '+(err?.message||err));}
   }
 
   async function loadAnalyticsDashboard(period=analyticsPeriod){
@@ -2178,7 +2178,7 @@
     adminActiveView=view;
     panel.querySelectorAll('[data-admin-view]').forEach(el=>el.classList.toggle('hidden',el.dataset.adminView!==view));
     panel.querySelectorAll('[data-admin-nav]').forEach(btn=>btn.classList.toggle('active',btn.dataset.adminNav===view));
-    const titles={home:'ศูนย์ควบคุม Admin',shops:'จัดการร้านค้า',mission:'Mission',coupons:'คูปอง',delivery:'Delivery',riders:'วิน / ไรเดอร์',analytics:'สถิติ'};
+    const titles={home:'ศูนย์ควบคุม Admin',shops:'จัดการร้านค้า',mission:'Mission',coupons:'คูปอง',delivery:'Delivery',riders:'Rider โครงการ',analytics:'สถิติ'};
     const t=$('dashboardTitle');if(t&&profile?.role==='admin')t.textContent=titles[view]||'ศูนย์ควบคุม Admin';
     panel.scrollIntoView({behavior:'smooth',block:'start'});
   }
@@ -2193,7 +2193,7 @@
       <button type="button" class="admin-control-btn" data-admin-nav="mission"><span class="ico">🎯</span><b>Mission</b><small>เปิดปิดและตั้งรางวัล</small></button>
       <button type="button" class="admin-control-btn" data-admin-nav="coupons"><span class="ico">🎟️</span><b>คูปอง</b><small>ทางลัดจัดการคูปอง</small></button>
       <button type="button" class="admin-control-btn" data-admin-nav="delivery"><span class="ico">🛵</span><b>Delivery</b><small>ควบคุมระบบจัดส่ง</small></button>
-      <button type="button" class="admin-control-btn" data-admin-nav="riders"><span class="ico">👤</span><b>วิน / ไรเดอร์</b><small>รายชื่อและงานล่าสุด</small></button>
+      <button type="button" class="admin-control-btn" data-admin-nav="riders"><span class="ico">👤</span><b>Rider โครงการ</b><small>รายชื่อและงานล่าสุด</small></button>
       <button type="button" class="admin-control-btn" data-admin-nav="analytics"><span class="ico">📊</span><b>สถิติ</b><small>ผู้เข้าชมและร้านยอดนิยม</small></button>
     </div>`;
     panel.prepend(nav);
@@ -2203,7 +2203,7 @@
     const mission=$('missionRewardForm')?.closest('section');
     const analytics=panel.querySelector('.analytics-panel');
     if(delivery){delivery.dataset.adminView='delivery';delivery.insertAdjacentHTML('afterbegin',adminViewHeader('🛵 Delivery','สวิตช์ควบคุม Delivery ทั้งระบบ'));}
-    if(riders){riders.dataset.adminView='riders';riders.insertAdjacentHTML('afterbegin',adminViewHeader('👤 วิน / ไรเดอร์','ทะเบียนวิน เบอร์ติดต่อ และงานล่าสุด'));}
+    if(riders){riders.dataset.adminView='riders';riders.insertAdjacentHTML('afterbegin',adminViewHeader('👤 Rider โครงการ','ทะเบียน Rider เบอร์ติดต่อ และงานล่าสุด'));}
     if(mission){mission.dataset.adminView='mission';mission.insertAdjacentHTML('afterbegin',adminViewHeader('🎯 Mission','ตั้งค่ากิจกรรมและรางวัล Mission'));}
     if(analytics){analytics.dataset.adminView='analytics';analytics.insertAdjacentHTML('afterbegin',adminViewHeader('📊 สถิติ','เลือกดูวันนี้ 7 วัน 30 วัน หรือทั้งหมด'));}
 
@@ -2827,8 +2827,8 @@
 
         if(state?.ok){
           st.textContent=state.repaired
-            ?'✅ ซ่อมการแจ้งเตือนงานวินแล้ว — เครื่องนี้ลงทะเบียนกับเซิร์ฟเวอร์ใหม่เรียบร้อย'
-            :'✅ การแจ้งเตือนงานวินพร้อมใช้งาน — ตรวจสอบกับเซิร์ฟเวอร์แล้ว';
+            ?'✅ ซ่อมการแจ้งเตือนงาน Rider แล้ว — เครื่องนี้ลงทะเบียนกับเซิร์ฟเวอร์ใหม่เรียบร้อย'
+            :'✅ การแจ้งเตือนงาน Rider พร้อมใช้งาน — ตรวจสอบกับเซิร์ฟเวอร์แล้ว';
           btn.textContent='✅ เปิดการแจ้งเตือนแล้ว';
           btn.disabled=true;
           btn.dataset.pushEnabled='true';
@@ -2838,7 +2838,7 @@
 
         if(state?.reason==='missing_on_server'||state?.reason==='repair_failed'||state?.reason==='server_check_failed'){
           st.textContent='⚠️ การแจ้งเตือนในเครื่องยังไม่เชื่อมกับเซิร์ฟเวอร์ กดปุ่มด้านล่างเพื่อซ่อม';
-          btn.textContent='🛠️ ซ่อมการแจ้งเตือนงานวิน';
+          btn.textContent='🛠️ ซ่อมการแจ้งเตือนงาน Rider';
           btn.disabled=false;
           btn.dataset.pushEnabled='false';
           btn.dataset.pushVerified='false';
@@ -2860,7 +2860,7 @@
         st.textContent=Notification.permission==='denied'
           ?'❌ ปิดสิทธิ์แจ้งเตือนอยู่ กรุณาเปิด Notification ในการตั้งค่าเครื่อง/เว็บไซต์'
           :'ยังไม่ได้เปิด Push Notification บนเครื่องนี้';
-        btn.textContent='🔔 เปิดแจ้งเตือนงานวิน';
+        btn.textContent='🔔 เปิดแจ้งเตือนงาน Rider';
         btn.disabled=false;
         btn.dataset.pushEnabled='false';
         btn.dataset.pushVerified='false';
@@ -2896,7 +2896,7 @@
   });
 
   // Notification click: open rider jobs directly after app becomes active.
-  // V0.5.22.93 keeps a pending route independent of the address bar because
+  // V0.5.22.94 keeps a pending route independent of the address bar because
   // iOS Home Screen PWA can focus the app without preserving ?rider_jobs=1.
   let pendingRiderNotificationUrl=null;
   let riderDeepLinkOpening=false;
@@ -3158,7 +3158,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.22.93', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.22.94', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });

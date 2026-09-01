@@ -7,11 +7,11 @@
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <title>เรียกวิน / ศูนย์งานวิน | ตลาดกระทุ่มแบน</title>
+  <title>เรียก Rider / ศูนย์งาน Rider | ตลาดกระทุ่มแบน</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=0.4.6">
+  <link rel="stylesheet" href="styles.css?v=0.4.7">
 </head>
 <body>
 <header class="topbar">
@@ -19,7 +19,7 @@
     <a class="brand" href="../">← ตลาดกระทุ่มแบน</a>
     <div class="nav-actions">
       <button id="accountBtn" class="ghost">เข้าสู่ระบบ</button>
-      <button id="riderModeBtn" class="ghost">🛵 สมัคร/โหมดวิน</button>
+      <button id="riderModeBtn" class="ghost">🛵 สมัคร/โหมด Rider</button>
     </div>
   </div>
 </header>
@@ -27,9 +27,9 @@
 <main class="container">
   <section class="hero card">
     <div>
-      <span class="eyebrow">ระบบวินชุมชน · ตลาดกระทุ่มแบน</span>
-      <h1>🛵 เรียกวินรับ-ส่งของ</h1>
-      <p>เรียกวินรับ-ส่งของในชุมชน หรือลงทะเบียนเป็นวินเพื่อรับงานจากร้านค้าและลูกค้าในระบบ</p><div class="row hero-actions"><button id="heroRiderBtn" type="button" class="primary">🛵 สมัครเป็นวิน / เข้าโหมดวิน</button></div>
+      <span class="eyebrow">ระบบ Rider ชุมชน · ตลาดกระทุ่มแบน</span>
+      <h1>🛵 เรียก Rider รับ-ส่งของ</h1>
+      <p>เรียก Rider รับ-ส่งของในชุมชน หรือลงทะเบียนเป็น Rider เพื่อรับงานจากร้านค้าและลูกค้าในระบบ</p><div class="row hero-actions"><button id="heroRiderBtn" type="button" class="primary">🛵 สมัครเป็น Rider / เข้าโหมด Rider</button></div>
     </div>
     <div class="rulebox">
       <b>ค่าบริการโดยประมาณ</b>
@@ -38,7 +38,7 @@
     </div>
   </section>
 
-  <section id="guestNotice" class="notice">เข้าสู่ระบบเพื่อสร้างงานหรือสมัครเป็นวิน</section>
+  <section id="guestNotice" class="notice">เข้าสู่ระบบเพื่อสร้างงานหรือสมัครเป็น Rider</section>
 
   <section id="customerPanel" class="section hidden">
     <div class="section-head">
@@ -68,7 +68,7 @@
       </div>
 
       <div class="form-grid two">
-        <label>ผู้จ่ายค่าวิน
+        <label>ผู้จ่ายค่าจัดส่ง
           <select name="payer" required>
             <option value="caller">ผู้เรียกจ่าย</option>
             <option value="recipient">ผู้รับปลายทางจ่าย</option>
@@ -78,8 +78,8 @@
       </div>
 
       <div id="farePreview" class="fare-preview">ระบุพิกัดจุดรับและจุดส่งเพื่อคำนวณค่าบริการ</div>
-      <button class="primary big" type="submit">สร้างงานเรียกวิน</button>
-      <p class="muted">ระบบนี้ไม่รับชำระค่าวินผ่านเว็บ ผู้ที่ระบุไว้ชำระค่าวินโดยตรงเมื่อส่งงาน</p>
+      <button class="primary big" type="submit">สร้างงานเรียก Rider</button>
+      <p class="muted">ระบบนี้ไม่รับชำระค่าจัดส่งผ่านเว็บ ผู้ที่ระบุไว้ชำระค่าจัดส่งให้ Rider โดยตรงเมื่อส่งงาน</p>
     </form>
 
     <div class="section-head"><div><span class="eyebrow">ติดตามงาน</span><h2>งานของฉัน</h2></div><button id="refreshMyJobs" class="ghost">รีเฟรช</button></div>
@@ -87,23 +87,23 @@
   </section>
 
   <section id="riderPanel" class="section hidden">
-    <div class="section-head"><div><span class="eyebrow">สำหรับวิน</span><h2>ศูนย์งานวิน</h2></div></div>
+    <div class="section-head"><div><span class="eyebrow">สำหรับ Rider</span><h2>ศูนย์งาน Rider</h2></div></div>
 
     <div id="riderRegisterCard" class="card hidden">
-      <h3>สมัครเป็นวิน</h3>
+      <h3>สมัครเป็น Rider</h3>
       <form id="riderForm" class="form-grid two">
         <label>ชื่อที่แสดง<input name="display_name" required></label>
         <label>เบอร์โทร<input name="phone" required></label>
         <label>รถ / รุ่น<input name="vehicle_label" placeholder="เช่น Honda Wave สีแดง"></label>
         <label>ทะเบียนรถ<input name="plate" placeholder="เช่น 1กข 1234"></label>
-        <button class="primary" type="submit">ส่งสมัครวิน</button>
+        <button class="primary" type="submit">ส่งใบสมัครเป็น Rider</button>
       </form>
-      <p class="muted">เพื่อความปลอดภัย บัญชีวินต้องได้รับการอนุมัติจากผู้ดูแลระบบก่อนเริ่มรับงาน</p>
+      <p class="muted">เพื่อความปลอดภัย บัญชี Rider ต้องได้รับการอนุมัติจากผู้ดูแลระบบก่อนเริ่มรับงาน</p>
     </div>
 
     <div id="riderStatusCard" class="card hidden">
       <div class="rider-status-row">
-        <div><b id="riderName">วิน</b><div id="riderApproval" class="muted"></div></div>
+        <div><b id="riderName">Rider</b><div id="riderApproval" class="muted"></div></div>
         <label class="switch-row"><input id="onlineToggle" type="checkbox"> พร้อมรับงาน</label>
       </div>
       <div id="jobAlertControls" class="job-alert-controls hidden">
@@ -131,16 +131,16 @@
     </div>
 
     <div id="riderWorkArea" class="hidden">
-      <div class="section-head"><div><span class="eyebrow">งานใหม่</span><h2>งานที่รอวินรับ</h2></div><button id="refreshOpenJobs" class="ghost">รีเฟรช</button></div>
+      <div class="section-head"><div><span class="eyebrow">งานใหม่</span><h2>งานที่รอ Rider รับ</h2></div><button id="refreshOpenJobs" class="ghost">รีเฟรช</button></div>
       <div id="openJobs" class="job-list"></div>
       <div class="section-head"><div><span class="eyebrow">งานของฉัน</span><h2>งานที่กำลังทำ</h2></div></div>
       <div id="riderJobs" class="job-list"></div>
     </div>
 
     <div id="adminRiderArea" class="hidden public-admin-disabled" aria-hidden="true">
-      <div class="section-head"><div><span class="eyebrow">Admin</span><h2>วินที่รออนุมัติ</h2></div></div>
+      <div class="section-head"><div><span class="eyebrow">Admin</span><h2>Rider ที่รออนุมัติ</h2></div></div>
       <div id="pendingRiders" class="job-list"></div>
-      <div class="section-head admin-approved-head"><div><span class="eyebrow">Admin</span><h2>วินในระบบ</h2></div><button id="refreshRidersBtn" type="button" class="ghost">รีเฟรช</button></div>
+      <div class="section-head admin-approved-head"><div><span class="eyebrow">Admin</span><h2>Rider ในระบบ</h2></div><button id="refreshRidersBtn" type="button" class="ghost">รีเฟรช</button></div>
       <div id="approvedRiders" class="job-list"></div>
     </div>
   </section>
@@ -174,10 +174,10 @@
   </div>
 </div>
 
-<footer><div class="container">ระบบวินชุมชน · ตลาดกระทุ่มแบน · ชำระค่าวินโดยตรงตามเงื่อนไขของงาน</div></footer>
+<footer><div class="container">ระบบ Rider ชุมชน · ตลาดกระทุ่มแบน · ชำระค่าจัดส่งให้ Rider โดยตรงตามเงื่อนไขของงาน</div></footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
-<script src="app.js?v=0.4.6"></script>
+<script src="app.js?v=0.4.7"></script>
 </body>
 </html>
