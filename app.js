@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.94 Mission Coupon Repair loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.95 Rider Pre-Apply Details loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -99,11 +99,12 @@
   }
 
   function fillRiderApplicationModal(){
-    const form=$('riderApplyForm'),status=$('riderApplyStatusBox'),approved=$('riderApprovedBox'),title=$('riderApplyTitle');
+    const form=$('riderApplyForm'),status=$('riderApplyStatusBox'),approved=$('riderApprovedBox'),title=$('riderApplyTitle'),preInfo=$('riderPreApplyInfo');
     if(!form)return;
     const a=myRiderApplication;
     form.dataset.mode='apply';
-    form.classList.remove('hidden');
+    form.classList.add('hidden');
+    preInfo?.classList.remove('hidden');
     approved?.classList.add('hidden');
 
     if(a){
@@ -114,10 +115,13 @@
       if(status)status.innerHTML=`สถานะปัจจุบัน: <b>${riderApplicationStatusText(a.status)}</b>${a.admin_note?`<br><small>หมายเหตุ: ${esc(a.admin_note)}</small>`:''}`;
 
       if(a.status==='pending'){
+        preInfo?.classList.add('hidden');
+        form.classList.remove('hidden');
         if(title)title.textContent='⏳ คำขอสมัครเป็น Rider';
         [...form.elements].forEach(el=>el.disabled=true);
         form.querySelector('button[type=submit]').textContent='รอ Admin ตรวจสอบ';
       }else if(a.status==='approved'){
+        preInfo?.classList.add('hidden');
         if(title)title.textContent='🛵 งาน Rider';
         form.classList.add('hidden');
         approved?.classList.remove('hidden');
@@ -136,7 +140,7 @@
       }
     }else{
       if(title)title.textContent='🛵 สมัครเป็น Rider โครงการ';
-      if(status)status.textContent='กรอกข้อมูลเพื่อส่งให้ Admin ตรวจสอบ';
+      if(status)status.textContent='โปรดอ่านรายละเอียดให้ครบก่อนเปิดแบบฟอร์มสมัคร';
       [...form.elements].forEach(el=>el.disabled=false);
       form.reset();
       form.elements.rider_name.value=currentDisplayName()||'';
@@ -354,7 +358,7 @@
 
   async function acceptRiderJob(batchId){
     if(!db||!session||myRiderApplication?.status!=='approved')return alert('บัญชีนี้ยังไม่ได้รับสิทธิ์เป็น Rider');
-    // V0.5.22.94: do not reject from a client-side preflight.
+    // V0.5.22.95: do not reject from a client-side preflight.
     // The inbox RPC already filters pickup/cancelled jobs, and the atomic
     // market_rider_accept_delivery_batch RPC remains the server-side authority.
     if(!confirm('ยืนยันรับงานนี้? เมื่อรับแล้วงานจะถูกล็อกให้คุณทันที'))return;
@@ -479,6 +483,7 @@
     const form=$('riderApplyForm'),approved=$('riderApprovedBox'),title=$('riderApplyTitle'),status=$('riderApplyStatusBox');
     if(!a||a.status!=='approved'||!form)return;
     approved?.classList.add('hidden');
+    $('riderPreApplyInfo')?.classList.add('hidden');
     form.classList.remove('hidden');
     form.dataset.mode='edit';
     [...form.elements].forEach(el=>el.disabled=false);
@@ -486,15 +491,30 @@
     form.elements.rider_phone.value=a.phone||'';
     form.elements.vehicle_plate.value=a.vehicle_plate||'';
     if(form.elements.service_area_consent)form.elements.service_area_consent.checked=true;
+    if(form.elements.rider_terms_consent)form.elements.rider_terms_consent.checked=true;
     if(title)title.textContent='✏️ แก้ไขข้อมูล Rider';
     if(status)status.innerHTML='สถานะ: <b>✅ อนุมัติแล้ว</b><br><small>การแก้ข้อมูลไม่ทำให้สิทธิ์การเป็น Rider หาย และไม่ต้องสมัครใหม่</small>';
     form.querySelector('button[type=submit]').textContent='💾 บันทึกข้อมูล Rider';
   }
 
+  function acknowledgeRiderDetails(){
+    const info=$('riderPreApplyInfo'),form=$('riderApplyForm');
+    if(!form)return;
+    if(!session){
+      closeModal('riderApplyModal');
+      openModal('authModal');
+      return alert('รับทราบรายละเอียดแล้ว กรุณาเข้าสู่ระบบหรือสมัครสมาชิกก่อนส่งใบสมัครเป็น Rider');
+    }
+    info?.classList.add('hidden');
+    form.classList.remove('hidden');
+    form.scrollIntoView({behavior:'smooth',block:'start'});
+  }
+
   async function openRiderApplication(){
     if(!session){
-      openModal('authModal');
-      alert('การสมัครเป็น Rider ต้องเข้าสู่ระบบก่อน เพื่อผูกสิทธิ์ Rider กับบัญชีของคุณ');
+      myRiderApplication=null;
+      fillRiderApplicationModal();
+      openModal('riderApplyModal');
       return;
     }
     await loadMyRiderApplication();
@@ -509,9 +529,10 @@
     const name=String(f.elements.rider_name.value||'').trim();
     const phone=String(f.elements.rider_phone.value||'').trim();
     const areaConsent=Boolean(f.elements.service_area_consent?.checked);
+    const termsConsent=Boolean(f.elements.rider_terms_consent?.checked);
     const area='อำเภอกระทุ่มแบนและพื้นที่ใกล้เคียงตามที่ระบบกำหนด';
     const plate=String(f.elements.vehicle_plate.value||'').trim();
-    if(!name||!phone||!plate||!areaConsent)return alert('กรุณากรอกข้อมูลให้ครบ และติ๊กยินยอมรับทราบพื้นที่ให้บริการ');
+    if(!name||!phone||!plate||!areaConsent||!termsConsent)return alert('กรุณากรอกข้อมูลให้ครบ และติ๊กรับทราบพื้นที่ให้บริการกับรายละเอียดการเป็น Rider');
     const btn=f.querySelector('button[type=submit]');
     btn.disabled=true;btn.textContent='กำลังส่งใบสมัคร...';
     try{
@@ -2623,6 +2644,7 @@
     $('shopForm').addEventListener('submit',submitShop);
     $('promotionForm').addEventListener('submit',submitPromotion);
     $('riderJoinBtn')?.addEventListener('click',openRiderApplication);
+    $('riderAcknowledgeBtn')?.addEventListener('click',acknowledgeRiderDetails);
     $('riderApplyForm')?.addEventListener('submit',submitRiderApplication);
     $('riderEditProfileBtn')?.addEventListener('click',editApprovedRiderProfile);
     $('riderCloseApprovedBtn')?.addEventListener('click',()=>closeModal('riderApplyModal'));
@@ -2896,7 +2918,7 @@
   });
 
   // Notification click: open rider jobs directly after app becomes active.
-  // V0.5.22.94 keeps a pending route independent of the address bar because
+  // V0.5.22.95 keeps a pending route independent of the address bar because
   // iOS Home Screen PWA can focus the app without preserving ?rider_jobs=1.
   let pendingRiderNotificationUrl=null;
   let riderDeepLinkOpening=false;
@@ -3158,7 +3180,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.22.94', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.22.95', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });

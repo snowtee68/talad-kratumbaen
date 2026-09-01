@@ -576,7 +576,7 @@
 
   async function ensurePushRegistration(){
     if(!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) throw new Error('เบราว์เซอร์นี้ยังไม่รองรับ Web Push');
-    pushRegistration=pushRegistration||await navigator.serviceWorker.register('sw.js?v=0.4.7',{scope:'./',updateViaCache:'none'});
+    pushRegistration=pushRegistration||await navigator.serviceWorker.register('sw.js?v=0.4.8',{scope:'./',updateViaCache:'none'});
     await navigator.serviceWorker.ready;
     return pushRegistration;
   }

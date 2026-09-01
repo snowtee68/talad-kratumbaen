@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=0.4.7">
+  <link rel="stylesheet" href="styles.css?v=0.4.8">
 </head>
 <body>
 <header class="topbar">
@@ -91,11 +91,13 @@
 
     <div id="riderRegisterCard" class="card hidden">
       <h3>สมัครเป็น Rider</h3>
+      <div class="notice" style="line-height:1.65;margin-bottom:14px"><b>📋 ก่อนสมัครโปรดทราบ</b><br>เลือกกดรับงานได้ งานจะแสดงจุดรับ จุดส่ง ระยะทางและค่าจัดส่งก่อนรับ<br><b>ค่าจัดส่ง:</b> 0–2 กม. 25 บาท, เกิน 2 กม. เพิ่ม 10 บาททุก 2 กม., จุดรับร้านที่ 2 เป็นต้นไปเพิ่มจุดละ 10 บาท, สูงสุด 5 จุดรับและระยะทางรวมไม่เกิน 10 กม.<br>ผู้จ่ายตามที่ระบุในงานชำระให้ Rider โดยตรง Rider รับผิดชอบค่าเดินทาง รถ อุปกรณ์ ความปลอดภัย และการส่งมอบสินค้า การเข้าร่วมไม่ใช่การเป็นพนักงานประจำและไม่รับประกันจำนวนงานหรือรายได้ขั้นต่ำ</div>
       <form id="riderForm" class="form-grid two">
         <label>ชื่อที่แสดง<input name="display_name" required></label>
         <label>เบอร์โทร<input name="phone" required></label>
         <label>รถ / รุ่น<input name="vehicle_label" placeholder="เช่น Honda Wave สีแดง"></label>
         <label>ทะเบียนรถ<input name="plate" placeholder="เช่น 1กข 1234"></label>
+        <label style="grid-column:1/-1"><input name="terms_consent" type="checkbox" required> ฉันอ่านและรับทราบรายละเอียดการรับงาน ค่าตอบแทน และความรับผิดชอบแล้ว</label>
         <button class="primary" type="submit">ส่งใบสมัครเป็น Rider</button>
       </form>
       <p class="muted">เพื่อความปลอดภัย บัญชี Rider ต้องได้รับการอนุมัติจากผู้ดูแลระบบก่อนเริ่มรับงาน</p>
@@ -178,6 +180,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
-<script src="app.js?v=0.4.7"></script>
+<script src="app.js?v=0.4.8"></script>
 </body>
 </html>
