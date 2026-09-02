@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=0.4.8">
+  <link rel="stylesheet" href="styles.css?v=0.4.9">
 </head>
 <body>
 <header class="topbar">
@@ -33,7 +33,7 @@
     </div>
     <div class="rulebox">
       <b>ค่าบริการโดยประมาณ</b>
-      <span>0–2 กม. 25 บาท · ทุก 2 กม. ถัดไป +10 บาท · จุดรับเพิ่ม +10 บาท/จุด · สูงสุด 10 กม.</span>
+      <span>0–2 กม. 25 บาท · ทุก 2 กม. ถัดไป +10 บาท · จุดรับเพิ่ม +10 บาท/จุด · เส้นทางรวมสูงสุด 5 กม.</span>
       <small>ระยะทางคำนวณแบบเส้นตรงเพื่อประมาณการ รุ่นจริงสามารถเปลี่ยนสูตรภายหลังได้</small>
     </div>
   </section>
@@ -91,7 +91,7 @@
 
     <div id="riderRegisterCard" class="card hidden">
       <h3>สมัครเป็น Rider</h3>
-      <div class="notice" style="line-height:1.65;margin-bottom:14px"><b>📋 ก่อนสมัครโปรดทราบ</b><br>เลือกกดรับงานได้ งานจะแสดงจุดรับ จุดส่ง ระยะทางและค่าจัดส่งก่อนรับ<br><b>ค่าจัดส่ง:</b> 0–2 กม. 25 บาท, เกิน 2 กม. เพิ่ม 10 บาททุก 2 กม., จุดรับร้านที่ 2 เป็นต้นไปเพิ่มจุดละ 10 บาท, สูงสุด 5 จุดรับและระยะทางรวมไม่เกิน 10 กม.<br>ผู้จ่ายตามที่ระบุในงานชำระให้ Rider โดยตรง Rider รับผิดชอบค่าเดินทาง รถ อุปกรณ์ ความปลอดภัย และการส่งมอบสินค้า การเข้าร่วมไม่ใช่การเป็นพนักงานประจำและไม่รับประกันจำนวนงานหรือรายได้ขั้นต่ำ</div>
+      <div class="notice" style="line-height:1.65;margin-bottom:14px"><b>📋 ก่อนสมัครโปรดทราบ</b><br>เลือกกดรับงานได้ งานจะแสดงจุดรับ จุดส่ง ระยะทางและค่าจัดส่งก่อนรับ<br><b>ค่าจัดส่ง:</b> 0–2 กม. 25 บาท, เกิน 2 กม. เพิ่ม 10 บาททุก 2 กม., จุดรับร้านที่ 2 เป็นต้นไปเพิ่มจุดละ 10 บาท, สูงสุด 5 จุดรับและระยะทางรวมตามเส้นทางจริงไม่เกิน 5 กม.<br>ผู้จ่ายตามที่ระบุในงานชำระให้ Rider โดยตรง Rider รับผิดชอบค่าเดินทาง รถ อุปกรณ์ ความปลอดภัย และการส่งมอบสินค้า การเข้าร่วมไม่ใช่การเป็นพนักงานประจำและไม่รับประกันจำนวนงานหรือรายได้ขั้นต่ำ</div>
       <form id="riderForm" class="form-grid two">
         <label>ชื่อที่แสดง<input name="display_name" required></label>
         <label>เบอร์โทร<input name="phone" required></label>
@@ -180,6 +180,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
-<script src="app.js?v=0.4.8"></script>
+<script src="app.js?v=0.4.9"></script>
 </body>
 </html>

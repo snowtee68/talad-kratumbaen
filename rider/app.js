@@ -12,6 +12,7 @@
   const fmtTime = iso => iso ? new Date(iso).toLocaleString('th-TH',{dateStyle:'short',timeStyle:'short'}) : '-';
   const statusText = {open:'รอ Rider รับงาน',assigned:'Rider กำลังรับของ',arrived_pickup:'ถึงจุดรับ',picked_up:'รับของครบแล้ว',delivering:'กำลังจัดส่ง',completed:'ส่งสำเร็จ',cancelled:'ยกเลิก'};
   const MAX_PICKUPS = 5;
+  const MAX_ROUTE_KM = 5;
   const EXTRA_PICKUP_FEE = 10;
   let shopSearchTimer = null;
   let marketShopIndex = [];
@@ -39,7 +40,7 @@
     const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
     return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
   }
-  function baseFareForKm(km){ if(km>10) return null; if(km<=2) return 25; return 25 + Math.ceil((km-2)/2)*10; }
+  function baseFareForKm(km){ if(km>MAX_ROUTE_KM) return null; if(km<=2) return 25; return 25 + Math.ceil((km-2)/2)*10; }
   function fareForRoute(km,pickupCount){ const base=baseFareForKm(km); if(base===null)return null; return {base,extra:Math.max(0,pickupCount-1)*EXTRA_PICKUP_FEE,total:base+Math.max(0,pickupCount-1)*EXTRA_PICKUP_FEE}; }
   function gmaps(lat,lng){ return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${lat},${lng}`)}`; }
   function openModal(id){ $('#'+id)?.classList.remove('hidden'); }
@@ -259,7 +260,7 @@
     const stops=collectStops(false),km=routeDistance(stops),pickups=stops.filter(s=>s.type==='pickup').length;
     if(km===null){$('#farePreview').textContent='ระบุพิกัดทุกจุดเพื่อคำนวณค่าบริการ';return;}
     const fare=fareForRoute(km,pickups);
-    if(fare===null){$('#farePreview').innerHTML=`ระยะทางรวมประมาณ ${fmt(km)} กม. — เกินพื้นที่ให้บริการ 10 กม.`;return;}
+    if(fare===null){$('#farePreview').innerHTML=`ระยะทางรวมประมาณ ${fmt(km)} กม. — เกินพื้นที่ให้บริการ ${MAX_ROUTE_KM} กม.`;return;}
     $('#farePreview').innerHTML=`ระยะทางรวมประมาณ ${fmt(km)} กม. · ค่าบริการโดยประมาณ ${fare.total} บาท<div class="fare-breakdown">ค่าระยะทาง ${fare.base} บาท${fare.extra?` + ค่าจุดรับเพิ่ม ${fare.extra} บาท (${pickups-1} จุด × ${EXTRA_PICKUP_FEE})`:''}</div>`;
   }
 
@@ -268,7 +269,7 @@
     let stops; try{stops=collectStops(true)}catch(err){return alert(err.message)}
     const pickups=stops.filter(s=>s.type==='pickup').length;
     if(pickups<1||pickups>MAX_PICKUPS)return alert(`จุดรับต้องมี 1–${MAX_PICKUPS} จุด`);
-    const km=routeDistance(stops),fare=fareForRoute(km,pickups); if(!fare)return alert('พื้นที่ให้บริการรองรับระยะทางรวมไม่เกิน 10 กม.');
+    const km=routeDistance(stops),fare=fareForRoute(km,pickups); if(!fare)return alert(`พื้นที่ให้บริการรองรับระยะทางรวมไม่เกิน ${MAX_ROUTE_KM} กม.`);
     const fd=new FormData(e.currentTarget);
     const payload=stops.map(s=>({type:s.type,label:s.label,lat:s.lat,lng:s.lng,note:s.note,shop_id:s.shop_id,contact_name:s.contact_name,contact_phone:s.contact_phone}));
     const {data:job,error}=await db.rpc('rider_create_multistop_job',{
@@ -576,7 +577,7 @@
 
   async function ensurePushRegistration(){
     if(!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) throw new Error('เบราว์เซอร์นี้ยังไม่รองรับ Web Push');
-    pushRegistration=pushRegistration||await navigator.serviceWorker.register('sw.js?v=0.4.8',{scope:'./',updateViaCache:'none'});
+    pushRegistration=pushRegistration||await navigator.serviceWorker.register('sw.js?v=0.4.9',{scope:'./',updateViaCache:'none'});
     await navigator.serviceWorker.ready;
     return pushRegistration;
   }
