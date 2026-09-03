@@ -1,4 +1,5 @@
 (() => {
+  console.info('Talad Krathumbaen Rider v0.5.22.99 loaded');
   const cfg = window.APP_CONFIG || {};
   const db = supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
   let session = null;
@@ -212,6 +213,10 @@
     if(!session){ stopJobAlertRealtime(); return; }
     const uid=session.user.id;
     const {data:p}=await db.from('market_profiles').select('role,display_name').eq('id',uid).maybeSingle(); profile=p;
+    // V0.5.22.99: an approval made in the main app may predate/miss the
+    // rider_profiles registry row used by this dashboard. Repair it safely.
+    const {error:syncError}=await db.rpc('market_ensure_my_rider_profile');
+    if(syncError)console.warn('Unable to sync approved Rider profile:',syncError.message);
     const {data:r}=await db.from('rider_profiles').select('*').eq('user_id',uid).maybeSingle(); riderProfile=r;
     renderRiderState();
     await Promise.all([loadMyJobs(),loadRiderJobs(),loadPendingRiders(),loadApprovedRiders()]);
@@ -324,7 +329,7 @@
     const online=!riderProfile.online;
     const button=$('#onlineToggleBtn');
     if(button)button.disabled=true;
-    const {error}=await db.from('rider_profiles').update({online}).eq('user_id',session.user.id);
+    const {error}=await db.rpc('market_set_my_rider_online',{p_online:online});
     if(error){ renderOnlineState(true); alert('เปลี่ยนสถานะไม่สำเร็จ: '+error.message); return; }
     riderProfile.online=online;
     $('#onlineToggle').checked=online;
