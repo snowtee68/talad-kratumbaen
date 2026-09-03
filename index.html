@@ -8,8 +8,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="ตลาดกระทุ่มแบน">
-  <link rel="manifest" href="manifest.webmanifest?v=0.5.22.100">
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=0.5.22.100">
+  <link rel="manifest" href="manifest.webmanifest?v=0.5.22.101">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=0.5.22.101">
   <title>ตลาดกระทุ่มแบน</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,7 +17,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
-  <link rel="stylesheet" href="styles.css?v=0.5.22.100">
+  <link rel="stylesheet" href="styles.css?v=0.5.22.101">
 <link rel="stylesheet" href="order.css?v=0.5.20.42-restore">
 <style>
 #adminPanel .admin-control-center{margin-bottom:18px}
@@ -85,7 +85,7 @@ body:not(.guest-session) .site-header #guestSignUpBtn{display:none!important}
 }
 </style>
 
-<link rel="stylesheet" href="responsive-ui-v0.5.22.70.css?v=0.5.22.100">
+<link rel="stylesheet" href="responsive-ui-v0.5.22.70.css?v=0.5.22.101">
 
 <style id="riderReadyStateStyle">
 .rider-shop-ready{display:inline-block;margin:5px 0 6px;padding:5px 8px;border-radius:999px;background:#e9f8ee;color:#137333;font-size:12px;font-weight:900}
@@ -112,7 +112,7 @@ body:not(.guest-session) .site-header #guestSignUpBtn{display:none!important}
 
 <main id="top">
   <section class="market-photo-banner" aria-label="บรรยากาศตลาดกระทุ่มแบน">
-  <img src="assets/krathumbaen-market-banner.jpg?v=0.5.22.100" alt="บรรยากาศริมคลองตลาดกระทุ่มแบน" loading="eager" decoding="async">
+  <img src="assets/krathumbaen-market-banner.jpg?v=0.5.22.101" alt="บรรยากาศริมคลองตลาดกระทุ่มแบน" loading="eager" decoding="async">
   <div class="market-photo-overlay">
     <div class="container market-photo-copy">
       <b>ค้นร้านง่าย</b>
@@ -252,7 +252,7 @@ body:not(.guest-session) .site-header #guestSignUpBtn{display:none!important}
   </section>
 </main>
 
-<footer><div class="container support-footer"><div>ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ <span class="version-badge">V0.5.22.100</span></div><a class="support-openchat-link" href="https://line.me/ti/g2/26r6PGveA0bN-PKo8YNyw7dd2lF_ejymNdCNKw?utm_source=invitation&utm_medium=link_copy&utm_campaign=default" target="_blank" rel="noopener noreferrer">💬 สอบถาม / แจ้งปัญหาการใช้งาน</a></div></footer>
+<footer><div class="container support-footer"><div>ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ <span class="version-badge">V0.5.22.101</span></div><a class="support-openchat-link" href="https://line.me/ti/g2/26r6PGveA0bN-PKo8YNyw7dd2lF_ejymNdCNKw?utm_source=invitation&utm_medium=link_copy&utm_campaign=default" target="_blank" rel="noopener noreferrer">💬 สอบถาม / แจ้งปัญหาการใช้งาน</a></div></footer>
 
 <nav class="floating-navigation" aria-label="ทางลัดหน้าเว็บ">
   <button id="floatingBackBtn" type="button" class="floating-nav-button" aria-label="ย้อนกลับ">← <span>กลับ</span></button>
@@ -308,6 +308,13 @@ body:not(.guest-session) .site-header #guestSignUpBtn{display:none!important}
     <div id="riderApprovedBox" class="hidden">
       <div class="ready-banner"><b>✅ บัญชี Rider ได้รับอนุมัติแล้ว</b><br>คุณมีสิทธิ์เป็น Rider ในระบบตลาดกระทุ่มแบน</div>
       <div id="riderApprovedProfileSummary" class="rider-profile-summary"></div>
+      <div id="riderAvailabilityCard" class="rider-availability-card offline">
+        <div>
+          <b id="riderAvailabilityStatus">สถานะ: พักรับงาน</b>
+          <small id="riderAvailabilityHelp">กดเปิดรับงานเพื่อรับการแจ้งเตือนงานใหม่</small>
+        </div>
+        <button type="button" id="riderAvailabilityBtn" class="rider-availability-button offline">🟢 เปิดรับงาน</button>
+      </div>
       <div class="rider-approved-actions">
         <p class="muted" style="margin:0 0 8px">หากเบอร์โทร ชื่อที่ใช้ติดต่อ หรือทะเบียนรถเปลี่ยน สามารถแก้ไขข้อมูลได้โดยไม่ต้องสมัครเป็น Rider ใหม่ และสถานะอนุมัติจะยังคงอยู่</p>
         <button type="button" id="riderEditProfileBtn" class="secondary">✏️ แก้ไขข้อมูล Rider</button>
@@ -411,7 +418,7 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
-<script src="app.js?v=0.5.22.100"></script>
+<script src="app.js?v=0.5.22.101"></script>
 
 <nav class="unified-app-dock" aria-label="เมนูหลัก">
   <button type="button" data-dock-action="home" aria-label="หน้าหลัก">
@@ -428,7 +435,7 @@ if ('serviceWorker' in navigator) {
   </button>
 </nav>
 
-<script src="order.js?v=0.5.22.100"></script>
+<script src="order.js?v=0.5.22.101"></script>
 
 
 <script>

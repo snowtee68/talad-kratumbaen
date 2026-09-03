@@ -146,6 +146,14 @@ fieldset{border:1px solid var(--line);border-radius:14px;padding:14px}legend{fon
 .promo-action-row button:last-child{background:#f2eee9;color:var(--ink)}
 .promotion-detail-card h2{padding-right:34px}
 .promotion-detail-image{width:100%;max-height:330px;object-fit:cover;border-radius:16px;margin:8px 0 14px}
+
+/* V0.5.22.101: availability control in the approved Rider panel */
+.rider-availability-card{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:14px 0;padding:15px;border:2px solid #e3e3e3;border-radius:16px;background:#f7f7f7}
+.rider-availability-card>div{display:flex;flex-direction:column;gap:3px}.rider-availability-card small{color:#666;line-height:1.45}
+.rider-availability-card.online{border-color:#85d39b;background:#effbf2}.rider-availability-card.online b{color:#116c2b}
+.rider-availability-button{border:0;border-radius:13px;padding:13px 18px;min-width:145px;font-weight:800;cursor:pointer;color:#fff}
+.rider-availability-button.offline{background:#17863a}.rider-availability-button.online{background:#a33b32}.rider-availability-button:disabled{opacity:.6;cursor:wait}
+@media(max-width:640px){.rider-availability-card{align-items:stretch;flex-direction:column}.rider-availability-button{width:100%;min-height:50px}}
 .promotion-detail-status{display:inline-flex;border-radius:999px;padding:6px 10px;font-size:12px;font-weight:700;background:#eee}
 .promotion-detail-status.active{background:#e4f7e9;color:#18753a}
 .promotion-detail-status.upcoming{background:#fff3cf;color:#7b4d00}

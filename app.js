@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.100 Storage Egress Optimization loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.101 Rider Availability Main UI loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -68,6 +68,7 @@
 
 
   let myRiderApplication=null;
+  let myRiderOnline=false;
 
   function riderApplicationStatusText(status){
     return ({pending:'⏳ รอตรวจสอบ',approved:'✅ อนุมัติแล้ว',rejected:'❌ ไม่ผ่านการอนุมัติ'})[status]||'ยังไม่ได้สมัคร';
@@ -75,6 +76,7 @@
 
   async function loadMyRiderApplication(){
     myRiderApplication=null;
+    myRiderOnline=false;
     if(!db||!session){
       updateRiderJoinButton();
       return null;
@@ -83,6 +85,11 @@
       const {data,error}=await db.rpc('market_my_rider_application');
       if(error)throw error;
       myRiderApplication=data&&typeof data==='object'&&!Array.isArray(data)&&data.status?data:null;
+      if(myRiderApplication?.status==='approved'){
+        const {data:riderProfile,error:profileError}=await db.rpc('market_ensure_my_rider_profile');
+        if(profileError)console.warn('rider availability sync skipped',profileError);
+        else myRiderOnline=riderProfile?.online===true;
+      }
     }catch(err){
       console.warn('load rider application skipped',err);
     }
@@ -96,6 +103,40 @@
     const st=myRiderApplication?.status;
     label.textContent=st==='approved'?'งาน Rider':st==='pending'?'รอตรวจสอบใบสมัคร Rider':st==='rejected'?'สมัครเป็น Rider โครงการ':'สมัครเป็น Rider โครงการ';
     btn.title=st==='approved'?'บัญชี Rider ของฉัน':st==='pending'?'ดูสถานะคำขอสมัครเป็น Rider':'สมัครเป็น Rider ส่งของ';
+  }
+
+  function renderRiderAvailability(){
+    const card=$('riderAvailabilityCard'),btn=$('riderAvailabilityBtn');
+    const status=$('riderAvailabilityStatus'),help=$('riderAvailabilityHelp');
+    if(!card||!btn)return;
+    card.classList.toggle('online',myRiderOnline);
+    card.classList.toggle('offline',!myRiderOnline);
+    btn.classList.toggle('online',myRiderOnline);
+    btn.classList.toggle('offline',!myRiderOnline);
+    btn.textContent=myRiderOnline?'⏸️ พักรับงาน':'🟢 เปิดรับงาน';
+    if(status)status.textContent=myRiderOnline?'สถานะ: พร้อมรับงาน':'สถานะ: พักรับงาน';
+    if(help)help.textContent=myRiderOnline
+      ?'ระบบจะแจ้งเตือนเมื่อมีงานใหม่ กดพักรับงานเมื่อต้องการหยุดรับงาน'
+      :'เมื่อพักรับงาน ระบบจะไม่ส่ง Push หรือเสียงแจ้งงานใหม่ให้บัญชีนี้';
+  }
+
+  async function toggleMainRiderAvailability(){
+    if(!session||myRiderApplication?.status!=='approved')return alert('บัญชี Rider ต้องได้รับการอนุมัติก่อน');
+    const btn=$('riderAvailabilityBtn');
+    const next=!myRiderOnline;
+    if(btn)btn.disabled=true;
+    try{
+      const {error}=await db.rpc('market_set_my_rider_online',{p_online:next});
+      if(error)throw error;
+      myRiderOnline=next;
+      renderRiderAvailability();
+      if(myRiderOnline)startRiderJobRealtime(); else stopRiderJobRealtime();
+      showNotice(myRiderOnline?'🟢 เปิดรับงานแล้ว ระบบจะแจ้งเมื่อมีงานใหม่':'⏸️ พักรับงานแล้ว ระบบจะหยุดแจ้งงานใหม่');
+    }catch(err){
+      alert('เปลี่ยนสถานะรับงานไม่สำเร็จ: '+(err?.message||err));
+    }finally{
+      if(btn)btn.disabled=false;
+    }
   }
 
   function fillRiderApplicationModal(){
@@ -131,8 +172,9 @@
           <div><span>เบอร์โทร</span><b>${esc(a.phone||'-')}</b></div>
           <div><span>ทะเบียนรถ</span><b>${esc(a.vehicle_plate||'-')}</b></div>
         `;
+        renderRiderAvailability();
         loadRiderJobInbox();
-        startRiderJobRealtime();
+        if(myRiderOnline)startRiderJobRealtime(); else stopRiderJobRealtime();
       }else{
         if(title)title.textContent='🛵 สมัครเป็น Rider โครงการ';
         [...form.elements].forEach(el=>el.disabled=false);
@@ -453,7 +495,7 @@
 
   function startRiderJobRealtime(){
     stopRiderJobRealtime();
-    if(!db||!session||myRiderApplication?.status!=='approved'||!db.channel)return;
+    if(!db||!session||myRiderApplication?.status!=='approved'||!myRiderOnline||!db.channel)return;
     try{
       riderJobsRealtimeChannel=db.channel('market-rider-jobs-'+session.user.id)
         .on('postgres_changes',{event:'INSERT',schema:'public',table:'market_delivery_batches'},async()=>{
@@ -472,7 +514,7 @@
         .subscribe();
       if(!riderWaitingJobPollTimer){
         riderWaitingJobPollTimer=setInterval(()=>{
-          if(document.visibilityState==='visible'&&myRiderApplication?.status==='approved')loadRiderJobInbox({quiet:true});
+          if(document.visibilityState==='visible'&&myRiderApplication?.status==='approved'&&myRiderOnline)loadRiderJobInbox({quiet:true});
         },30000);
       }
     }catch(err){console.warn('rider realtime skipped',err);}
@@ -2159,7 +2201,7 @@
     updateAccountUI();
     fillProfileDisplayName();
     await loadMyRiderApplication();
-    if(myRiderApplication?.status==='approved')startRiderJobRealtime(); else stopRiderJobRealtime();
+    if(myRiderApplication?.status==='approved'&&myRiderOnline)startRiderJobRealtime(); else stopRiderJobRealtime();
     await loadFavorites();
     renderShops(); renderRecommended();
     if(session) await loadDashboard();
@@ -2647,6 +2689,7 @@
     $('riderAcknowledgeBtn')?.addEventListener('click',acknowledgeRiderDetails);
     $('riderApplyForm')?.addEventListener('submit',submitRiderApplication);
     $('riderEditProfileBtn')?.addEventListener('click',editApprovedRiderProfile);
+    $('riderAvailabilityBtn')?.addEventListener('click',toggleMainRiderAvailability);
     $('riderCloseApprovedBtn')?.addEventListener('click',()=>closeModal('riderApplyModal'));
     $('adminRiderApplicantList')?.addEventListener('click',ev=>{
       const approve=ev.target.closest('[data-rider-approve]');
@@ -3180,7 +3223,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.22.100', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.22.101', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
