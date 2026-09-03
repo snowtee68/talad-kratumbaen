@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=0.4.9">
+  <link rel="stylesheet" href="styles.css?v=0.5.22.98">
 </head>
 <body>
 <header class="topbar">
@@ -106,7 +106,14 @@
     <div id="riderStatusCard" class="card hidden">
       <div class="rider-status-row">
         <div><b id="riderName">Rider</b><div id="riderApproval" class="muted"></div></div>
-        <label class="switch-row"><input id="onlineToggle" type="checkbox"> พร้อมรับงาน</label>
+        <div id="riderAvailability" class="rider-availability">
+          <div>
+            <b id="onlineStatusText">สถานะ: พักรับงาน</b>
+            <small id="onlineStatusHelp">กดเปิดรับงานเพื่อรับการแจ้งเตือนเมื่อมีงานใหม่</small>
+          </div>
+          <button id="onlineToggleBtn" type="button" class="availability-btn offline">🟢 เปิดรับงาน</button>
+          <input id="onlineToggle" type="checkbox" class="hidden" aria-hidden="true" tabindex="-1">
+        </div>
       </div>
       <div id="jobAlertControls" class="job-alert-controls hidden">
         <div>
@@ -180,6 +187,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
-<script src="app.js?v=0.4.9"></script>
+<script src="app.js?v=0.5.22.98"></script>
 </body>
 </html>

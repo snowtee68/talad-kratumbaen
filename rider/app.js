@@ -72,7 +72,7 @@
     $('#jobForm').addEventListener('input',handleJobFormInput);
     $('#jobForm').addEventListener('click',handleFormClick);
     $('#riderForm').onsubmit=registerRider;
-    $('#onlineToggle').onchange=toggleOnline;
+    $('#onlineToggleBtn').onclick=toggleOnline;
     $('#enableJobAlertBtn').onclick=enableJobAlerts;
     $('#disableJobAlertBtn').onclick=disableJobAlerts;
     $('#testJobAlertBtn').onclick=()=>startJobAlertLoop({test:true});
@@ -294,7 +294,7 @@
       $('#riderName').textContent=riderProfile.display_name;
       $('#riderApproval').textContent='สถานะ: '+(approved?'อนุมัติแล้ว':riderProfile.approval_status==='rejected'?'ไม่อนุมัติ':'รอผู้ดูแลระบบอนุมัติ');
       $('#onlineToggle').checked=!!riderProfile.online;
-      $('#onlineToggle').disabled=!approved;
+      renderOnlineState(approved);
       $('#jobAlertControls').classList.toggle('hidden',!approved);
       updateJobAlertUi();
       if(approved && riderProfile.online && jobAlertEnabled) startJobAlertRealtime(); else stopJobAlertRealtime();
@@ -302,13 +302,35 @@
     $('#adminRiderArea')?.classList.add('hidden');
   }
 
+  function renderOnlineState(approved=true){
+    const online=!!riderProfile?.online;
+    const button=$('#onlineToggleBtn');
+    const status=$('#onlineStatusText');
+    const help=$('#onlineStatusHelp');
+    if(!button)return;
+    button.disabled=!approved;
+    button.classList.toggle('online',online);
+    button.classList.toggle('offline',!online);
+    button.textContent=online?'⏸️ พักรับงาน':'🟢 เปิดรับงาน';
+    if(status)status.textContent=online?'สถานะ: พร้อมรับงาน':'สถานะ: พักรับงาน';
+    if(help)help.textContent=online
+      ?'ระบบจะแจ้งเตือนเมื่อมีงานใหม่ กดพักรับงานเมื่อต้องการหยุดรับแจ้งเตือน'
+      :approved?'กดเปิดรับงานเพื่อรับการแจ้งเตือนเมื่อมีงานใหม่':'เปิดรับงานได้หลังผู้ดูแลระบบอนุมัติ';
+  }
+
   async function registerRider(e){e.preventDefault();const fd=new FormData(e.currentTarget);const {error}=await db.from('rider_profiles').insert({user_id:session.user.id,display_name:fd.get('display_name'),phone:fd.get('phone'),vehicle_label:fd.get('vehicle_label')||null,plate:fd.get('plate')||null});if(error)return alert(error.message);alert('ส่งใบสมัครเป็น Rider แล้ว รอผู้ดูแลระบบอนุมัติ');await refreshAuth()}
   async function toggleOnline(){
-    const online=$('#onlineToggle').checked;
+    if(!riderProfile||riderProfile.approval_status!=='approved')return alert('บัญชี Rider ต้องได้รับการอนุมัติก่อนเปิดรับงาน');
+    const online=!riderProfile.online;
+    const button=$('#onlineToggleBtn');
+    if(button)button.disabled=true;
     const {error}=await db.from('rider_profiles').update({online}).eq('user_id',session.user.id);
-    if(error){ alert(error.message); $('#onlineToggle').checked=!online; return; }
+    if(error){ renderOnlineState(true); alert('เปลี่ยนสถานะไม่สำเร็จ: '+error.message); return; }
     riderProfile.online=online;
+    $('#onlineToggle').checked=online;
+    renderOnlineState(true);
     if(online && jobAlertEnabled) startJobAlertRealtime(); else stopJobAlertRealtime();
+    updateJobAlertUi();
     await loadRiderJobs();
   }
 
