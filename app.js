@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.99 Rider Availability Sync loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.100 Storage Egress Optimization loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -712,9 +712,9 @@
 
   const IMAGE_LIMITS = {
     inputBytes: 20 * 1024 * 1024,
-    outputBytes: 900 * 1024,
-    maxWidth: 1600,
-    maxHeight: 1600,
+    outputBytes: 450 * 1024,
+    maxWidth: 1280,
+    maxHeight: 1280,
     quality: 0.84
   };
 
@@ -1729,7 +1729,7 @@
     form.elements.existing_image_url.value=promotion?.image_url||'';
     form.elements.promotion_image.value='';
     const preview=$('promotionImagePreview');
-    if(preview){preview.innerHTML=promotion?.image_url?`<img src="${esc(promotion.image_url)}" alt="รูปโปรโมชั่นปัจจุบัน"><small>รูปปัจจุบัน — เลือกรูปใหม่เพื่อแทนที่</small>`:'<small>ระบบจะย่อรูปอัตโนมัติให้ไม่เกินประมาณ 900 KB</small>';}
+    if(preview){preview.innerHTML=promotion?.image_url?`<img src="${esc(promotion.image_url)}" alt="รูปโปรโมชั่นปัจจุบัน"><small>รูปปัจจุบัน — เลือกรูปใหม่เพื่อแทนที่</small>`:'<small>ระบบจะย่อรูปอัตโนมัติให้ไม่เกินประมาณ 450 KB</small>';}
     form.elements.starts_at.value=toLocalDateTimeInput(promotion?.starts_at);
     form.elements.ends_at.value=toLocalDateTimeInput(promotion?.ends_at);
     form.elements.active.checked=promotion ? promotion.active!==false : true;
@@ -1862,7 +1862,7 @@
       }
       let uploadedImageUrl='';
       if(imageFile&&imageFile.size){
-        uploadedImageUrl=await uploadCompressedImage(imageFile,'promotion-images',`${session.user.id}/${shopId}`,{maxWidth:1600,maxHeight:1200,maxBytes:900*1024});
+        uploadedImageUrl=await uploadCompressedImage(imageFile,'promotion-images',`${session.user.id}/${shopId}`,{maxWidth:1200,maxHeight:900,maxBytes:450*1024});
         payload.image_url=uploadedImageUrl;
       }
       const result=promotionId
@@ -2271,7 +2271,7 @@
   }
 
   async function uploadCover(file, shopId){
-    return uploadCompressedImage(file,'shop-images',`${session.user.id}/${shopId}`,{maxWidth:1600,maxHeight:1600,maxBytes:900*1024});
+    return uploadCompressedImage(file,'shop-images',`${session.user.id}/${shopId}`,{maxWidth:1200,maxHeight:1200,maxBytes:450*1024});
   }
 
   function useCurrentLocationForShop(){
@@ -3180,7 +3180,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.22.99', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.22.100', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });

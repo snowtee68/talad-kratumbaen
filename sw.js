@@ -1,14 +1,15 @@
-const CACHE_NAME = 'talad-kratumbaen-v0.5.22.99';
+const CACHE_NAME = 'talad-kratumbaen-v0.5.22.100';
+const IMAGE_CACHE_NAME = 'talad-supabase-public-images-v1';
 const CORE = [
   './',
   './index.html',
   './styles.css',
   './app.js',
   './manifest.webmanifest',
-  './icons/icon-192.png?v=0.5.22.99',
-  './icons/icon-512.png?v=0.5.22.99',
-  './icons/icon-maskable-512.png?v=0.5.22.99',
-  './icons/apple-touch-icon.png?v=0.5.22.99'
+  './icons/icon-192.png?v=0.5.22.100',
+  './icons/icon-512.png?v=0.5.22.100',
+  './icons/icon-maskable-512.png?v=0.5.22.100',
+  './icons/apple-touch-icon.png?v=0.5.22.100'
 ];
 
 self.addEventListener('install', (event) => {
@@ -16,12 +17,28 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))).then(() => self.clients.claim()));
+  event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => ![CACHE_NAME,IMAGE_CACHE_NAME].includes(key)).map((key) => caches.delete(key)))).then(() => self.clients.claim()));
 });
 
 self.addEventListener('fetch', (event) => {
   if(event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
+  const isPublicStorageImage = event.request.destination === 'image'
+    && url.pathname.includes('/storage/v1/object/public/');
+
+  if(isPublicStorageImage){
+    event.respondWith((async () => {
+      const imageCache = await caches.open(IMAGE_CACHE_NAME);
+      const cached = await imageCache.match(event.request);
+      if(cached)return cached;
+      const response = await fetch(event.request);
+      if(response && (response.ok || response.type === 'opaque')){
+        imageCache.put(event.request,response.clone()).catch(()=>{});
+      }
+      return response;
+    })());
+    return;
+  }
   if(url.origin !== self.location.origin) return;
 
   event.respondWith((async () => {

@@ -8,8 +8,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="ตลาดกระทุ่มแบน">
-  <link rel="manifest" href="manifest.webmanifest?v=0.5.22.99">
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=0.5.22.99">
+  <link rel="manifest" href="manifest.webmanifest?v=0.5.22.100">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=0.5.22.100">
   <title>ตลาดกระทุ่มแบน</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,7 +17,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
-  <link rel="stylesheet" href="styles.css?v=0.5.22.99">
+  <link rel="stylesheet" href="styles.css?v=0.5.22.100">
 <link rel="stylesheet" href="order.css?v=0.5.20.42-restore">
 <style>
 #adminPanel .admin-control-center{margin-bottom:18px}
@@ -85,7 +85,7 @@ body:not(.guest-session) .site-header #guestSignUpBtn{display:none!important}
 }
 </style>
 
-<link rel="stylesheet" href="responsive-ui-v0.5.22.70.css?v=0.5.22.99">
+<link rel="stylesheet" href="responsive-ui-v0.5.22.70.css?v=0.5.22.100">
 
 <style id="riderReadyStateStyle">
 .rider-shop-ready{display:inline-block;margin:5px 0 6px;padding:5px 8px;border-radius:999px;background:#e9f8ee;color:#137333;font-size:12px;font-weight:900}
@@ -112,7 +112,7 @@ body:not(.guest-session) .site-header #guestSignUpBtn{display:none!important}
 
 <main id="top">
   <section class="market-photo-banner" aria-label="บรรยากาศตลาดกระทุ่มแบน">
-  <img src="assets/krathumbaen-market-banner.jpg?v=0.5.22.99" alt="บรรยากาศริมคลองตลาดกระทุ่มแบน" loading="eager" decoding="async">
+  <img src="assets/krathumbaen-market-banner.jpg?v=0.5.22.100" alt="บรรยากาศริมคลองตลาดกระทุ่มแบน" loading="eager" decoding="async">
   <div class="market-photo-overlay">
     <div class="container market-photo-copy">
       <b>ค้นร้านง่าย</b>
@@ -252,7 +252,7 @@ body:not(.guest-session) .site-header #guestSignUpBtn{display:none!important}
   </section>
 </main>
 
-<footer><div class="container support-footer"><div>ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ <span class="version-badge">V0.5.22.99</span></div><a class="support-openchat-link" href="https://line.me/ti/g2/26r6PGveA0bN-PKo8YNyw7dd2lF_ejymNdCNKw?utm_source=invitation&utm_medium=link_copy&utm_campaign=default" target="_blank" rel="noopener noreferrer">💬 สอบถาม / แจ้งปัญหาการใช้งาน</a></div></footer>
+<footer><div class="container support-footer"><div>ตลาดกระทุ่มแบน — ร้านใหม่จะแสดงหลังแอดมินอนุมัติ <span class="version-badge">V0.5.22.100</span></div><a class="support-openchat-link" href="https://line.me/ti/g2/26r6PGveA0bN-PKo8YNyw7dd2lF_ejymNdCNKw?utm_source=invitation&utm_medium=link_copy&utm_campaign=default" target="_blank" rel="noopener noreferrer">💬 สอบถาม / แจ้งปัญหาการใช้งาน</a></div></footer>
 
 <nav class="floating-navigation" aria-label="ทางลัดหน้าเว็บ">
   <button id="floatingBackBtn" type="button" class="floating-nav-button" aria-label="ย้อนกลับ">← <span>กลับ</span></button>
@@ -363,7 +363,7 @@ body:not(.guest-session) .site-header #guestSignUpBtn{display:none!important}
 
 <div id="reviewModal" class="modal hidden"><div class="backdrop" data-close="reviewModal"></div><div class="modal-card small"><button class="close" data-close="reviewModal">×</button><h2>รีวิว <span id="reviewShopName"></span></h2><div class="review-modal-existing"><h3>รีวิวจากลูกค้า</h3><div id="reviewModalList" class="review-list"><p>กำลังโหลดรีวิว...</p></div></div><hr class="review-modal-divider"><h3>เขียนรีวิวของคุณ</h3><p>แบ่งปันประสบการณ์จริงเพื่อช่วยคนในชุมชนตัดสินใจ</p><form id="reviewForm"><input id="reviewShopId" name="shop_id" type="hidden"><label>คะแนน<select name="rating" required><option value="5">★★★★★ 5 — ดีมาก</option><option value="4">★★★★☆ 4 — ดี</option><option value="3">★★★☆☆ 3 — ปานกลาง</option><option value="2">★★☆☆☆ 2 — ควรปรับปรุง</option><option value="1">★☆☆☆☆ 1 — ไม่พอใจ</option></select></label><label>ความคิดเห็น<textarea name="comment" rows="5" maxlength="1000" placeholder="เล่าถึงสินค้า บริการ บรรยากาศ หรือสิ่งที่ประทับใจ" required></textarea></label><button type="submit" class="primary submit">ส่งรีวิว</button></form></div></div>
 
-<div id="promotionModal" class="modal hidden"><div class="backdrop" data-close="promotionModal"></div><div class="modal-card small"><button class="close" data-close="promotionModal">×</button><h2 id="promotionFormTitle">เพิ่มโปรโมชั่น</h2><p>ร้าน: <b id="promotionShopName"></b></p><p class="promotion-limit-note">สร้างโปรล่วงหน้าได้ไม่จำกัด แต่ช่วงเวลาใช้งานซ้อนกันได้สูงสุด 3 โปรโมชั่นต่อร้าน</p><form id="promotionForm"><input name="id" type="hidden"><input name="shop_id" type="hidden"><label>หัวข้อโปรโมชั่น<input name="title" maxlength="120" placeholder="เช่น ซื้อ 2 แถม 1" required></label><label>ข้อความเด่น<input name="discount_text" maxlength="40" placeholder="เช่น ลด 20%"></label><label>รายละเอียด<textarea name="description" rows="4" maxlength="1000"></textarea></label><input name="existing_image_url" type="hidden"><label>รูปโปรโมชั่น<input name="promotion_image" type="file" accept="image/jpeg,image/png,image/webp"><small class="form-help"><b>แนะนำขนาด 1200 × 900 px (อัตราส่วน 4:3)</b><br>เลือกรูปจากมือถือหรือคอมพิวเตอร์ได้สูงสุด 20 MB ระบบจะย่อและแปลงเป็น WebP อัตโนมัติก่อนอัปโหลดจริงให้ไม่เกินประมาณ 900 KB</small></label><div id="promotionImagePreview" class="promotion-image-preview"><small>ยังไม่ได้เลือกรูป</small></div><details class="advanced-image-url"><summary>ใช้ลิงก์รูปภาพแทน (ตัวเลือกเสริม)</summary><label>ลิงก์รูปโปรโมชั่น<input name="image_url" type="url" placeholder="https://..."></label></details><div class="form-grid"><label>เริ่มใช้<input name="starts_at" type="datetime-local"></label><label>สิ้นสุด<input name="ends_at" type="datetime-local"></label></div><div class="promotion-options"><label class="check"><input name="active" type="checkbox" checked> เปิดใช้งานโปรโมชั่น</label><label class="check"><input name="featured" type="checkbox"> ปักหมุดเป็นโปรเด่น</label></div><button type="submit" class="primary submit">บันทึกโปรโมชั่น</button></form></div></div>
+<div id="promotionModal" class="modal hidden"><div class="backdrop" data-close="promotionModal"></div><div class="modal-card small"><button class="close" data-close="promotionModal">×</button><h2 id="promotionFormTitle">เพิ่มโปรโมชั่น</h2><p>ร้าน: <b id="promotionShopName"></b></p><p class="promotion-limit-note">สร้างโปรล่วงหน้าได้ไม่จำกัด แต่ช่วงเวลาใช้งานซ้อนกันได้สูงสุด 3 โปรโมชั่นต่อร้าน</p><form id="promotionForm"><input name="id" type="hidden"><input name="shop_id" type="hidden"><label>หัวข้อโปรโมชั่น<input name="title" maxlength="120" placeholder="เช่น ซื้อ 2 แถม 1" required></label><label>ข้อความเด่น<input name="discount_text" maxlength="40" placeholder="เช่น ลด 20%"></label><label>รายละเอียด<textarea name="description" rows="4" maxlength="1000"></textarea></label><input name="existing_image_url" type="hidden"><label>รูปโปรโมชั่น<input name="promotion_image" type="file" accept="image/jpeg,image/png,image/webp"><small class="form-help"><b>แนะนำขนาด 1200 × 900 px (อัตราส่วน 4:3)</b><br>เลือกรูปจากมือถือหรือคอมพิวเตอร์ได้สูงสุด 20 MB ระบบจะย่อและแปลงเป็น WebP อัตโนมัติก่อนอัปโหลดจริงให้ไม่เกินประมาณ 450 KB</small></label><div id="promotionImagePreview" class="promotion-image-preview"><small>ยังไม่ได้เลือกรูป</small></div><details class="advanced-image-url"><summary>ใช้ลิงก์รูปภาพแทน (ตัวเลือกเสริม)</summary><label>ลิงก์รูปโปรโมชั่น<input name="image_url" type="url" placeholder="https://..."></label></details><div class="form-grid"><label>เริ่มใช้<input name="starts_at" type="datetime-local"></label><label>สิ้นสุด<input name="ends_at" type="datetime-local"></label></div><div class="promotion-options"><label class="check"><input name="active" type="checkbox" checked> เปิดใช้งานโปรโมชั่น</label><label class="check"><input name="featured" type="checkbox"> ปักหมุดเป็นโปรเด่น</label></div><button type="submit" class="primary submit">บันทึกโปรโมชั่น</button></form></div></div>
 
 <div id="managePromotionsModal" class="modal hidden"><div class="backdrop" data-close="managePromotionsModal"></div><div class="modal-card"><button class="close" data-close="managePromotionsModal">×</button><h2>จัดการโปรโมชั่น</h2><p>ร้าน: <b id="managePromotionShopName"></b></p><input id="managePromotionShopId" type="hidden"><div id="ownerPromotionList" class="owner-promotion-list"></div></div></div>
 
@@ -411,7 +411,7 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
-<script src="app.js?v=0.5.22.99"></script>
+<script src="app.js?v=0.5.22.100"></script>
 
 <nav class="unified-app-dock" aria-label="เมนูหลัก">
   <button type="button" data-dock-action="home" aria-label="หน้าหลัก">
@@ -428,7 +428,7 @@ if ('serviceWorker' in navigator) {
   </button>
 </nav>
 
-<script src="order.js?v=0.5.22.99"></script>
+<script src="order.js?v=0.5.22.100"></script>
 
 
 <script>
