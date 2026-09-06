@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.101 Rider Availability Main UI loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.102 Delivery Shop Filter loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -711,7 +711,8 @@
   }
 
 
-  let shops = [], shopIndex = [], featuredShops = [], favoriteShops = [], categories = [], promotions = [], reviewStats = {}, favorites = new Set(), currentCategory = 'all', session = null, profile = null, shopSort = 'recommended', shopOnlyOpen = false, shopOnlyPromo = false, shopTotalCount = 0, shopPage = 0, shopLoading = false;
+  let shops = [], shopIndex = [], featuredShops = [], favoriteShops = [], categories = [], promotions = [], reviewStats = {}, favorites = new Set(), currentCategory = 'all', session = null, profile = null, shopSort = 'recommended', shopOnlyOpen = false, shopOnlyPromo = false, shopDeliveryOnly = false, shopTotalCount = 0, shopPage = 0, shopLoading = false;
+  let projectDeliveryShopIds = new Set();
   const SHOP_PAGE_SIZE = 10;
   let map, mapMarkers = [], mapMarkerLayer = null, userLocation = null, userMarker = null, userAccuracyCircle = null, mapFilterMode = 'all', mapCategoryFilter = 'all';
   const $ = id => document.getElementById(id);
@@ -1009,6 +1010,7 @@
       if(mapFilterMode==='featured'&&!shop.featured)return false;
       if(mapFilterMode==='promo'&&!visiblePromotionForShop(shop.id))return false;
       if(mapCategoryFilter!=='all'&&String(shop.category_id)!==String(mapCategoryFilter))return false;
+      if(shopDeliveryOnly&&!shopHasDelivery(shop))return false;
       return true;
     });
   }
@@ -1040,13 +1042,37 @@
 
   async function loadShopIndex(){
     if(!db){ shopIndex=DEMO; return; }
-    const {data,error}=await db.from('market_shops')
-      .select('id,name,description,address,landmark,category_id,created_at,featured,latitude,longitude,opening_hours,temporarily_closed,open_24_hours,category:market_categories(id,name,icon)')
-      .eq('status','approved')
-      .order('created_at',{ascending:false});
-    if(error)throw error;
-    shopIndex=data||[];
+    const [shopResult,accessResult,settingResult]=await Promise.all([
+      db.from('market_shops')
+        .select('id,name,description,address,landmark,category_id,created_at,featured,latitude,longitude,opening_hours,temporarily_closed,open_24_hours,delivery,lineman,grab,shopeefood,category:market_categories(id,name,icon)')
+        .eq('status','approved')
+        .order('created_at',{ascending:false}),
+      db.from('market_order_shop_access').select('shop_id').eq('enabled',true).limit(5000),
+      db.from('market_shop_order_settings').select('shop_id').eq('enabled',true).limit(5000)
+    ]);
+    if(shopResult.error)throw shopResult.error;
+    shopIndex=shopResult.data||[];
+    if(accessResult.error||settingResult.error){
+      projectDeliveryShopIds=new Set();
+      console.debug('Delivery shop filter fallback:',accessResult.error?.message||settingResult.error?.message);
+    }else{
+      const allowed=new Set((accessResult.data||[]).map(row=>String(row.shop_id)));
+      projectDeliveryShopIds=new Set((settingResult.data||[]).map(row=>String(row.shop_id)).filter(id=>allowed.has(id)));
+    }
   }
+
+  function shopHasDelivery(shop){
+    return Boolean(
+      shop?.delivery||shop?.lineman||shop?.grab||shop?.shopeefood||
+      (globalDeliveryEnabled&&projectDeliveryShopIds.has(String(shop?.id||'')))
+    );
+  }
+
+  window.marketSetDeliveryShopFilter=async enabled=>{
+    shopDeliveryOnly=Boolean(enabled);
+    await resetShopList({scroll:true});
+    return shopDeliveryOnly;
+  };
 
   function orderedShopIndex(){
     const q=$('searchInput')?.value.trim().toLowerCase()||'';
@@ -1055,6 +1081,7 @@
       if(q&&![shop.name,shop.description,shop.address,shop.category?.name].filter(Boolean).join(' ').toLowerCase().includes(q))return false;
       if(shopOnlyOpen&&openState(shop).open!==true)return false;
       if(shopOnlyPromo&&!visiblePromotionForShop(shop.id))return false;
+      if(shopDeliveryOnly&&!shopHasDelivery(shop))return false;
       return true;
     });
     list.sort((a,b)=>{
@@ -3223,7 +3250,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.22.101', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.22.102', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
