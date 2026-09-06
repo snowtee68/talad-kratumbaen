@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.102 Delivery Shop Filter loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.103 Admin Shop Search loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -1085,6 +1085,11 @@
       return true;
     });
     list.sort((a,b)=>{
+      if(shopDeliveryOnly){
+        const aProject=globalDeliveryEnabled&&projectDeliveryShopIds.has(String(a?.id||''));
+        const bProject=globalDeliveryEnabled&&projectDeliveryShopIds.has(String(b?.id||''));
+        if(aProject!==bProject)return aProject?-1:1;
+      }
       const ar=ratingForShop(a.id),br=ratingForShop(b.id);
       if(shopSort==='rating')return (br.average-ar.average)||(br.count-ar.count);
       if(shopSort==='newest')return new Date(b.created_at||0)-new Date(a.created_at||0);
@@ -2260,6 +2265,26 @@
 
 
   let adminActiveView='home';
+  let adminPendingShops=[];
+  let adminAllShops=[];
+  function adminShopMatchesSearch(shop,query){
+    if(!query)return true;
+    const statusText=({pending:'รออนุมัติ pending',approved:'อนุมัติแล้ว approved',rejected:'ไม่อนุมัติ rejected'})[shop?.status]||shop?.status||'';
+    const searchable=[shop?.name,shop?.category?.name,shop?.phone,shop?.address,shop?.landmark,shop?.zone,statusText]
+      .filter(Boolean).join(' ').toLocaleLowerCase('th');
+    return searchable.includes(query);
+  }
+  function renderAdminShopLists(){
+    const input=$('adminShopSearchInput');
+    const query=String(input?.value||'').trim().toLocaleLowerCase('th');
+    const pending=adminPendingShops.filter(shop=>adminShopMatchesSearch(shop,query));
+    const all=adminAllShops.filter(shop=>adminShopMatchesSearch(shop,query));
+    const pendingGrid=$('pendingGrid'),adminAllGrid=$('adminAllGrid'),status=$('adminShopSearchStatus'),clear=$('adminShopSearchClear');
+    if(pendingGrid)pendingGrid.innerHTML=pending.length?pending.map(s=>shopCard(s,true)).join(''):`<p>${query?'ไม่พบร้านรออนุมัติที่ตรงกับคำค้น':'ไม่มีร้านรออนุมัติ'}</p>`;
+    if(adminAllGrid)adminAllGrid.innerHTML=all.length?all.map(s=>shopCard(s,true)).join(''):`<p>${query?'ไม่พบร้านค้าที่ตรงกับคำค้น':'ยังไม่มีร้านค้า'}</p>`;
+    if(status)status.textContent=query?`พบ ${all.length} ร้าน จากทั้งหมด ${adminAllShops.length} ร้าน${pending.length?` • รออนุมัติ ${pending.length} ร้าน`:''}`:`ร้านค้าทั้งหมด ${adminAllShops.length} ร้าน • รออนุมัติ ${adminPendingShops.length} ร้าน`;
+    if(clear)clear.classList.toggle('hidden',!query);
+  }
   function adminViewHeader(title,subtitle=''){
     return `<div class="admin-view-head"><div><h3>${title}</h3>${subtitle?`<small class="muted">${subtitle}</small>`:''}</div><button type="button" class="ghost admin-back-home" data-admin-nav="home">← เมนู Admin</button></div>`;
   }
@@ -2300,7 +2325,7 @@
     const pending=$('pendingGrid'),all=$('adminAllGrid');
     if(pending&&all){
       const children=Array.from(panel.children);const start=children.indexOf(pending.previousElementSibling);const end=children.indexOf(all);
-      if(start>=0&&end>=start){const wrap=document.createElement('section');wrap.dataset.adminView='shops';wrap.className='admin-shops-view';wrap.innerHTML=adminViewHeader('🏪 ร้านค้า','อนุมัติ แก้ไข และกำหนดสิทธิ์ Delivery รายร้าน');panel.insertBefore(wrap,children[start]);for(let i=start;i<=end;i++)wrap.appendChild(children[i]);}
+      if(start>=0&&end>=start){const wrap=document.createElement('section');wrap.dataset.adminView='shops';wrap.className='admin-shops-view';wrap.innerHTML=adminViewHeader('🏪 ร้านค้า','อนุมัติ แก้ไข และกำหนดสิทธิ์ Delivery รายร้าน')+`<div class="admin-shop-search"><label for="adminShopSearchInput">ค้นหาร้านค้า</label><div class="admin-shop-search-row"><input id="adminShopSearchInput" type="search" autocomplete="off" placeholder="ชื่อร้าน หมวดหมู่ เบอร์โทร ที่อยู่ หรือสถานะ"><button id="adminShopSearchClear" type="button" class="secondary hidden">ล้างคำค้น</button></div><small id="adminShopSearchStatus" class="muted" aria-live="polite"></small></div>`;panel.insertBefore(wrap,children[start]);for(let i=start;i<=end;i++)wrap.appendChild(children[i]);$('adminShopSearchInput')?.addEventListener('input',renderAdminShopLists);$('adminShopSearchClear')?.addEventListener('click',()=>{const input=$('adminShopSearchInput');if(input){input.value='';input.focus();}renderAdminShopLists();});}
     }
 
     const coupon=document.createElement('section');coupon.dataset.adminView='coupons';coupon.className='admin-coupon-view';coupon.innerHTML=adminViewHeader('🎟️ คูปอง','ระบบคูปองใช้จุดจัดการเดิมเพื่อไม่เปลี่ยน logic ที่ใช้งานอยู่')+`<div class="admin-home-note"><b>จัดการคูปองจากจุดเดิมได้เหมือนเดิม</b><p class="muted">คูปอง Mission ตั้งจากหน้า Mission ส่วนคูปองร้านค้าสร้างจาก “จัดการโปรโมชั่น” ของร้านนั้น</p><div class="admin-coupon-links"><button type="button" class="secondary" data-admin-nav="mission">🎯 ไปตั้งคูปอง Mission</button><button type="button" class="secondary" data-admin-nav="shops">🏪 ไปเลือกร้านและจัดการโปรโมชั่น</button></div></div>`;panel.appendChild(coupon);
@@ -2331,11 +2356,11 @@
       if(deliveryAccessError)console.warn('Delivery access:',deliveryAccessError.message);
       const accessMap=new Map((deliveryAccess||[]).map(x=>[String(x.shop_id),Boolean(x.enabled)]));
       const withAccess=(allShops||[]).map(s=>({...s,delivery_access_known:true,delivery_access_enabled:accessMap.get(String(s.id))===true}));
-      $('pendingGrid').innerHTML=(pending||[]).length?(pending||[]).map(s=>shopCard({...s,delivery_access_known:true,delivery_access_enabled:false},true)).join(''):'<p>ไม่มีร้านรออนุมัติ</p>';
+      adminPendingShops=(pending||[]).map(s=>({...s,delivery_access_known:true,delivery_access_enabled:false}));
+      adminAllShops=withAccess;
+      renderAdminShopLists();
       loadMissionRewardAdmin().catch(()=>{});
       loadDeliverySystemAdmin().catch(()=>{});
-      const adminAllGrid=$('adminAllGrid');
-      if(adminAllGrid)adminAllGrid.innerHTML=withAccess.length?withAccess.map(s=>shopCard(s,true)).join(''):'<p>ยังไม่มีร้านค้า</p>';
     }
   }
 
@@ -3250,7 +3275,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.22.102', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.22.103', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });

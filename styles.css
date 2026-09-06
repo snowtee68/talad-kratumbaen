@@ -903,3 +903,12 @@ fieldset{border:1px solid var(--line);border-radius:14px;padding:14px}legend{fon
 
 /* v0.5.22.92: terms modal must always be above normal modals */
 #termsModal{z-index:2200!important}
+
+/* v0.5.22.103: quick shop search inside the Admin shop view */
+.admin-shop-search{margin:16px 0 22px;padding:16px;border:1px solid #eadfdb;border-radius:16px;background:#fffaf7}
+.admin-shop-search>label{display:block;margin-bottom:8px;font-weight:800;color:#4b302b}
+.admin-shop-search-row{display:flex;gap:10px;align-items:stretch}
+.admin-shop-search-row input{flex:1;min-width:0;margin:0;background:#fff}
+.admin-shop-search-row button{flex:0 0 auto;white-space:nowrap}
+.admin-shop-search small{display:block;margin-top:8px}
+@media(max-width:600px){.admin-shop-search-row{flex-direction:column}.admin-shop-search-row button{width:100%}}
