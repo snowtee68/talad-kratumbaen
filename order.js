@@ -481,7 +481,14 @@
     if(switchPickup){e.preventDefault();switchDeliveryToPickup(switchPickup.dataset.switchPickupBatch);return;}
 if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(false);if(e.target.closest('#closeDeliveryFareInfoBtn'))return closeModal();
       if(e.target?.closest?.('#orderNotifyBanner')){
-        e.preventDefault();markNotificationAreaViewed();session?openAccountHub():requireLogin();
+        e.preventDefault();
+        markNotificationAreaViewed();
+        if(!session)return requireLogin();
+        // This banner is raised for seller actions (new order / payment slip).
+        // Open the dedicated seller inbox instead of the customer order history.
+        return Number(orderNotifyState.activeSellerOrders||0)>0
+          ? openSellerOrdersFromNav()
+          : openAccountHub('customer');
       }
     });
     // Bottom navigation in the base app may have its own click handlers.
@@ -1064,7 +1071,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=0.5.22.105',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=0.5.22.106',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
@@ -1383,6 +1390,19 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
     const d=orderDeepLink(sourceUrl||location.href);
     if(!d||!session)return false;
     orderDateFilter='all';
+    // Older push payloads sometimes contain only order_id (or default to the
+    // customer tab). If the signed-in user owns that order's shop, the seller
+    // destination is authoritative.
+    if(d.orderId&&d.tab!=='seller'){
+      try{
+        const sid=await resolveSellerShopFromDeepLink(d);
+        if(sid){
+          await openSellerOrders(sid,d.orderId);
+          clearOrderDeepLink();
+          return true;
+        }
+      }catch(_e){}
+    }
     if(d.tab==='seller'){
       const sid=await resolveSellerShopFromDeepLink(d);
       if(sid)await openSellerOrders(sid,d.orderId||null);
