@@ -252,11 +252,14 @@
     if(orderNotifySoundRepeatTimer){clearInterval(orderNotifySoundRepeatTimer);orderNotifySoundRepeatTimer=null}
   }
   function startOrderSoundRepeat(){
-    // V0.5.22.96: notification sounds are event-based only.
-    // Do not repeat sound merely because an unread banner/badge remains.
-    // Repeating here caused customer devices to ring every 20 seconds from payment
-    // through preparing / waiting-rider states.
     stopOrderSoundRepeat();
+    // Seller-only alarm while this page is open. Customer status updates never call
+    // this function, so buyers are not disturbed by a repeating sound.
+    orderNotifySoundRepeatTimer=setInterval(()=>{
+      if(document.visibilityState==='visible'&&Number(orderNotifyState.activeSellerOrders||0)>0){
+        playOrderNotificationSound();
+      }
+    },10000);
   }
   function renderOrderNotifyBadge(){
     const nav=document.getElementById('marketOrdersBtn'),b=nav?.querySelector('.order-notify-badge');
@@ -265,13 +268,14 @@
     if(b)b.textContent=n>99?'99+':String(n);
     nav?.classList.toggle('has-order-notify',n>0);
   }
-  function showOrderNotifyBanner(title,detail,count=1){
+  function showOrderNotifyBanner(title,detail,count=1,{repeatSellerSound=false}={}){
     const b=document.getElementById('orderNotifyBanner');if(!b)return;
     b.querySelector('.order-notify-title').textContent=title;b.querySelector('.order-notify-detail').textContent=detail||'แตะเพื่อดูออเดอร์';
     b.classList.add('show');clearTimeout(b._hideTimer);b._hideTimer=setTimeout(()=>b.classList.remove('show'),6500);
     orderNotifyState.unread=Math.min(999,Number(orderNotifyState.unread||0)+Math.max(1,count));saveOrderNotifyState();renderOrderNotifyBadge();
-    // One sound per real notification event. No repeating loop.
+    // Every real event sounds once; seller action events may also start the alarm loop.
     playOrderNotificationSound();
+    if(repeatSellerSound)startOrderSoundRepeat();
   }
   function markNotificationAreaViewed(){
     orderNotifyState.unread=0;saveOrderNotifyState();renderOrderNotifyBadge();stopOrderSoundRepeat();document.getElementById('orderNotifyBanner')?.classList.remove('show');
@@ -294,13 +298,14 @@
       const sellerIds=await getMySellerShopIds(),events=[],now=Date.now();
       let sellerOrders=[],customerOrders=[];
       if(sellerIds.length){
-        const {data}=await db.from('market_orders').select('id,shop_id,status,created_at,updated_at,shop_response_due_at,payment_submitted_at').in('shop_id',sellerIds).order('created_at',{ascending:false}).limit(100);
+        const {data}=await db.from('market_orders').select('id,shop_id,status,created_at,updated_at,shop_response_due_at,payment_submitted_at,shop_viewed_at').in('shop_id',sellerIds).order('created_at',{ascending:false}).limit(100);
         sellerOrders=data||[];
       }
       // Always keep the nav badge synced with real current seller orders.
       // pending_shop = new order waiting for shop; payment_review = payment waiting for shop review.
       orderNotifyState.activeSellerOrders=sellerOrders.filter(o=>['pending_shop','payment_review'].includes(o.status)).length;
       renderOrderNotifyBadge();
+      if(orderNotifyState.activeSellerOrders===0)stopOrderSoundRepeat();
       {
         const {data}=await db.from('market_orders').select('id,status,created_at,updated_at,shop_id').eq('customer_id',session.user.id).order('created_at',{ascending:false}).limit(100);
         customerOrders=data||[];
@@ -327,7 +332,17 @@
         const key='seller:'+o.id,age=now-new Date(o.created_at).getTime(),last=Number(orderNotifyState.reminded[key]||0);
         if(age>=3*60*1000&&!orderNotifyState.viewed[key]&&now-last>=3*60*1000){events.push({type:'seller_reminder',id:o.id});orderNotifyState.reminded[key]=now;}
       }
-      if(!orderNotifyBaseline){orderNotifyBaseline=true;saveOrderNotifyState();return;}
+      if(!orderNotifyBaseline){
+        orderNotifyBaseline=true;saveOrderNotifyState();
+        const unseenSellerActions=sellerOrders.filter(o=>['pending_shop','payment_review'].includes(o.status)&&!o.shop_viewed_at);
+        if(unseenSellerActions.length){
+          const paymentCount=unseenSellerActions.filter(o=>o.status==='payment_review').length;
+          const orderCount=unseenSellerActions.length-paymentCount;
+          const parts=[];if(orderCount)parts.push('ออเดอร์ใหม่ '+orderCount);if(paymentCount)parts.push('สลิปรอตรวจ '+paymentCount);
+          showOrderNotifyBanner('🔔 ร้านมีรายการรอตรวจ',parts.join(' · '),unseenSellerActions.length,{repeatSellerSound:true});
+        }
+        return;
+      }
       if(events.length){
         const counts=events.reduce((a,e)=>(a[e.type]=(a[e.type]||0)+1,a),{});
         let title='มีอัปเดตออเดอร์ '+events.length+' รายการ',parts=[];
@@ -340,7 +355,8 @@
         if(counts.customer_preparing)parts.push('ตรวจสลิปแล้ว · กำลังเตรียม '+counts.customer_preparing);
         if(counts.customer_ready)parts.push('สินค้าพร้อม '+counts.customer_ready);
         if(counts.customer_cancelled)parts.push('ออเดอร์ยกเลิก '+counts.customer_cancelled);
-        showOrderNotifyBanner(title,parts.join(' · '),events.length);
+        const repeatSellerSound=Boolean(counts.seller_new||counts.seller_payment||counts.seller_reminder);
+        showOrderNotifyBanner(title,parts.join(' · '),events.length,{repeatSellerSound});
       }
       saveOrderNotifyState();
     }catch(err){console.warn('Order notification poll:',err?.message||err)}
@@ -545,7 +561,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
       const rtype=e.target.closest('#refundDestinationType');if(rtype)return renderRefundDestinationFields();
       const confirmRefund=e.target.closest('[data-confirm-refund]');if(confirmRefund)return customerConfirmRefund(confirmRefund.dataset.confirmRefund);
       const cancelCustomer=e.target.closest('[data-customer-cancel-order]');if(cancelCustomer)return customerCancelOrder(cancelCustomer.dataset.customerCancelOrder);
-      const cancelProblem=e.target.closest('[data-cancel-problem-shop]');if(cancelProblem)return customerCancelProblemShop(cancelProblem.dataset.cancelProblemShop);const proof=e.target.closest('[data-view-delivery-proof]');if(proof)return viewDeliveryProof(proof.dataset.viewDeliveryProof);const confirmDelivery=e.target.closest('[data-confirm-delivery]');if(confirmDelivery)return customerConfirmDelivery(confirmDelivery.dataset.confirmDelivery);const reportDelivery=e.target.closest('[data-report-delivery-issue]');if(reportDelivery)return customerReportDeliveryIssue(reportDelivery.dataset.reportDeliveryIssue);const ship=e.target.closest('[data-create-delivery]');if(ship)return createDelivery(ship.dataset.createDelivery);
+      const cancelProblem=e.target.closest('[data-cancel-problem-shop]');if(cancelProblem)return customerCancelProblemShop(cancelProblem.dataset.cancelProblemShop);const proof=e.target.closest('[data-view-delivery-proof]');if(proof)return viewDeliveryProof(proof.dataset.viewDeliveryProof);const confirmDelivery=e.target.closest('[data-confirm-delivery]');if(confirmDelivery)return customerConfirmDelivery(confirmDelivery.dataset.confirmDelivery);const ship=e.target.closest('[data-create-delivery]');if(ship)return createDelivery(ship.dataset.createDelivery);
       const hubtab=e.target.closest('[data-hub-tab]');if(hubtab)return document.getElementById('hubContent')?renderHubTab(hubtab.dataset.hubTab):openAccountHub(hubtab.dataset.hubTab);
       const cot=e.target.closest('[data-customer-order-tab]');if(cot){customerOrderTab=cot.dataset.customerOrderTab;customerOrderPage=1;return renderHubTab('customer');}
       const sot=e.target.closest('[data-seller-order-tab]');if(sot){sellerOrderTab=sot.dataset.sellerOrderTab;sellerOrderPage=1;const sid=document.getElementById('sellerShopId')?.value;return sid?(document.getElementById('sellerOrdersOnly')?openSellerOrders(sid):openSellerShop(sid)):null;}
@@ -1048,7 +1064,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=0.5.22.103',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=0.5.22.105',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
@@ -1429,14 +1445,20 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
     return 'processing';
   }
   function deliveryBatchStatusText(s){return({creating:'กำลังสร้างงาน Rider',waiting_rider:'รอ Rider รับงาน',accepted:'Rider รับงานแล้ว',pickup_started:'Rider กำลังไปรับสินค้า',picked_up:'รับสินค้าครบแล้ว',delivering:'กำลังไปส่งลูกค้า',completed:'ส่งสำเร็จ',cancelled:'ยกเลิก'}[s]||s||'รออัปเดต')}
+  function deliveryAutoConfirmText(b){
+    if(!b?.delivery_arrived_at||b?.completed_at)return '';
+    const due=new Date(b.auto_confirm_due_at||new Date(b.delivery_arrived_at).getTime()+60*60*1000);
+    if(!Number.isFinite(due.getTime()))return '';
+    return `ระบบจะยืนยันและปิดงานอัตโนมัติภายในเวลา ${due.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})} น. หากมีปัญหา กรุณาโทรหา Rider หรือร้านค้าโดยตรง`;
+  }
   function deliveryBatchCard(b){
     const phone=b.rider_phone||'',done=b.status==='completed',arrived=!!b.delivery_arrived_at,issue=b.delivery_issue_status==='open';
     const effective=done?'ส่งสำเร็จ':arrived?'รอลูกค้ายืนยันรับสินค้า':deliveryBatchStatusText(b.status);
     const proof=arrived?(b.proof_deleted_at?`<div class="mo-muted">📷 หลักฐานการส่งมอบถูกลบตามนโยบายแล้ว</div>`:b.proof_path?`<button class="mo-secondary" data-view-delivery-proof="${b.id}">📷 ดูหลักฐานการส่งมอบ</button>`:''):'';
-    const customerActions=arrived&&!done&&!issue?`<div class="mo-actions"><button class="mo-primary" data-confirm-delivery="${b.id}">✅ ได้รับสินค้าแล้ว</button><button class="mo-danger" data-report-delivery-issue="${b.id}">⚠️ ยังไม่ได้รับ / มีปัญหา</button></div>`:'';
+    const customerActions=arrived&&!done&&!issue?`<div class="ready-banner"><b>⏱ รอยืนยันการรับสินค้า 1 ชั่วโมง</b><br><small>${esc(deliveryAutoConfirmText(b))}</small></div><div class="mo-actions"><button class="mo-primary" data-confirm-delivery="${b.id}">✅ ได้รับสินค้าแล้ว</button></div>`:'';
     const switchToPickup=(!b.accepted_at&&['creating','waiting_rider','created','open'].includes(String(b.status||'')))?`<div class="mo-actions switch-pickup-wrap"><button type="button" class="mo-secondary switch-pickup-btn" data-switch-pickup-batch="${b.id}">🏪 เปลี่ยนเป็นมารับเองที่ร้าน</button></div><div class="mo-muted"><small>เปลี่ยนได้เฉพาะก่อน Rider รับงาน · ออเดอร์สินค้าไม่ถูกยกเลิก</small></div>`:'';
     const issueBox=issue?`<div class="warning-banner"><b>⚠️ แจ้งปัญหาการส่งมอบแล้ว</b><br>${esc(b.delivery_issue_note||'')}<br><small>รูปหลักฐานจะถูกเก็บไว้จนกว่าปัญหาจะถูกแก้ไข</small></div>`:'';
-    const times=`<div class="mo-muted" style="margin-top:6px">${b.accepted_at?`รับงาน ${new Date(b.accepted_at).toLocaleString('th-TH')} · `:''}${b.picked_up_at?`รับสินค้าครบ ${new Date(b.picked_up_at).toLocaleString('th-TH')} · `:''}${b.delivery_arrived_at?`ถึงปลายทาง ${new Date(b.delivery_arrived_at).toLocaleString('th-TH')} · `:''}${b.customer_confirmed_at?`ลูกค้ายืนยัน ${new Date(b.customer_confirmed_at).toLocaleString('th-TH')}`:''}</div>`;
+    const times=`<div class="mo-muted" style="margin-top:6px">${b.accepted_at?`รับงาน ${new Date(b.accepted_at).toLocaleString('th-TH')} · `:''}${b.picked_up_at?`รับสินค้าครบ ${new Date(b.picked_up_at).toLocaleString('th-TH')} · `:''}${b.delivery_arrived_at?`ถึงปลายทาง ${new Date(b.delivery_arrived_at).toLocaleString('th-TH')} · `:''}${b.customer_confirmed_at?`ลูกค้ายืนยัน ${new Date(b.customer_confirmed_at).toLocaleString('th-TH')}`:b.auto_confirmed_at?`ระบบยืนยันอัตโนมัติ ${new Date(b.auto_confirmed_at).toLocaleString('th-TH')}`:''}</div>`;
     return `<div class="delivery-track"><div class="order-card-head"><b>${done?'✅':'🛵'} ${esc(effective)}</b><span class="status-pill">${esc(String(b.id).slice(0,8).toUpperCase())}</span></div>${b.rider_name||phone?`<div class="rider-contact"><b>Rider: ${esc(b.rider_name||'ไม่ระบุชื่อ')}</b>${phone?` · ${esc(phone)} <a href="tel:${esc(phone)}">📞 โทรหา Rider</a>`:''}</div>`:`<div class="mo-muted">รอ Rider รับงานและส่งข้อมูลติดต่อ</div>`}<div class="delivery-steps"><span class="${['accepted','pickup_started','picked_up','delivering','completed'].includes(b.status)?'done':''}">Rider รับงาน</span><span class="${['picked_up','delivering','completed'].includes(b.status)?'done':b.status==='pickup_started'?'active':''}">รับสินค้า</span><span class="${arrived||done?'done':b.status==='delivering'?'active':''}">ถึงปลายทาง</span><span class="${done?'done':arrived?'active':''}">ลูกค้ายืนยัน</span></div>${b.delivery_fee?`<small>ค่าส่งประมาณ ${money(b.delivery_fee)} บาท${b.distance_km?` · ${Number(b.distance_km).toFixed(1)} กม.`:''}</small>`:''}${times}${issueBox}<div class="mo-actions">${proof}</div>${switchToPickup}${customerActions}</div>`;
   }
   function deliveryProgress(g,activeOrders){
@@ -1462,7 +1484,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
       const seenState=!o.shop_viewed_at&&!['cancelled','completed'].includes(o.status)?`<div class="warning-banner">👀 ร้านยังไม่เปิดดูออเดอร์นี้</div>`:`<div class="mo-muted">👀 ร้านเปิดดูออเดอร์แล้ว</div>`;const pending=o.status==='pending_shop'?`<div class="warning-banner">${overdue?'⚠️ ร้านยังไม่ตอบรับเกิน 15 นาที':'⏳ รอร้านตรวจและรับออเดอร์'}${o.shop?.phone?`<br><a href="tel:${esc(o.shop.phone)}">📞 โทรหาร้าน</a>`:''}</div><div class="mo-actions"><button class="mo-danger" data-cancel-shop-order="${o.id}">ยกเลิกร้านนี้</button></div>`:'';
       const revision=o.status==='awaiting_customer_confirmation'?`<div class="warning-banner"><b>ร้านขอแก้ไขรายการ</b><br>${esc(o.revision_note||'')}<br>ยอดใหม่ <b>${money(o.revision_subtotal||o.subtotal)} บาท</b></div><div class="mo-actions"><button class="mo-primary" data-confirm-revision="${o.id}">✅ ยืนยันรายการและยอดใหม่</button><button class="mo-danger" data-cancel-shop-order="${o.id}">ยกเลิกร้านนี้</button></div>`:'';
       const pay=o.status==='awaiting_payment'?`<div class="ready-banner">✅ ร้านรับออเดอร์แล้ว กรุณาตรวจยอดก่อนชำระ</div><div class="mo-actions"><button class="mo-primary" data-pay-order="${o.id}">ชำระ/แจ้งชำระเงิน</button><button class="mo-danger" data-cancel-shop-order="${o.id}">ยกเลิกร้านนี้</button></div>`:'';
-      return `<div class="payment-card"><div class="order-card-head"><b>🏪 ${esc(o.shop?.name||'ร้าน')}</b><span class="status-pill status-${esc(o.status)}">${esc(statusText(o.status))}</span></div><div class="order-items">${(o.items||[]).map(i=>renderOrderItem(i,true)).join('')}</div><b>${money(o.subtotal)} บาท</b>${o.pickup_completed_at?`<div class="ready-banner">✅ รับสินค้าจากร้านนี้แล้ว<br><small>${new Date(o.pickup_completed_at).toLocaleString('th-TH')}</small></div>`:''}${o.revision_confirmed_at&&o.revision_note?`<div class="mo-muted">รายการที่ตกลงแก้ไข: ${esc(o.revision_note)}</div>`:''}${o.rejection_reason?`<div class="warning-banner">ยกเลิก: ${esc(o.rejection_reason)}</div>`:''}${seenState}${pending}${revision}${refund}${pay}${g.fulfillment_method==='delivery'&&!['cancelled','completed'].includes(o.status)&&!batchedIds.has(String(o.id))?`<div class="mo-actions"><button class="mo-secondary" data-cancel-problem-shop="${o.id}">⚠️ ร้านนี้ทำไม่ได้ / ตัดออก</button></div>`:''}</div>`;
+      return `<div class="payment-card"><div class="order-card-head"><b>🏪 ${esc(o.shop?.name||'ร้าน')}</b><span class="status-pill status-${esc(o.status)}">${esc(statusText(o.status))}</span></div>${o.shop?.phone?`<div class="rider-contact"><a href="tel:${esc(o.shop.phone)}">📞 โทรหาร้าน ${esc(o.shop.phone)}</a></div>`:'' }<div class="order-items">${(o.items||[]).map(i=>renderOrderItem(i,true)).join('')}</div><b>${money(o.subtotal)} บาท</b>${o.pickup_completed_at?`<div class="ready-banner">✅ รับสินค้าจากร้านนี้แล้ว<br><small>${new Date(o.pickup_completed_at).toLocaleString('th-TH')}</small></div>`:''}${o.revision_confirmed_at&&o.revision_note?`<div class="mo-muted">รายการที่ตกลงแก้ไข: ${esc(o.revision_note)}</div>`:''}${o.rejection_reason?`<div class="warning-banner">ยกเลิก: ${esc(o.rejection_reason)}</div>`:''}${seenState}${pending}${revision}${refund}${pay}${g.fulfillment_method==='delivery'&&!['cancelled','completed'].includes(o.status)&&!batchedIds.has(String(o.id))?`<div class="mo-actions"><button class="mo-secondary" data-cancel-problem-shop="${o.id}">⚠️ ร้านนี้ทำไม่ได้ / ตัดออก</button></div>`:''}</div>`;
     }).join('')}${deliveryProgress(g,activeOrders)}${deliveryState}</article>`;
   }
   function orderDateMatches(dateValue){
@@ -1493,7 +1515,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
   }
   async function renderCustomerHub(box){
     box.innerHTML='กำลังโหลด...';
-    const {data:groups,error}=await db.from('market_delivery_groups').select('*,orders:market_orders(id,shop_id,subtotal,status,payment_ref,payment_submitted_at,rejection_reason,shop_response_due_at,shop_accepted_at,shop_viewed_at,pickup_completed_at,revision_note,revision_subtotal,revision_requested_at,revision_confirmed_at,refund_required,refund_status,refund_amount,refund_ref,refund_slip_path,refund_submitted_at,refund_confirmed_at,refund_destination_type,refund_destination_promptpay_type,refund_destination_value,refund_destination_bank,refund_destination_name,refund_destination_submitted_at,created_at,shop:market_shops(name,latitude,longitude,phone,landmark,address),items:market_order_items(product_name,unit_price,qty,options_json,note)),batches:market_delivery_batches(id,status,rider_job_id,rider_name,rider_phone,delivery_fee,distance_km,created_at,accepted_at,pickup_started_at,picked_up_at,delivering_at,delivery_arrived_at,proof_path,proof_uploaded_at,customer_confirmed_at,delivery_issue_status,delivery_issue_note,delivery_issue_at,proof_deleted_at,completed_at,batch_orders:market_delivery_batch_orders(order_id))').eq('customer_id',session.user.id).order('created_at',{ascending:false}).limit(100);
+    const {data:groups,error}=await db.from('market_delivery_groups').select('*,orders:market_orders(id,shop_id,subtotal,status,payment_ref,payment_submitted_at,rejection_reason,shop_response_due_at,shop_accepted_at,shop_viewed_at,pickup_completed_at,revision_note,revision_subtotal,revision_requested_at,revision_confirmed_at,refund_required,refund_status,refund_amount,refund_ref,refund_slip_path,refund_submitted_at,refund_confirmed_at,refund_destination_type,refund_destination_promptpay_type,refund_destination_value,refund_destination_bank,refund_destination_name,refund_destination_submitted_at,created_at,shop:market_shops(name,latitude,longitude,phone,landmark,address),items:market_order_items(product_name,unit_price,qty,options_json,note)),batches:market_delivery_batches(id,status,rider_job_id,rider_name,rider_phone,delivery_fee,distance_km,created_at,accepted_at,pickup_started_at,picked_up_at,delivering_at,delivery_arrived_at,auto_confirm_due_at,auto_confirmed_at,proof_path,proof_uploaded_at,customer_confirmed_at,delivery_issue_status,delivery_issue_note,delivery_issue_at,proof_deleted_at,completed_at,batch_orders:market_delivery_batch_orders(order_id))').eq('customer_id',session.user.id).order('created_at',{ascending:false}).limit(100);
     if(error){box.innerHTML=`<div class="warning-banner">${esc(error.message)}</div>`;return}
     const filtered=(groups||[]).filter(g=>orderDateMatches(g.created_at)&&orderSearchMatchesGroup(g));
     const buckets={waiting:[],processing:[],shipping:[],done:[]};
@@ -1560,7 +1582,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
     markSellerOrdersViewed(shopId);
     const [{data:shop},{data:orders,error}]=await Promise.all([
       db.from('market_shops').select('id,name,owner_id,status').eq('id',shopId).maybeSingle(),
-      db.from('market_orders').select('id,subtotal,status,payment_ref,payment_slip_path,payment_submitted_at,response_due_at,paid_at,customer_cancel_reason,customer_cancelled_at,rejection_reason,shop_response_due_at,shop_accepted_at,shop_viewed_at,pickup_completed_at,revision_note,revision_subtotal,revision_requested_at,revision_confirmed_at,refund_required,refund_status,refund_amount,refund_ref,refund_slip_path,refund_submitted_at,refund_confirmed_at,refund_destination_type,refund_destination_promptpay_type,refund_destination_value,refund_destination_bank,refund_destination_name,refund_destination_submitted_at,created_at,customer_id,group:market_delivery_groups(id,customer_name,customer_phone,delivery_address,fulfillment_method,pickup_requested_at,status,batches:market_delivery_batches(id,status,rider_job_id,rider_name,rider_phone,delivery_fee,distance_km,accepted_at,pickup_started_at,picked_up_at,delivering_at,delivery_arrived_at,proof_path,proof_uploaded_at,customer_confirmed_at,delivery_issue_status,delivery_issue_note,delivery_issue_at,proof_deleted_at,completed_at,batch_orders:market_delivery_batch_orders(order_id))),items:market_order_items(product_name,unit_price,qty,options_json,note)').eq('shop_id',shopId).order('created_at',{ascending:false}).limit(50)
+      db.from('market_orders').select('id,subtotal,status,payment_ref,payment_slip_path,payment_submitted_at,response_due_at,paid_at,customer_cancel_reason,customer_cancelled_at,rejection_reason,shop_response_due_at,shop_accepted_at,shop_viewed_at,pickup_completed_at,revision_note,revision_subtotal,revision_requested_at,revision_confirmed_at,refund_required,refund_status,refund_amount,refund_ref,refund_slip_path,refund_submitted_at,refund_confirmed_at,refund_destination_type,refund_destination_promptpay_type,refund_destination_value,refund_destination_bank,refund_destination_name,refund_destination_submitted_at,created_at,customer_id,group:market_delivery_groups(id,customer_name,customer_phone,delivery_address,fulfillment_method,pickup_requested_at,status,batches:market_delivery_batches(id,status,rider_job_id,rider_name,rider_phone,delivery_fee,distance_km,accepted_at,pickup_started_at,picked_up_at,delivering_at,delivery_arrived_at,auto_confirm_due_at,auto_confirmed_at,proof_path,proof_uploaded_at,customer_confirmed_at,delivery_issue_status,delivery_issue_note,delivery_issue_at,proof_deleted_at,completed_at,batch_orders:market_delivery_batch_orders(order_id))),items:market_order_items(product_name,unit_price,qty,options_json,note)').eq('shop_id',shopId).order('created_at',{ascending:false}).limit(50)
     ]);
     if(error)return alert(error.message);
 
@@ -1723,7 +1745,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
     const batch=(o.group?.batches||[]).filter(b=>b.status!=='cancelled').find(b=>(b.batch_orders||[]).some(x=>String(x.order_id)===String(o.id)));
     if(!batch)return o.status==='ready'?`<div class="ready-banner">🛵 กำลังเตรียมสินค้า · ระบบเรียก Rider อัตโนมัติหลังยืนยันรับเงิน</div>`:'';
     const phone=batch.rider_phone||'',arrived=!!batch.delivery_arrived_at,done=batch.status==='completed',issue=batch.delivery_issue_status==='open';
-    const label=done?'ส่งสำเร็จ':arrived?'Rider ส่งมอบแล้ว · รอลูกค้ายืนยัน':deliveryBatchStatusText(batch.status);
+    const label=done?'ส่งสำเร็จ':arrived?'Rider ส่งมอบแล้ว · ระบบปิดงานภายใน 1 ชั่วโมง':deliveryBatchStatusText(batch.status);
     return `<div class="delivery-track"><b>🛵 ${esc(label)}</b>${batch.rider_name||phone?`<div class="rider-contact"><b>Rider: ${esc(batch.rider_name||'ไม่ระบุชื่อ')}</b>${phone?` · ${esc(phone)} <a href="tel:${esc(phone)}">📞 โทรหา Rider</a>`:''}</div>`:`<div class="mo-muted">รอ Rider รับงาน</div>`}${batch.delivery_fee?`<div class="mo-muted">ค่าส่งประมาณ ${money(batch.delivery_fee)} บาท${batch.distance_km?` · ${Number(batch.distance_km).toFixed(1)} กม.`:''}</div>`:''}${batch.accepted_at?`<div class="mo-muted">รับงาน ${new Date(batch.accepted_at).toLocaleString('th-TH')}</div>`:''}${batch.delivery_arrived_at?`<div class="mo-muted">ถึงปลายทาง ${new Date(batch.delivery_arrived_at).toLocaleString('th-TH')}</div>`:''}${batch.customer_confirmed_at?`<div class="mo-muted">ลูกค้ายืนยันรับ ${new Date(batch.customer_confirmed_at).toLocaleString('th-TH')}</div>`:''}${issue?`<div class="warning-banner">⚠️ ลูกค้าแจ้งปัญหา: ${esc(batch.delivery_issue_note||'')}</div>`:''}${batch.proof_path&&!batch.proof_deleted_at?`<div class="mo-actions"><button class="mo-secondary" data-view-delivery-proof="${batch.id}">📷 ดูหลักฐานส่งมอบ</button></div>`:batch.proof_deleted_at?`<div class="mo-muted">📷 หลักฐานถูกลบตามนโยบายแล้ว</div>`:''}</div>`;
   }
   function sellerOrderCard(o){
@@ -2094,13 +2116,6 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
     const {data,error}=await db.rpc('market_customer_confirm_delivery',{p_batch_id:batchId});
     if(error)return alert(error.message);
     alert('✅ ยืนยันได้รับสินค้าแล้ว ขอบคุณครับ');guideCustomerToGroup(data?.group_id||'','จัดส่งเสร็จสมบูรณ์ · รายการถูกเก็บไว้ในประวัติ');
-  }
-  async function customerReportDeliveryIssue(batchId){
-    const note=prompt('กรุณาระบุปัญหา\nเช่น ยังไม่ได้รับสินค้า / ส่งผิดบ้าน / สินค้าไม่ครบ');
-    if(note===null)return;if(!note.trim())return alert('กรุณาระบุปัญหา');
-    const {error}=await db.rpc('market_customer_report_delivery_issue',{p_batch_id:batchId,p_note:note.trim()});
-    if(error)return alert(error.message);
-    alert('รับแจ้งปัญหาแล้ว ระบบจะเก็บหลักฐานรูปไว้จนกว่าจะตรวจสอบเสร็จ');openAccountHub('customer');
   }
   async function customerConfirmRefund(orderId){
     if(!confirm('ยืนยันว่าคุณได้รับเงินคืนจากร้านครบแล้ว?'))return;const {data,error}=await db.rpc('market_customer_confirm_refund',{p_order_id:orderId});if(error)return alert(error.message);alert('ยืนยันได้รับเงินคืนแล้ว ขอบคุณครับ');openAccountHub('customer');

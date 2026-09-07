@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.103 Admin Shop Search loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.105 Seller Order Alarm loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -324,7 +324,7 @@
       <button type="button" class="primary rider-next-job" data-rider-proof-batch="${esc(job.batch_id)}">📷 ถ่ายภาพส่งมอบ / ถึงจุดส่ง</button>
       <small>ต้องแนบภาพส่งมอบก่อนจบขั้นตอนของ Rider</small>
     </div>`;
-    if(s==='delivering'&&job.delivery_arrived_at)return `<div class="rider-job-owned">✅ ถึงจุดส่งแล้ว · รอลูกค้ายืนยันรับสินค้า</div>`;
+    if(s==='delivering'&&job.delivery_arrived_at)return `<div class="rider-job-owned">✅ ส่งหลักฐานแล้ว · ระบบจะปิดงานอัตโนมัติภายใน 1 ชั่วโมง</div>`;
     return `<div class="rider-job-owned">งานของคุณ · ${esc(riderJobInboxStatusLabel(job.status))}</div>`;
   }
 
@@ -460,7 +460,7 @@
       });
       if(error)throw error;
 
-      showNotice('📷 บันทึกภาพส่งมอบแล้ว · รอลูกค้ายืนยันรับสินค้า');
+      showNotice('📷 บันทึกภาพส่งมอบแล้ว · ระบบจะปิดงานอัตโนมัติภายใน 1 ชั่วโมง');
       playRiderAlertSound();
       await loadRiderJobInbox();
     }catch(err){
@@ -3275,7 +3275,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.22.103', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.22.105', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
