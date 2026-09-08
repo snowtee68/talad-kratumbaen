@@ -1072,7 +1072,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=0.5.22.109',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=0.5.22.110',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
@@ -1394,8 +1394,11 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
     }catch(_e){}
   }
   async function resolveSellerShopFromDeepLink(d){
-    if(d.shopId)return d.shopId;
     try{
+      if(d.shopId){
+        const {data:mine}=await db.from('market_shops').select('id').eq('id',d.shopId).eq('owner_id',session.user.id).maybeSingle();
+        if(mine?.id)return mine.id;
+      }
       if(d.orderId){
         const {data:o}=await db.from('market_orders').select('shop_id').eq('id',d.orderId).maybeSingle();
         if(o?.shop_id)return o.shop_id;
@@ -1408,6 +1411,24 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
           if(mine?.[0]?.id)return mine[0].id;
         }
       }
+    }catch(_e){}
+    return null;
+  }
+  async function resolveSellerDestinationFromDeepLink(d){
+    const directShopId=await resolveSellerShopFromDeepLink(d);
+    if(directShopId)return {shopId:directShopId,orderId:d.orderId||null};
+    try{
+      const {data:shops}=await db.from('market_shops').select('id').eq('owner_id',session.user.id).order('created_at');
+      const shopIds=(shops||[]).map(x=>x.id).filter(Boolean);
+      if(!shopIds.length)return null;
+      const {data:pending}=await db.from('market_orders')
+        .select('id,shop_id,status,created_at')
+        .in('shop_id',shopIds)
+        .in('status',['pending_shop','payment_review','awaiting_customer_confirmation','awaiting_payment','preparing','ready'])
+        .order('created_at',{ascending:false})
+        .limit(1);
+      if(pending?.[0])return {shopId:pending[0].shop_id,orderId:pending[0].id};
+      if(shopIds.length===1)return {shopId:shopIds[0],orderId:null};
     }catch(_e){}
     return null;
   }
@@ -1425,9 +1446,9 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
     // destination is authoritative.
     if(d.orderId&&d.tab!=='seller'){
       try{
-        const sid=await resolveSellerShopFromDeepLink(d);
-        if(sid){
-          await openSellerOrders(sid,d.orderId);
+        const destination=await resolveSellerDestinationFromDeepLink(d);
+        if(destination?.shopId){
+          await openSellerOrders(destination.shopId,destination.orderId||d.orderId);
           clearOrderDeepLink();
           await clearPersistedOrderNotificationRoute();
           return true;
@@ -1435,8 +1456,8 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
       }catch(_e){}
     }
     if(d.tab==='seller'){
-      const sid=await resolveSellerShopFromDeepLink(d);
-      if(sid)await openSellerOrders(sid,d.orderId||null);
+      const destination=await resolveSellerDestinationFromDeepLink(d);
+      if(destination?.shopId)await openSellerOrders(destination.shopId,destination.orderId||d.orderId||null);
       else await openSellerOrdersFromNav();
     }else{
       if(d.orderId)customerFocusOrderId=String(d.orderId);
