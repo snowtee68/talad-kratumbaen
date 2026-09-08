@@ -157,7 +157,7 @@ fieldset{border:1px solid var(--line);border-radius:14px;padding:14px}legend{fon
 .rider-availability-button.offline{background:#17863a}.rider-availability-button.online{background:#a33b32}.rider-availability-button:disabled{opacity:.6;cursor:wait}
 @media(max-width:640px){.rider-availability-card{align-items:stretch;flex-direction:column}.rider-availability-button{width:100%;min-height:50px}}
 
-/* V0.5.22.123: Rider history is a separate page inside the existing Rider modal */
+/* V0.5.22.124: Rider history is a separate page inside the existing Rider modal */
 .main-rider-page-tabs{position:sticky;top:0;z-index:4;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:14px 0;padding:6px;border:1px solid #eadfe0;border-radius:15px;background:#fff}
 .main-rider-page-tab,.main-rider-history-filter{border:0;border-radius:10px;padding:11px 10px;background:#f3f0f0;color:#231f20;font-weight:800;cursor:pointer}
 .main-rider-page-tab.active,.main-rider-history-filter.active{background:#9b1c1f;color:#fff}

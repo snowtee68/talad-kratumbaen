@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.123 Rider Fare Sync and Push Restore loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.124 Rider Inbox Cleanup loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -473,9 +473,22 @@
     try{
       const {data,error}=await db.rpc('market_my_rider_job_inbox');
       if(error)throw error;
-      const jobs=await fillRiderInboxFareFallback(Array.isArray(data)?data:(data?.jobs||[]));
+      const hydrated=await fillRiderInboxFareFallback(Array.isArray(data)?data:(data?.jobs||[]));
+      const seenBatchIds=new Set();
+      const jobs=hydrated.filter(job=>{
+        const batchId=String(job?.batch_id||'');
+        if(!batchId||seenBatchIds.has(batchId))return false;
+        seenBatchIds.add(batchId);
+        const shops=Array.isArray(job?.shops)?job.shops:[];
+        // An open job without a pickup is an incomplete/orphan batch and must
+        // never be offered to a Rider. After proof submission there is no more
+        // Rider action, so move it out of the current-work screen immediately.
+        if(job?.can_accept&&shops.length===0)return false;
+        if(job?.is_mine&&job?.delivery_arrived_at)return false;
+        return true;
+      });
       syncRiderWaitingJobs(jobs,{notify:true});
-      if(box)box.innerHTML=jobs.length?jobs.map(riderJobCard).join(''):'<div class="rider-job-empty">✅ ตอนนี้ยังไม่มีงานใหม่</div>';
+      if(box)box.innerHTML=jobs.length?jobs.map(riderJobCard).join(''):'<div class="rider-job-empty">✅ ตอนนี้ยังไม่มีงานใหม่หรืองานที่ต้องดำเนินการ</div>';
       return jobs;
     }catch(err){
       if(box)box.innerHTML=`<p class="muted">โหลดงาน Rider ไม่สำเร็จ: ${esc(err?.message||err)}</p>`;
@@ -3367,7 +3380,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.22.123', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.22.124', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
