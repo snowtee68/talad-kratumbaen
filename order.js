@@ -1130,7 +1130,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=0.5.22.127',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=0.5.22.128',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
@@ -1419,15 +1419,15 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
     try{
       const u=new URL(sourceUrl,location.href),h=new URLSearchParams(String(u.hash||'').replace(/^#/,''));
       const get=k=>u.searchParams.get(k)||h.get(k);
-      const tab=get('order_tab'),groupId=get('group_id'),orderId=get('order_id'),shopId=get('shop_id');
+      const tab=get('order_tab'),groupId=get('group_id'),orderId=get('order_id'),shopId=get('shop_id'),sellerAction=get('seller_action')==='1';
       if(!tab&&!groupId&&!orderId&&!shopId)return null;
-      return {tab:tab==='seller'?'seller':tab==='auto'?'auto':'customer',groupId,orderId,shopId};
+      return {tab:tab==='seller'?'seller':tab==='auto'?'auto':'customer',groupId,orderId,shopId,sellerAction};
     }catch(_e){return null}
   }
   function clearOrderDeepLink(){
     try{
       const u=new URL(location.href);
-      ['order_tab','group_id','order_id','shop_id'].forEach(k=>u.searchParams.delete(k));
+      ['order_tab','group_id','order_id','shop_id','seller_action','notification_click'].forEach(k=>u.searchParams.delete(k));
       history.replaceState(null,'',u.pathname+(u.searchParams.toString()?'?'+u.searchParams.toString():'')+u.hash);
     }catch(_e){}
   }
@@ -1483,7 +1483,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
       const {data:shops}=await db.from('market_shops').select('id').eq('owner_id',session.user.id).order('created_at');
       const shopIds=(shops||[]).map(x=>x.id).filter(Boolean);
       if(!shopIds.length)return null;
-      // V0.5.22.127: when a seller push arrives without IDs, prefer an order
+      // V0.5.22.128: when a seller push arrives without IDs, prefer an order
       // that really needs seller action instead of a merely recent order.
       const {data:actionNow}=await db.from('market_orders')
         .select('id,shop_id,status,created_at')
@@ -1515,6 +1515,12 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
     orderDeepLinkOpening=true;
     try{
     orderDateFilter='all';
+    if(d.sellerAction||d.tab==='seller'){
+      // Notification means the shop has work to do now. Never restore history/ready tab.
+      sellerOrderTab='action';
+      sellerOrderPage=1;
+      orderSearchTerm='';
+    }
     // Generic Push payloads may contain no seller IDs/event at all. In AUTO mode,
     // inspect the signed-in account: actionable seller work wins; otherwise open customer orders.
     if(d.tab==='auto'){
@@ -1636,7 +1642,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
   }
 
   async function hydrateCustomerDeliveryFareFallback(groups){
-    // V0.5.22.127: first use the estimate saved at checkout, then rider_jobs as a secondary fallback.
+    // V0.5.22.128: first use the estimate saved at checkout, then rider_jobs as a secondary fallback.
     for(const g of groups||[]){
       for(const b of g.batches||[]){
         if(!Number(b.delivery_fee)&&Number(g.estimated_delivery_fee)>0)b.delivery_fee=Number(g.estimated_delivery_fee);

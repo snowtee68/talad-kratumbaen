@@ -15,7 +15,14 @@ self.addEventListener('notificationclick',event=>{
   event.notification.close();
   event.waitUntil((async()=>{
     let raw=event.notification.data?.url||'./';
-    try{const u=new URL(raw,self.registration.scope);if(!u.searchParams.toString())raw='./?order_tab=auto&notification_click=1';}catch(_e){raw='./?order_tab=auto&notification_click=1';}
+    try{
+      const u=new URL(raw,self.registration.scope);
+      if(u.searchParams.get('rider_jobs')==='1'){
+        // Preserve Rider route exactly; never convert it to seller AUTO.
+      }else if(!u.searchParams.toString()){
+        raw='./?order_tab=seller&notification_click=1&seller_action=1';
+      }
+    }catch(_e){raw='./?order_tab=seller&notification_click=1&seller_action=1';}
     let target;
     try{ target=new URL(raw,self.registration.scope).href; }
     catch(_e){ target=self.registration.scope; }

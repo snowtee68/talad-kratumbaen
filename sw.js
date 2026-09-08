@@ -1,4 +1,4 @@
-const CACHE_NAME = 'talad-kratumbaen-v0.5.22.127-r1';
+const CACHE_NAME = 'talad-kratumbaen-v0.5.22.128-r1';
 const IMAGE_CACHE_NAME = 'talad-supabase-public-images-v1';
 const CORE = [
   './',
@@ -6,10 +6,10 @@ const CORE = [
   './styles.css',
   './app.js',
   './manifest.webmanifest',
-  './icons/icon-192.png?v=0.5.22.127-r1',
-  './icons/icon-512.png?v=0.5.22.127-r1',
-  './icons/icon-maskable-512.png?v=0.5.22.127-r1',
-  './icons/apple-touch-icon.png?v=0.5.22.127-r1'
+  './icons/icon-192.png?v=0.5.22.128-r1',
+  './icons/icon-512.png?v=0.5.22.128-r1',
+  './icons/icon-maskable-512.png?v=0.5.22.128-r1',
+  './icons/apple-touch-icon.png?v=0.5.22.128-r1'
 ];
 
 self.addEventListener('install', (event) => {
@@ -106,13 +106,21 @@ self.addEventListener('notificationclick', event => {
     const sellerText=/ออเดอร์ใหม่|ร้านมีรายการ|สลิปรอตรวจ|รอตรวจเงิน|รอร้าน|new order|seller/i.test(notificationText);
     const sellerEvent=sellerText||eventName.includes('seller')||['new_order','order_created','payment_submitted','payment_reminder'].includes(eventName);
     let raw=notificationData.url||'./';
-    if(sellerEvent){
-      // V0.5.22.127: seller notifications must always land in the seller order flow.
+    let existing;
+    try{existing=new URL(raw,self.registration.scope)}catch(_e){existing=new URL('./',self.registration.scope)}
+    const riderText=/rider|ไรเดอร์|งานใหม่เข้ามา|งาน delivery|มีงานใหม่/i.test(notificationText);
+    const riderRoute=existing.searchParams.get('rider_jobs')==='1';
+    const riderEvent=riderRoute||riderText||eventName.includes('rider')||['rider_job_created','rider_shop_ready'].includes(eventName);
+    if(riderEvent){
+      const q=new URLSearchParams({rider_jobs:'1',notification_click:'1'});
+      const batchId=existing.searchParams.get('rider_batch')||notificationData.batch_id||notificationData.rider_batch||null;
+      if(batchId)q.set('rider_batch',batchId);
+      raw=`./?${q.toString()}`;
+    }else if(sellerEvent){
+      // V0.5.22.128: seller notifications must always land in the seller order flow.
       // Some older backend payloads already contain order_tab=customer or only './'.
       // Rebuild the route and keep any IDs found either in notification.data or the URL.
-      let existing;
-      try{existing=new URL(raw,self.registration.scope)}catch(_e){existing=new URL('./',self.registration.scope)}
-      const q=new URLSearchParams({order_tab:'seller'});
+      const q=new URLSearchParams({order_tab:'seller',notification_click:'1',seller_action:'1'});
       const shopId=notificationData.shop_id||existing.searchParams.get('shop_id');
       const orderId=notificationData.order_id||existing.searchParams.get('order_id');
       const groupId=notificationData.group_id||existing.searchParams.get('group_id');
@@ -123,9 +131,7 @@ self.addEventListener('notificationclick', event => {
     }else{
       // Payload can be generic (no event/order/shop IDs). Do not fall back to homepage.
       // AUTO lets the app inspect the signed-in account and open actionable seller work first.
-      let existing;
-      try{existing=new URL(raw,self.registration.scope)}catch(_e){existing=new URL('./',self.registration.scope)}
-      const hasUsefulRoute=existing.searchParams.has('order_tab')||existing.searchParams.has('order_id')||existing.searchParams.has('shop_id')||existing.searchParams.has('group_id');
+      const hasUsefulRoute=existing.searchParams.has('rider_jobs')||existing.searchParams.has('order_tab')||existing.searchParams.has('order_id')||existing.searchParams.has('shop_id')||existing.searchParams.has('group_id');
       if(!hasUsefulRoute){
         const q=new URLSearchParams({order_tab:'auto',notification_click:'1'});
         raw=`./?${q.toString()}`;
