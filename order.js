@@ -1001,14 +1001,14 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
     const fare=fareFor(km,ordered.length);
     return {km,fare,pickups:ordered};
   }
-  let checkoutFarePreviewSeq=0;
+  let checkoutFarePreviewSeq=0,lastCheckoutDeliveryEstimate=null;
   async function refreshCheckoutFarePreview(){
     const method=document.querySelector('input[name="fulfillmentMethod"]:checked')?.value||'delivery';
     const amount=document.getElementById('deliveryFarePreviewAmount'),detail=document.getElementById('deliveryFarePreviewDetail'),routeBox=document.getElementById('checkoutRouteStatus');
     if(!amount||!detail||method!=='delivery')return;
     const lat=Number(document.getElementById('coLat')?.value),lng=Number(document.getElementById('coLng')?.value);
     if(!Number.isFinite(lat)||!Number.isFinite(lng)||!lat||!lng){
-      amount.textContent='ปักหมุดเพื่อคำนวณ';detail.textContent=`รองรับเส้นทางรวมไม่เกิน ${MAX_ROUTE_KM} กม.`;
+      lastCheckoutDeliveryEstimate=null;amount.textContent='ปักหมุดเพื่อคำนวณ';detail.textContent=`รองรับเส้นทางรวมไม่เกิน ${MAX_ROUTE_KM} กม.`;
       if(routeBox)routeBox.textContent='ℹ️ ปักหมุดตำแหน่งเพื่อดูค่าจัดส่งก่อนยืนยันสั่งซื้อ';
       return;
     }
@@ -1023,12 +1023,12 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
         if(routeBox)routeBox.innerHTML=`❌ เส้นทางรวมประมาณ <b>${chk.km.toFixed(1)} กม.</b> เกินพื้นที่จัดส่ง ${MAX_ROUTE_KM} กม.`;
         return;
       }
-      amount.textContent=`${money(chk.fare.total)} บาท`;
+      lastCheckoutDeliveryEstimate={fare:Number(chk.fare.total),distance:Number(chk.km)};amount.textContent=`${money(chk.fare.total)} บาท`;
       detail.textContent=`เส้นทางประมาณ ${chk.km.toFixed(1)} กม. · รับสินค้า ${chk.pickups.length} ร้าน`;
       if(routeBox)routeBox.innerHTML=`✅ อยู่ในพื้นที่จัดส่ง · เส้นทางประมาณ <b>${chk.km.toFixed(1)} กม.</b> · ค่าส่งเบื้องต้นประมาณ <b>${money(chk.fare.total)} บาท</b>`;
     }catch(err){
       if(seq!==checkoutFarePreviewSeq)return;
-      amount.textContent='ยังคำนวณไม่ได้';detail.textContent=err?.message||'กรุณาตรวจสอบพิกัดร้านและตำแหน่งจัดส่ง';
+      lastCheckoutDeliveryEstimate=null;amount.textContent='ยังคำนวณไม่ได้';detail.textContent=err?.message||'กรุณาตรวจสอบพิกัดร้านและตำแหน่งจัดส่ง';
       if(routeBox)routeBox.textContent='⚠️ '+(err?.message||'คำนวณค่าจัดส่งไม่สำเร็จ');
     }
   }
@@ -1036,10 +1036,12 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
   async function submitCheckout(){
     if(!session)return requireLogin();let method=document.querySelector('input[name="fulfillmentMethod"]:checked')?.value||'delivery';if(method==='delivery'&&!(await isGlobalDeliveryEnabled(true))){alert('ขณะนี้ Admin ปิดระบบ Delivery กรุณารับสินค้าเองที่ร้าน');return openCheckout();}const name=document.getElementById('coName')?.value.trim(),phone=document.getElementById('coPhone')?.value.trim(),address=buildDeliveryAddress(),house=document.getElementById('coHouse')?.value.trim(),subdistrict=document.getElementById('coSubdistrict')?.value.trim(),district=document.getElementById('coDistrict')?.value.trim(),province=document.getElementById('coProvince')?.value.trim(),lat=Number(document.getElementById('coLat')?.value),lng=Number(document.getElementById('coLng')?.value),pickupAt=method==='pickup'?pickupRequestedAt():null;if(!name||!phone)return alert('กรอกชื่อและเบอร์โทรให้ครบ');if(method==='delivery'&&(!house||!subdistrict||!district||!province))return alert('กรอกบ้านเลขที่/อาคาร ตำบล อำเภอ และจังหวัดให้ครบ');if(method==='delivery'&&(!Number.isFinite(lat)||!Number.isFinite(lng)||!lat||!lng))return alert('กรุณากด “ปักหมุดจากตำแหน่งปัจจุบัน” เพื่อให้ Rider นำทางได้ถูกต้อง');if(pickupAt==='INVALID')return alert('กรุณาเลือกวันและเวลาที่ต้องการรับสินค้า');if(method==='delivery')saveDeliveryAddressDraft();
     const groups=groupedCart();const payload=groups.map(g=>({shop_id:g.shop_id,items:g.items.map(x=>({product_id:x.product_id,qty:x.qty,option_value_ids:(x.selected_options||[]).map(o=>o.value_id),note:x.note||null}))}));
+    let checkoutDeliveryEstimate=null;
     if(method==='delivery'){
       const routeBox=document.getElementById('checkoutRouteStatus');if(routeBox)routeBox.textContent='⏳ กำลังตรวจสอบพื้นที่จัดส่ง...';
       try{
         const chk=await precheckDeliveryRoute(groups,lat,lng);
+        checkoutDeliveryEstimate={fare:Number(chk.fare?.total||0),distance:Number(chk.km||0)};
         if(chk.km>MAX_ROUTE_KM||!chk.fare){
           if(routeBox)routeBox.innerHTML=`❌ เส้นทางรวมประมาณ <b>${chk.km.toFixed(1)} กม.</b> เกินพื้นที่จัดส่ง ${MAX_ROUTE_KM} กม.`;
           return alert(`⚠️ อยู่นอกพื้นที่จัดส่ง\n\nเส้นทางรับสินค้าจากร้านและส่งถึงคุณประมาณ ${chk.km.toFixed(1)} กม.\nขณะนี้รองรับไม่เกิน ${MAX_ROUTE_KM} กม.\n\nกรุณาเลือก “รับเองที่ร้าน” แทน`);
@@ -1073,6 +1075,16 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
     if(!createdGroupId){
       if(btn){btn.disabled=false;btn.textContent='สร้างออเดอร์'}
       return alert('สร้างออเดอร์สำเร็จแต่ระบบไม่พบรหัสชุดคำสั่งซื้อ กรุณาเปิดออเดอร์ของฉันเพื่อตรวจสอบ');
+    }
+    if(method==='delivery'&&checkoutDeliveryEstimate?.fare>0){
+      try{
+        const {error:estimateError}=await db.rpc('market_set_group_delivery_estimate',{
+          p_group_id:createdGroupId,
+          p_delivery_fee:checkoutDeliveryEstimate.fare,
+          p_distance_km:checkoutDeliveryEstimate.distance
+        });
+        if(estimateError)console.warn('save delivery estimate:',estimateError.message||estimateError);
+      }catch(err){console.warn('save delivery estimate:',err?.message||err)}
     }
     const couponIds=selectedCheckoutCouponIds();
     if(couponIds.length){
@@ -1118,7 +1130,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=0.5.22.126',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=0.5.22.127',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
@@ -1409,7 +1421,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
       const get=k=>u.searchParams.get(k)||h.get(k);
       const tab=get('order_tab'),groupId=get('group_id'),orderId=get('order_id'),shopId=get('shop_id');
       if(!tab&&!groupId&&!orderId&&!shopId)return null;
-      return {tab:tab==='seller'?'seller':'customer',groupId,orderId,shopId};
+      return {tab:tab==='seller'?'seller':tab==='auto'?'auto':'customer',groupId,orderId,shopId};
     }catch(_e){return null}
   }
   function clearOrderDeepLink(){
@@ -1471,7 +1483,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
       const {data:shops}=await db.from('market_shops').select('id').eq('owner_id',session.user.id).order('created_at');
       const shopIds=(shops||[]).map(x=>x.id).filter(Boolean);
       if(!shopIds.length)return null;
-      // V0.5.22.126: when a seller push arrives without IDs, prefer an order
+      // V0.5.22.127: when a seller push arrives without IDs, prefer an order
       // that really needs seller action instead of a merely recent order.
       const {data:actionNow}=await db.from('market_orders')
         .select('id,shop_id,status,created_at')
@@ -1503,6 +1515,25 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
     orderDeepLinkOpening=true;
     try{
     orderDateFilter='all';
+    // Generic Push payloads may contain no seller IDs/event at all. In AUTO mode,
+    // inspect the signed-in account: actionable seller work wins; otherwise open customer orders.
+    if(d.tab==='auto'){
+      const destination=await resolveSellerDestinationFromDeepLink({tab:'seller',orderId:d.orderId||null,shopId:d.shopId||null,groupId:d.groupId||null});
+      if(destination?.shopId){
+        await openSellerOrders(destination.shopId,destination.orderId||null);
+        pendingOrderNotificationUrl=null;
+        clearOrderDeepLink();
+        await clearPersistedOrderNotificationRoute();
+        return true;
+      }
+      if(d.orderId)customerFocusOrderId=String(d.orderId);
+      if(d.groupId)customerFocusGroupId=String(d.groupId);
+      await openAccountHub('customer');
+      pendingOrderNotificationUrl=null;
+      clearOrderDeepLink();
+      await clearPersistedOrderNotificationRoute();
+      return true;
+    }
     // Older push payloads sometimes contain only order_id (or default to the
     // customer tab). If the signed-in user owns that order's shop, the seller
     // destination is authoritative.
@@ -1605,8 +1636,13 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
   }
 
   async function hydrateCustomerDeliveryFareFallback(groups){
-    // V0.5.22.126: market_delivery_batches is the primary customer source,
-    // but recover missing fare/distance from the rider job that belongs to this customer.
+    // V0.5.22.127: first use the estimate saved at checkout, then rider_jobs as a secondary fallback.
+    for(const g of groups||[]){
+      for(const b of g.batches||[]){
+        if(!Number(b.delivery_fee)&&Number(g.estimated_delivery_fee)>0)b.delivery_fee=Number(g.estimated_delivery_fee);
+        if(!Number(b.distance_km)&&Number(g.estimated_distance_km)>0)b.distance_km=Number(g.estimated_distance_km);
+      }
+    }
     const batches=(groups||[]).flatMap(g=>g.batches||[]).filter(b=>b?.rider_job_id&&(!Number(b.delivery_fee)||!Number(b.distance_km)));
     const ids=[...new Set(batches.map(b=>String(b.rider_job_id)).filter(Boolean))];
     if(!ids.length)return groups;
@@ -1640,8 +1676,9 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
     const pendingOrders=(activeOrders||[]).filter(o=>!batchedIds.has(String(o.id)));
     const ready=pendingOrders.filter(o=>o.status==='ready'),notReady=pendingOrders.filter(o=>o.status!=='ready');
     const cards=batches.map(b=>deliveryBatchCard(b,g.id)).join('');
+    const estimate=!cards&&Number(g.estimated_delivery_fee)>0?`<div class="delivery-track"><div class="delivery-charge-notice"><small>ค่าจัดส่งที่ชำระให้ Rider</small><b>${money(g.estimated_delivery_fee)} บาท</b>${Number(g.estimated_distance_km)>0?`<span>${Number(g.estimated_distance_km).toFixed(1)} กม.</span>`:''}</div></div>`:'';
     const readiness=pendingOrders.length?`<div class="delivery-track"><b>${ready.length?`📦 พร้อมส่ง ${ready.length} ร้าน`:'⏳ ยังไม่มีร้านพร้อมส่ง'}${notReady.length?` · รออีก ${notReady.length} ร้าน`:''}</b>${ready.length&&notReady.length?`<div class="warning-banner" style="margin-top:8px">ระบบจะรอร้านในชุดเดียวกันยืนยันรับเงินครบ แล้วเรียก Rider รวมเที่ยวเดียว เพื่อไม่ให้ลูกค้าเสียค่าจัดส่งหลายรอบ</div>`:''}</div>`:'';
-    return cards+readiness;
+    return cards+estimate+readiness;
   }
   function customerGroupCard(g){
     const os=g.orders||[],activeOrders=os.filter(o=>o.status!=='cancelled'),pickupDoneCount=activeOrders.filter(o=>o.pickup_completed_at).length,readyCount=activeOrders.filter(o=>o.status==='ready'&&!o.pickup_completed_at).length,waitingCount=Math.max(0,activeOrders.length-readyCount-pickupDoneCount),allReady=activeOrders.length>0&&waitingCount===0,groupOpen=!['cancelled','completed'].includes(g.status),canDelivery=allReady&&groupOpen&&!g.rider_job_id;

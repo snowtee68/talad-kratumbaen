@@ -1,4 +1,4 @@
-const CACHE='rider-public-v0.5.22.126';
+const CACHE='rider-public-v0.5.22.127';
 self.addEventListener('install',()=>self.skipWaiting());
 self.addEventListener('activate',event=>event.waitUntil((async()=>{
   const keys=await caches.keys(); await Promise.all(keys.filter(k=>k.startsWith('rider-push-')&&k!==CACHE).map(k=>caches.delete(k)));

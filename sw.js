@@ -1,4 +1,4 @@
-const CACHE_NAME = 'talad-kratumbaen-v0.5.22.126';
+const CACHE_NAME = 'talad-kratumbaen-v0.5.22.127';
 const IMAGE_CACHE_NAME = 'talad-supabase-public-images-v1';
 const CORE = [
   './',
@@ -6,10 +6,10 @@ const CORE = [
   './styles.css',
   './app.js',
   './manifest.webmanifest',
-  './icons/icon-192.png?v=0.5.22.126',
-  './icons/icon-512.png?v=0.5.22.126',
-  './icons/icon-maskable-512.png?v=0.5.22.126',
-  './icons/apple-touch-icon.png?v=0.5.22.126'
+  './icons/icon-192.png?v=0.5.22.127',
+  './icons/icon-512.png?v=0.5.22.127',
+  './icons/icon-maskable-512.png?v=0.5.22.127',
+  './icons/apple-touch-icon.png?v=0.5.22.127'
 ];
 
 self.addEventListener('install', (event) => {
@@ -107,7 +107,7 @@ self.addEventListener('notificationclick', event => {
     const sellerEvent=sellerText||eventName.includes('seller')||['new_order','order_created','payment_submitted','payment_reminder'].includes(eventName);
     let raw=notificationData.url||'./';
     if(sellerEvent){
-      // V0.5.22.126: seller notifications must always land in the seller order flow.
+      // V0.5.22.127: seller notifications must always land in the seller order flow.
       // Some older backend payloads already contain order_tab=customer or only './'.
       // Rebuild the route and keep any IDs found either in notification.data or the URL.
       let existing;
@@ -120,6 +120,16 @@ self.addEventListener('notificationclick', event => {
       if(orderId)q.set('order_id',orderId);
       if(groupId)q.set('group_id',groupId);
       raw=`./?${q.toString()}`;
+    }else{
+      // Payload can be generic (no event/order/shop IDs). Do not fall back to homepage.
+      // AUTO lets the app inspect the signed-in account and open actionable seller work first.
+      let existing;
+      try{existing=new URL(raw,self.registration.scope)}catch(_e){existing=new URL('./',self.registration.scope)}
+      const hasUsefulRoute=existing.searchParams.has('order_tab')||existing.searchParams.has('order_id')||existing.searchParams.has('shop_id')||existing.searchParams.has('group_id');
+      if(!hasUsefulRoute){
+        const q=new URLSearchParams({order_tab:'auto',notification_click:'1'});
+        raw=`./?${q.toString()}`;
+      }
     }
     let target;
     try{target=new URL(raw,self.registration.scope).href}catch(_e){target=self.registration.scope}

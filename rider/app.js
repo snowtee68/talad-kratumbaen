@@ -1,5 +1,5 @@
 (() => {
-  console.info('Talad Krathumbaen Rider v0.5.22.126 History and Income loaded');
+  console.info('Talad Krathumbaen Rider v0.5.22.127 History and Income loaded');
   const cfg = window.APP_CONFIG || {};
   const db = supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
   let session = null;
@@ -37,7 +37,7 @@
   let pushSubscription = null;
   let riderHistoryRows = [];
   let riderHistoryFilter = 'completed';
-  const RIDER_PUSH_SUBSCRIPTION_VERSION = '0.5.22.126';
+  const RIDER_PUSH_SUBSCRIPTION_VERSION = '0.5.22.127';
 
   function haversine(lat1,lng1,lat2,lng2){
     const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLng=(lng2-lng1)*Math.PI/180;
@@ -623,7 +623,7 @@
 
   async function ensurePushRegistration(){
     if(!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) throw new Error('เบราว์เซอร์นี้ยังไม่รองรับ Web Push');
-    pushRegistration=pushRegistration||await navigator.serviceWorker.register('sw.js?v=0.5.22.126',{scope:'./',updateViaCache:'none'});
+    pushRegistration=pushRegistration||await navigator.serviceWorker.register('sw.js?v=0.5.22.127',{scope:'./',updateViaCache:'none'});
     await navigator.serviceWorker.ready;
     try{await pushRegistration.update()}catch(_e){}
     return pushRegistration;
@@ -775,6 +775,10 @@
       const deliveryState=allProof[String(j.id)]||null;
       if(!Number(j.fare_estimate)&&Number(deliveryState?.delivery_fee)>0)j.fare_estimate=Number(deliveryState.delivery_fee);
       if(!Number(j.distance_km)&&Number(deliveryState?.distance_km)>0)j.distance_km=Number(deliveryState.distance_km);
+      if(!Number(j.fare_estimate)&&Number(j.distance_km)>0){
+        const calculated=fareForRoute(Number(j.distance_km),Math.max(1,Number(j.pickup_count||1)));
+        if(calculated)j.fare_estimate=calculated.total;
+      }
       return Object.assign(j,{delivery_proof_state:deliveryState});
     });
     $('#openJobs').innerHTML=openErr?`<div class="notice">${esc(openErr.message)}</div>`:openRows.map(j=>jobCard(j,'open')).join('')||'<div class="notice">ยังไม่มีงานใหม่</div>';
@@ -784,6 +788,10 @@
         const deliveryState=allProof[String(j.id)]||null;
         if(!Number(j.fare_estimate)&&Number(deliveryState?.delivery_fee)>0)j.fare_estimate=Number(deliveryState.delivery_fee);
         if(!Number(j.distance_km)&&Number(deliveryState?.distance_km)>0)j.distance_km=Number(deliveryState.distance_km);
+        if(!Number(j.fare_estimate)&&Number(j.distance_km)>0){
+          const calculated=fareForRoute(Number(j.distance_km),Math.max(1,Number(j.pickup_count||1)));
+          if(calculated)j.fare_estimate=calculated.total;
+        }
         return Object.assign(j,{delivery_proof_state:deliveryState});
       });
     }

@@ -14,7 +14,8 @@ self.addEventListener('push',event=>{
 self.addEventListener('notificationclick',event=>{
   event.notification.close();
   event.waitUntil((async()=>{
-    const raw=event.notification.data?.url||'./';
+    let raw=event.notification.data?.url||'./';
+    try{const u=new URL(raw,self.registration.scope);if(!u.searchParams.toString())raw='./?order_tab=auto&notification_click=1';}catch(_e){raw='./?order_tab=auto&notification_click=1';}
     let target;
     try{ target=new URL(raw,self.registration.scope).href; }
     catch(_e){ target=self.registration.scope; }
