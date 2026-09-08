@@ -428,29 +428,53 @@
     if(!batchId)return;
     try{
       const {data:batch}=await db.from('market_delivery_batches')
-        .select('id,status,group_id,accepted_at,pickup_started_at,picked_up_at,delivering_at,delivery_arrived_at,customer_confirmed_at,group:market_delivery_groups(customer_id)')
+        .select('id,status,group_id,accepted_at,pickup_started_at,picked_up_at,delivering_at,delivery_arrived_at,customer_confirmed_at,delivery_issue_status,delivery_issue_note,reassign_count,group:market_delivery_groups(customer_id)')
         .eq('id',batchId).maybeSingle();
       if(!batch)return;
 
-      let relevant=batch.group?.customer_id===session.user.id;
-      if(!relevant){
-        const sellerIds=await getMySellerShopIds();
-        if(sellerIds.length){
-          const {data:rows}=await db.from('market_delivery_batch_orders')
-            .select('order:market_orders(shop_id)').eq('batch_id',batchId);
-          relevant=(rows||[]).some(x=>sellerIds.includes(x.order?.shop_id));
-        }
+      const isCustomer=batch.group?.customer_id===session.user.id;
+      let sellerTarget=null;
+      const sellerIds=await getMySellerShopIds();
+      if(sellerIds.length){
+        const {data:rows}=await db.from('market_delivery_batch_orders')
+          .select('order:market_orders(id,shop_id)').eq('batch_id',batchId);
+        const matched=(rows||[]).find(x=>sellerIds.includes(x.order?.shop_id));
+        if(matched?.order?.shop_id)sellerTarget={role:'seller',orderId:matched.order.id,shopId:matched.order.shop_id,batchId};
       }
+      const relevant=isCustomer||!!sellerTarget;
       if(!relevant)return;
 
       const status=String(batch.status||'');
-      const detail=batch.delivery_arrived_at?'Rider ถึงจุดส่งแล้ว · รอยืนยันรับสินค้า':
-        status==='accepted'?'Rider รับงานแล้ว':
+      const deliveryStateKey=`market_delivery_notify_${session.user.id}_${batchId}`;
+      let previousDeliveryState={};
+      try{previousDeliveryState=JSON.parse(localStorage.getItem(deliveryStateKey)||'{}')}catch(_e){}
+      const oldStatus=String(payload?.old?.status||previousDeliveryState.status||'');
+      const oldIssueStatus=payload?.old?.delivery_issue_status||previousDeliveryState.issueStatus||null;
+      const oldReassignCount=Number(payload?.old?.reassign_count??previousDeliveryState.reassignCount??0);
+      const riderAccepted=status==='accepted'&&oldStatus!=='accepted';
+      const deliveryCancelled=status==='cancelled'&&oldStatus!=='cancelled';
+      const riderReassigned=status==='waiting_rider'&&(
+        ['accepted','pickup_started','picked_up','delivering'].includes(oldStatus)||
+        Number(batch.reassign_count||0)>oldReassignCount
+      );
+      const deliveryIssue=batch.delivery_issue_status==='open'&&oldIssueStatus!=='open';
+      try{localStorage.setItem(deliveryStateKey,JSON.stringify({status,issueStatus:batch.delivery_issue_status||null,reassignCount:Number(batch.reassign_count||0),at:Date.now()}))}catch(_e){}
+
+      // Shops only need actionable delivery updates. Normal route progress is
+      // customer-facing and would otherwise drown out new-order/payment alerts.
+      if(sellerTarget&&!isCustomer&&!riderAccepted&&!deliveryCancelled&&!riderReassigned&&!deliveryIssue)return;
+
+      const detail=deliveryIssue?`พบปัญหาการจัดส่ง${batch.delivery_issue_note?' · '+batch.delivery_issue_note:''}`:
+        riderReassigned?'Rider ถอนตัว · ระบบกำลังหา Rider ใหม่':
+        deliveryCancelled?'งาน Delivery ถูกยกเลิก กรุณาตรวจสอบ':
+        riderAccepted?'Rider รับงานแล้ว':
+        batch.delivery_arrived_at?'Rider ถึงจุดส่งแล้ว · รอยืนยันรับสินค้า':
         status==='pickup_started'?'Rider กำลังไปรับสินค้า':
         status==='picked_up'?'Rider รับสินค้าครบแล้ว':
         status==='delivering'?'Rider กำลังนำส่งลูกค้า':
         status==='completed'?'จัดส่งสำเร็จ':'สถานะ Delivery อัปเดตแล้ว';
-      showOrderNotifyBanner('🛵 อัปเดต Delivery',detail,1);
+      const target=sellerTarget||{role:'customer',groupId:batch.group_id,batchId};
+      showOrderNotifyBanner('🛵 อัปเดต Delivery',detail,1,{target});
     }catch(err){console.warn('Delivery realtime notification:',err?.message||err)}
   }
 
@@ -487,12 +511,22 @@
 if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(false);if(e.target.closest('#closeDeliveryFareInfoBtn'))return closeModal();
       if(e.target?.closest?.('#orderNotifyBanner')){
         e.preventDefault();
+        const target=orderNotifyState.bannerTarget;
         markNotificationAreaViewed();
         if(!session)return requireLogin();
-        // This banner is raised for seller actions (new order / payment slip).
-        // Open the dedicated seller inbox instead of the customer order history.
+        // Delivery updates can be relevant to either the shop or the customer.
+        // The event target is authoritative; do not fall back to the buyer page
+        // merely because the order no longer needs seller acceptance/payment review.
+        if(target?.role==='seller'){
+          return resolveSellerDestinationFromDeepLink({tab:'seller',orderId:target.orderId||null,shopId:target.shopId||null,groupId:null})
+            .then(destination=>destination?.shopId?openSellerOrders(destination.shopId,destination.orderId||null):openSellerOrdersFromNav());
+        }
+        if(target?.role==='customer'){
+          if(target.groupId)customerFocusGroupId=String(target.groupId);
+          if(target.orderId)customerFocusOrderId=String(target.orderId);
+          return openAccountHub('customer');
+        }
         if(Number(orderNotifyState.activeSellerOrders||0)>0){
-          const target=orderNotifyState.bannerTarget;
           return resolveSellerDestinationFromDeepLink({tab:'seller',orderId:target?.orderId||null,shopId:target?.shopId||null,groupId:null})
             .then(destination=>destination?.shopId?openSellerOrders(destination.shopId,destination.orderId||null):openSellerOrdersFromNav());
         }
@@ -1079,7 +1113,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=0.5.22.114',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=0.5.22.116',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
