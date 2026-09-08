@@ -1,5 +1,5 @@
 (() => {
-  console.info('Talad Krathumbaen Rider v0.5.22.107 Shared Order Reference loaded');
+  console.info('Talad Krathumbaen Rider v0.5.22.108 Background Push Repair loaded');
   const cfg = window.APP_CONFIG || {};
   const db = supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
   let session = null;
@@ -35,6 +35,7 @@
   const PUSH_VAPID_PUBLIC_KEY = cfg.RIDER_PUSH_VAPID_PUBLIC_KEY || '';
   let pushRegistration = null;
   let pushSubscription = null;
+  const RIDER_PUSH_SUBSCRIPTION_VERSION = '0.5.22.108';
 
   function haversine(lat1,lng1,lat2,lng2){
     const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLng=(lng2-lng1)*Math.PI/180;
@@ -604,9 +605,36 @@
 
   async function ensurePushRegistration(){
     if(!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) throw new Error('เบราว์เซอร์นี้ยังไม่รองรับ Web Push');
-    pushRegistration=pushRegistration||await navigator.serviceWorker.register('sw.js?v=0.4.9',{scope:'./',updateViaCache:'none'});
+    pushRegistration=pushRegistration||await navigator.serviceWorker.register('sw.js?v=0.5.22.108',{scope:'./',updateViaCache:'none'});
     await navigator.serviceWorker.ready;
+    try{await pushRegistration.update()}catch(_e){}
     return pushRegistration;
+  }
+
+  async function saveRiderPushSubscription(sub){
+    if(!sub||!session?.user?.id)throw new Error('ข้อมูล Push subscription ไม่สมบูรณ์');
+    const json=sub.toJSON();
+    const {error}=await db.rpc('rider_save_push_subscription',{
+      p_endpoint:json.endpoint,
+      p_p256dh:json.keys?.p256dh||'',
+      p_auth:json.keys?.auth||'',
+      p_user_agent:navigator.userAgent||''
+    });
+    if(error)throw error;
+    return sub;
+  }
+
+  async function repairRiderPushSubscription(reg){
+    let sub=await reg.pushManager.getSubscription();
+    if(!sub)return null;
+    const repairedVersion=localStorage.getItem('rider_push_subscription_version');
+    if(repairedVersion!==RIDER_PUSH_SUBSCRIPTION_VERSION){
+      try{await sub.unsubscribe()}catch(_e){}
+      sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlBase64ToUint8Array(PUSH_VAPID_PUBLIC_KEY)});
+      localStorage.setItem('rider_push_subscription_version',RIDER_PUSH_SUBSCRIPTION_VERSION);
+    }
+    await saveRiderPushSubscription(sub);
+    return sub;
   }
 
   async function refreshPushState(){
@@ -623,7 +651,9 @@
     }
     try{
       const reg=await ensurePushRegistration();
-      pushSubscription=await reg.pushManager.getSubscription();
+      pushSubscription=Notification.permission==='granted'&&PUSH_VAPID_PUBLIC_KEY
+        ?await repairRiderPushSubscription(reg)
+        :await reg.pushManager.getSubscription();
       if(pushSubscription && Notification.permission==='granted'){
         status.textContent='✅ Push Notification เปิดอยู่ — ใช้เสียงแจ้งเตือนของระบบมือถือเมื่อรองรับ';
         enable?.classList.add('hidden'); disable?.classList.remove('hidden');
@@ -646,14 +676,8 @@
       if(!sub){
         sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlBase64ToUint8Array(PUSH_VAPID_PUBLIC_KEY)});
       }
-      const json=sub.toJSON();
-      const {error}=await db.rpc('rider_save_push_subscription',{
-        p_endpoint:json.endpoint,
-        p_p256dh:json.keys?.p256dh||'',
-        p_auth:json.keys?.auth||'',
-        p_user_agent:navigator.userAgent||''
-      });
-      if(error) throw error;
+      await saveRiderPushSubscription(sub);
+      localStorage.setItem('rider_push_subscription_version',RIDER_PUSH_SUBSCRIPTION_VERSION);
       pushSubscription=sub;
       await refreshPushState();
       alert('เปิด Push Notification แล้ว\nเมื่อมีงานใหม่ ระบบสามารถแจ้งเตือนได้แม้ไม่ได้เปิดหน้า Rider (ขึ้นกับการตั้งค่าระบบของมือถือ)');

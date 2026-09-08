@@ -1072,7 +1072,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=0.5.22.107',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=0.5.22.108',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
@@ -1188,7 +1188,9 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
     if(!st)return;
     if(!('serviceWorker' in navigator)||!('PushManager' in window)){st.textContent='อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Web Push';if(on)on.style.display='none';if(test)test.style.display='none';return;}
     try{
-      const perm=Notification.permission,sub=perm==='granted'?await getOrderPushSubscription():null;
+      const perm=Notification.permission;
+      const sync=perm==='granted'?await ensurePushSubscriptionServerSync({repair:true}):null;
+      const sub=sync?.ok?sync.sub:null;
       if(sub){
         st.innerHTML='✅ <b>อุปกรณ์นี้พร้อมรับ Push Notification</b><br><small>สามารถปิดเว็บหรือพักหน้าจอได้ ระบบจะใช้การแจ้งเตือนของอุปกรณ์</small>';
         if(on)on.style.display='none';if(off)off.style.display='';if(test)test.style.display='';
@@ -1270,7 +1272,9 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
       return;
     }
     try{
-      const perm=Notification.permission,sub=perm==='granted'?await getOrderPushSubscription():null;
+      const perm=Notification.permission;
+      const sync=perm==='granted'?await ensurePushSubscriptionServerSync({repair:true}):null;
+      const sub=sync?.ok?sync.sub:null;
       if(sub){
         st.innerHTML='✅ <b>เครื่องนี้พร้อมรับแจ้งเตือนออเดอร์ร้าน</b><br><small>ออเดอร์ใหม่และสถานะสำคัญสามารถแจ้งผ่าน Push ได้ แม้ปิดหน้าเว็บหรือพักหน้าจอ ตามสิทธิ์ของอุปกรณ์</small>';
         if(on)on.style.display='none';if(off)off.style.display='';if(test)test.style.display='';
