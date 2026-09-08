@@ -1079,7 +1079,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=0.5.22.112',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=0.5.22.113',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
@@ -1384,7 +1384,9 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
     if(!('caches' in window))return null;
     try{
       const cache=await caches.open('market-notification-route-v1');
-      const key=new URL('./__notification_route__',location.href).href;
+      const registration=await navigator.serviceWorker?.ready;
+      const routeBase=registration?.scope||new URL('./',location.href).href;
+      const key=new URL('./__notification_route__',routeBase).href;
       const res=await cache.match(key);
       if(!res)return null;
       const data=await res.json();
@@ -1397,7 +1399,9 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
     if(!('caches' in window))return;
     try{
       const cache=await caches.open('market-notification-route-v1');
-      await cache.delete(new URL('./__notification_route__',location.href).href);
+      const registration=await navigator.serviceWorker?.ready;
+      const routeBase=registration?.scope||new URL('./',location.href).href;
+      await cache.delete(new URL('./__notification_route__',routeBase).href);
     }catch(_e){}
   }
   async function resolveSellerShopFromDeepLink(d){
