@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.126 Rider Push Dispatch Fix loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.127 Push Route + Fare Source loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -3380,7 +3380,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.22.126', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.22.127-r1', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
