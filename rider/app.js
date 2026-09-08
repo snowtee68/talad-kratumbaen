@@ -1,5 +1,5 @@
 (() => {
-  console.info('Talad Krathumbaen Rider v0.5.22.118 History and Income loaded');
+  console.info('Talad Krathumbaen Rider v0.5.22.126 History and Income loaded');
   const cfg = window.APP_CONFIG || {};
   const db = supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
   let session = null;
@@ -37,7 +37,7 @@
   let pushSubscription = null;
   let riderHistoryRows = [];
   let riderHistoryFilter = 'completed';
-  const RIDER_PUSH_SUBSCRIPTION_VERSION = '0.5.22.108';
+  const RIDER_PUSH_SUBSCRIPTION_VERSION = '0.5.22.126';
 
   function haversine(lat1,lng1,lat2,lng2){
     const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLng=(lng2-lng1)*Math.PI/180;
@@ -623,7 +623,7 @@
 
   async function ensurePushRegistration(){
     if(!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) throw new Error('เบราว์เซอร์นี้ยังไม่รองรับ Web Push');
-    pushRegistration=pushRegistration||await navigator.serviceWorker.register('sw.js?v=0.5.22.108',{scope:'./',updateViaCache:'none'});
+    pushRegistration=pushRegistration||await navigator.serviceWorker.register('sw.js?v=0.5.22.126',{scope:'./',updateViaCache:'none'});
     await navigator.serviceWorker.ready;
     try{await pushRegistration.update()}catch(_e){}
     return pushRegistration;
@@ -743,7 +743,7 @@
     if(!ids.length)return {};
     try{
       const {data,error}=await db.from('market_delivery_batches')
-        .select('rider_job_id,group_id,delivery_arrived_at,proof_uploaded_at,customer_confirmed_at,delivery_issue_status,completed_at')
+        .select('rider_job_id,group_id,delivery_fee,distance_km,delivery_arrived_at,proof_uploaded_at,customer_confirmed_at,delivery_issue_status,completed_at')
         .in('rider_job_id',ids);
       if(error)throw error;
       const map={};
@@ -771,11 +771,21 @@
       db.from('rider_jobs').select(jobSelect).eq('assigned_rider_id',session.user.id).neq('status','completed').neq('status','cancelled').order('created_at',{ascending:false})
     ]);
     const allProof=!openErr||!mineErr?await loadRiderDeliveryProofStates([...(open||[]),...(mine||[])].map(j=>j.id)):{};
-    const openRows=(open||[]).map(j=>Object.assign(j,{delivery_proof_state:allProof[String(j.id)]||null}));
+    const openRows=(open||[]).map(j=>{
+      const deliveryState=allProof[String(j.id)]||null;
+      if(!Number(j.fare_estimate)&&Number(deliveryState?.delivery_fee)>0)j.fare_estimate=Number(deliveryState.delivery_fee);
+      if(!Number(j.distance_km)&&Number(deliveryState?.distance_km)>0)j.distance_km=Number(deliveryState.distance_km);
+      return Object.assign(j,{delivery_proof_state:deliveryState});
+    });
     $('#openJobs').innerHTML=openErr?`<div class="notice">${esc(openErr.message)}</div>`:openRows.map(j=>jobCard(j,'open')).join('')||'<div class="notice">ยังไม่มีงานใหม่</div>';
     let mineRows=mine||[];
     if(!mineErr&&mineRows.length){
-      mineRows=mineRows.map(j=>Object.assign(j,{delivery_proof_state:allProof[String(j.id)]||null}));
+      mineRows=mineRows.map(j=>{
+        const deliveryState=allProof[String(j.id)]||null;
+        if(!Number(j.fare_estimate)&&Number(deliveryState?.delivery_fee)>0)j.fare_estimate=Number(deliveryState.delivery_fee);
+        if(!Number(j.distance_km)&&Number(deliveryState?.distance_km)>0)j.distance_km=Number(deliveryState.distance_km);
+        return Object.assign(j,{delivery_proof_state:deliveryState});
+      });
     }
     $('#riderJobs').innerHTML=mineErr?`<div class="notice">${esc(mineErr.message)}</div>`:mineRows.map(j=>jobCard(j,'rider')).join('')||'<div class="notice">ยังไม่มีงานที่กำลังทำ</div>';
   }
@@ -864,7 +874,7 @@
     const reassignNotice=reassigned&&j.status==='open'?`<div class="notice compact">♻️ Rider ก่อนหน้าถอนตัว กำลังค้นหา Rider คนใหม่${Number(j.reassign_count)>1?` · ครั้งที่ ${j.reassign_count}`:''}</div>`:'';
     const noteRef=String(j.job_note||'').match(/ชุดคำสั่งซื้อ\s+([a-f0-9-]{8,36})/i)?.[1]||'';
     const commonRef=String(j.delivery_proof_state?.group_id||noteRef||j.id).replace(/-/g,'').slice(0,8).toUpperCase();
-    return `<article class="job-card" data-job-id="${j.id}"><div class="job-top"><div><div class="job-reference">เลขอ้างอิง #${esc(commonRef)}</div><b>${title}</b><div class="job-meta"><span>${pickupCount} จุดรับ</span><span>${fmt(j.distance_km)} กม.</span><span>ประมาณ ${j.fare_estimate} บาท</span>${extra}<span>${payer}จ่าย</span>${reassigned?`<span>♻️ เปิดหา Rider ใหม่ ${j.reassign_count} ครั้ง</span>`:''}</div></div><span class="status ${j.status}">${statusText[j.status]||j.status}</span></div>${reassignNotice}${stops.length?routeMarkup(stops,mode):`<div class="route-summary">รายละเอียดพิกัดจะแสดงหลังรับงาน</div>`}<div class="job-meta"><span>สร้าง ${fmtTime(j.created_at)}</span>${j.assigned_rider_name?`<span>Rider: ${esc(j.assigned_rider_name)}</span>`:''}</div><div class="job-actions">${actions}</div></article>`;
+    return `<article class="job-card" data-job-id="${j.id}"><div class="job-top"><div><div class="job-reference">เลขอ้างอิง #${esc(commonRef)}</div><b>${title}</b><div class="job-meta"><span>${pickupCount} จุดรับ</span><span>${fmt(j.distance_km)} กม.</span><span>💰 ค่าจัดส่ง ${Number(j.fare_estimate)>0?fmt(Number(j.fare_estimate)):'กำลังโหลด'} บาท</span>${extra}<span>${payer}จ่าย</span>${reassigned?`<span>♻️ เปิดหา Rider ใหม่ ${j.reassign_count} ครั้ง</span>`:''}</div></div><span class="status ${j.status}">${statusText[j.status]||j.status}</span></div>${reassignNotice}${stops.length?routeMarkup(stops,mode):`<div class="route-summary">รายละเอียดพิกัดจะแสดงหลังรับงาน</div>`}<div class="job-meta"><span>สร้าง ${fmtTime(j.created_at)}</span>${j.assigned_rider_name?`<span>Rider: ${esc(j.assigned_rider_name)}</span>`:''}</div><div class="job-actions">${actions}</div></article>`;
   }
 
   async function riderCompressProof(file){

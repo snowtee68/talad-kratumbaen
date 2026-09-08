@@ -1118,7 +1118,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=0.5.22.125',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=0.5.22.126',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
@@ -1471,10 +1471,19 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
       const {data:shops}=await db.from('market_shops').select('id').eq('owner_id',session.user.id).order('created_at');
       const shopIds=(shops||[]).map(x=>x.id).filter(Boolean);
       if(!shopIds.length)return null;
+      // V0.5.22.126: when a seller push arrives without IDs, prefer an order
+      // that really needs seller action instead of a merely recent order.
+      const {data:actionNow}=await db.from('market_orders')
+        .select('id,shop_id,status,created_at')
+        .in('shop_id',shopIds)
+        .in('status',['pending_shop','payment_review'])
+        .order('created_at',{ascending:false})
+        .limit(1);
+      if(actionNow?.[0])return {shopId:actionNow[0].shop_id,orderId:actionNow[0].id};
       const {data:pending}=await db.from('market_orders')
         .select('id,shop_id,status,created_at')
         .in('shop_id',shopIds)
-        .in('status',['pending_shop','payment_review','awaiting_customer_confirmation','awaiting_payment','preparing','ready'])
+        .in('status',['awaiting_customer_confirmation','awaiting_payment','preparing','ready'])
         .order('created_at',{ascending:false})
         .limit(1);
       if(pending?.[0])return {shopId:pending[0].shop_id,orderId:pending[0].id};
@@ -1594,6 +1603,26 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
     if(!Number.isFinite(due.getTime()))return '';
     return `ระบบจะยืนยันและปิดงานอัตโนมัติภายในเวลา ${due.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})} น. หากมีปัญหา กรุณาโทรหา Rider หรือร้านค้าโดยตรง`;
   }
+
+  async function hydrateCustomerDeliveryFareFallback(groups){
+    // V0.5.22.126: market_delivery_batches is the primary customer source,
+    // but recover missing fare/distance from the rider job that belongs to this customer.
+    const batches=(groups||[]).flatMap(g=>g.batches||[]).filter(b=>b?.rider_job_id&&(!Number(b.delivery_fee)||!Number(b.distance_km)));
+    const ids=[...new Set(batches.map(b=>String(b.rider_job_id)).filter(Boolean))];
+    if(!ids.length)return groups;
+    try{
+      const {data,error}=await db.from('rider_jobs').select('id,fare_estimate,distance_km').in('id',ids);
+      if(error)throw error;
+      const byId=new Map((data||[]).map(j=>[String(j.id),j]));
+      for(const b of batches){
+        const j=byId.get(String(b.rider_job_id));
+        if(!j)continue;
+        if(!Number(b.delivery_fee)&&Number(j.fare_estimate)>0)b.delivery_fee=Number(j.fare_estimate);
+        if(!Number(b.distance_km)&&Number(j.distance_km)>0)b.distance_km=Number(j.distance_km);
+      }
+    }catch(err){console.warn('Delivery fare fallback:',err?.message||err)}
+    return groups;
+  }
   function deliveryBatchCard(b,groupId){
     const phone=b.rider_phone||'',done=b.status==='completed',arrived=!!b.delivery_arrived_at,issue=b.delivery_issue_status==='open';
     const effective=done?'ส่งสำเร็จ':arrived?'รอลูกค้ายืนยันรับสินค้า':deliveryBatchStatusText(b.status);
@@ -1602,7 +1631,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
     const switchToPickup=(!b.accepted_at&&['creating','waiting_rider','created','open'].includes(String(b.status||'')))?`<div class="mo-actions switch-pickup-wrap"><button type="button" class="mo-secondary switch-pickup-btn" data-switch-pickup-batch="${b.id}">🏪 เปลี่ยนเป็นมารับเองที่ร้าน</button></div><div class="mo-muted"><small>เปลี่ยนได้เฉพาะก่อน Rider รับงาน · ออเดอร์สินค้าไม่ถูกยกเลิก</small></div>`:'';
     const issueBox=issue?`<div class="warning-banner"><b>⚠️ แจ้งปัญหาการส่งมอบแล้ว</b><br>${esc(b.delivery_issue_note||'')}<br><small>รูปหลักฐานจะถูกเก็บไว้จนกว่าปัญหาจะถูกแก้ไข</small></div>`:'';
     const times=`<div class="mo-muted" style="margin-top:6px">${b.accepted_at?`รับงาน ${new Date(b.accepted_at).toLocaleString('th-TH')} · `:''}${b.picked_up_at?`รับสินค้าครบ ${new Date(b.picked_up_at).toLocaleString('th-TH')} · `:''}${b.delivery_arrived_at?`ถึงปลายทาง ${new Date(b.delivery_arrived_at).toLocaleString('th-TH')} · `:''}${b.customer_confirmed_at?`ลูกค้ายืนยัน ${new Date(b.customer_confirmed_at).toLocaleString('th-TH')}`:b.auto_confirmed_at?`ระบบยืนยันอัตโนมัติ ${new Date(b.auto_confirmed_at).toLocaleString('th-TH')}`:''}</div>`;
-    return `<div class="delivery-track"><div class="order-card-head"><b>${done?'✅':'🛵'} ${esc(effective)}</b><span class="status-pill">เลขอ้างอิง #${esc(sharedOrderRef(groupId||b.group_id))}</span></div>${b.rider_name||phone?`<div class="rider-contact"><b>Rider: ${esc(b.rider_name||'ไม่ระบุชื่อ')}</b>${phone?` · ${esc(phone)} <a href="tel:${esc(phone)}">📞 โทรหา Rider</a>`:''}</div>`:`<div class="mo-muted">รอ Rider รับงานและส่งข้อมูลติดต่อ</div>`}${b.delivery_fee?`<div class="delivery-charge-notice"><small>ค่าจัดส่งที่ชำระให้ Rider</small><b>${money(b.delivery_fee)} บาท</b>${b.distance_km?`<span>${Number(b.distance_km).toFixed(1)} กม.</span>`:''}</div>`:''}<div class="delivery-steps"><span class="${['accepted','pickup_started','picked_up','delivering','completed'].includes(b.status)?'done':''}">Rider รับงาน</span><span class="${['picked_up','delivering','completed'].includes(b.status)?'done':b.status==='pickup_started'?'active':''}">รับสินค้า</span><span class="${arrived||done?'done':b.status==='delivering'?'active':''}">ถึงปลายทาง</span><span class="${done?'done':arrived?'active':''}">ลูกค้ายืนยัน</span></div>${times}${issueBox}<div class="mo-actions">${proof}</div>${switchToPickup}${customerActions}</div>`;
+    return `<div class="delivery-track"><div class="order-card-head"><b>${done?'✅':'🛵'} ${esc(effective)}</b><span class="status-pill">เลขอ้างอิง #${esc(sharedOrderRef(groupId||b.group_id))}</span></div>${b.rider_name||phone?`<div class="rider-contact"><b>Rider: ${esc(b.rider_name||'ไม่ระบุชื่อ')}</b>${phone?` · ${esc(phone)} <a href="tel:${esc(phone)}">📞 โทรหา Rider</a>`:''}</div>`:`<div class="mo-muted">รอ Rider รับงานและส่งข้อมูลติดต่อ</div>`}${Number(b.delivery_fee)>0?`<div class="delivery-charge-notice"><small>ค่าจัดส่งที่ชำระให้ Rider</small><b>${money(b.delivery_fee)} บาท</b>${b.distance_km?`<span>${Number(b.distance_km).toFixed(1)} กม.</span>`:''}</div>`:(b.rider_job_id?`<div class="delivery-charge-notice"><small>ค่าจัดส่ง</small><b>กำลังโหลดค่าจัดส่ง...</b></div>`:'')}<div class="delivery-steps"><span class="${['accepted','pickup_started','picked_up','delivering','completed'].includes(b.status)?'done':''}">Rider รับงาน</span><span class="${['picked_up','delivering','completed'].includes(b.status)?'done':b.status==='pickup_started'?'active':''}">รับสินค้า</span><span class="${arrived||done?'done':b.status==='delivering'?'active':''}">ถึงปลายทาง</span><span class="${done?'done':arrived?'active':''}">ลูกค้ายืนยัน</span></div>${times}${issueBox}<div class="mo-actions">${proof}</div>${switchToPickup}${customerActions}</div>`;
   }
   function deliveryProgress(g,activeOrders){
     if(g.fulfillment_method==='pickup')return '';
@@ -1660,6 +1689,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
     box.innerHTML='กำลังโหลด...';
     const {data:groups,error}=await db.from('market_delivery_groups').select('*,orders:market_orders(id,shop_id,subtotal,status,payment_ref,payment_submitted_at,rejection_reason,shop_response_due_at,shop_accepted_at,shop_viewed_at,pickup_completed_at,revision_note,revision_subtotal,revision_requested_at,revision_confirmed_at,refund_required,refund_status,refund_amount,refund_ref,refund_slip_path,refund_submitted_at,refund_confirmed_at,refund_destination_type,refund_destination_promptpay_type,refund_destination_value,refund_destination_bank,refund_destination_name,refund_destination_submitted_at,created_at,shop:market_shops(name,latitude,longitude,phone,landmark,address),items:market_order_items(product_name,unit_price,qty,options_json,note)),batches:market_delivery_batches(id,status,rider_job_id,rider_name,rider_phone,delivery_fee,distance_km,created_at,accepted_at,pickup_started_at,picked_up_at,delivering_at,delivery_arrived_at,auto_confirm_due_at,auto_confirmed_at,proof_path,proof_uploaded_at,customer_confirmed_at,delivery_issue_status,delivery_issue_note,delivery_issue_at,proof_deleted_at,completed_at,batch_orders:market_delivery_batch_orders(order_id))').eq('customer_id',session.user.id).order('created_at',{ascending:false}).limit(100);
     if(error){box.innerHTML=`<div class="warning-banner">${esc(error.message)}</div>`;return}
+    await hydrateCustomerDeliveryFareFallback(groups||[]);
     const filtered=(groups||[]).filter(g=>orderDateMatches(g.created_at)&&orderSearchMatchesGroup(g));
     const buckets={waiting:[],processing:[],shipping:[],done:[]};
     for(const g of filtered)buckets[customerGroupBucket(g)].push(g);

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'talad-kratumbaen-v0.5.22.125';
+const CACHE_NAME = 'talad-kratumbaen-v0.5.22.126';
 const IMAGE_CACHE_NAME = 'talad-supabase-public-images-v1';
 const CORE = [
   './',
@@ -6,10 +6,10 @@ const CORE = [
   './styles.css',
   './app.js',
   './manifest.webmanifest',
-  './icons/icon-192.png?v=0.5.22.125',
-  './icons/icon-512.png?v=0.5.22.125',
-  './icons/icon-maskable-512.png?v=0.5.22.125',
-  './icons/apple-touch-icon.png?v=0.5.22.125'
+  './icons/icon-192.png?v=0.5.22.126',
+  './icons/icon-512.png?v=0.5.22.126',
+  './icons/icon-maskable-512.png?v=0.5.22.126',
+  './icons/apple-touch-icon.png?v=0.5.22.126'
 ];
 
 self.addEventListener('install', (event) => {
@@ -106,11 +106,19 @@ self.addEventListener('notificationclick', event => {
     const sellerText=/ออเดอร์ใหม่|ร้านมีรายการ|สลิปรอตรวจ|รอตรวจเงิน|รอร้าน|new order|seller/i.test(notificationText);
     const sellerEvent=sellerText||eventName.includes('seller')||['new_order','order_created','payment_submitted','payment_reminder'].includes(eventName);
     let raw=notificationData.url||'./';
-    if(sellerEvent&&!String(raw).includes('order_tab=')){
+    if(sellerEvent){
+      // V0.5.22.126: seller notifications must always land in the seller order flow.
+      // Some older backend payloads already contain order_tab=customer or only './'.
+      // Rebuild the route and keep any IDs found either in notification.data or the URL.
+      let existing;
+      try{existing=new URL(raw,self.registration.scope)}catch(_e){existing=new URL('./',self.registration.scope)}
       const q=new URLSearchParams({order_tab:'seller'});
-      if(notificationData.shop_id)q.set('shop_id',notificationData.shop_id);
-      if(notificationData.order_id)q.set('order_id',notificationData.order_id);
-      if(notificationData.group_id)q.set('group_id',notificationData.group_id);
+      const shopId=notificationData.shop_id||existing.searchParams.get('shop_id');
+      const orderId=notificationData.order_id||existing.searchParams.get('order_id');
+      const groupId=notificationData.group_id||existing.searchParams.get('group_id');
+      if(shopId)q.set('shop_id',shopId);
+      if(orderId)q.set('order_id',orderId);
+      if(groupId)q.set('group_id',groupId);
       raw=`./?${q.toString()}`;
     }
     let target;
