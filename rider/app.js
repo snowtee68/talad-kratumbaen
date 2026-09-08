@@ -1,5 +1,5 @@
 (() => {
-  console.info('Talad Krathumbaen Rider v0.5.22.99 loaded');
+  console.info('Talad Krathumbaen Rider v0.5.22.107 Shared Order Reference loaded');
   const cfg = window.APP_CONFIG || {};
   const db = supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
   let session = null;
@@ -701,7 +701,7 @@
     if(!ids.length)return {};
     try{
       const {data,error}=await db.from('market_delivery_batches')
-        .select('rider_job_id,delivery_arrived_at,proof_uploaded_at,customer_confirmed_at,delivery_issue_status,completed_at')
+        .select('rider_job_id,group_id,delivery_arrived_at,proof_uploaded_at,customer_confirmed_at,delivery_issue_status,completed_at')
         .in('rider_job_id',ids);
       if(error)throw error;
       const map={};
@@ -728,11 +728,12 @@
       db.from('rider_jobs').select('*').eq('status','open').order('created_at',{ascending:true}).limit(30),
       db.from('rider_jobs').select(jobSelect).eq('assigned_rider_id',session.user.id).neq('status','completed').neq('status','cancelled').order('created_at',{ascending:false})
     ]);
-    $('#openJobs').innerHTML=openErr?`<div class="notice">${esc(openErr.message)}</div>`:(open||[]).map(j=>jobCard(j,'open')).join('')||'<div class="notice">ยังไม่มีงานใหม่</div>';
+    const allProof=!openErr||!mineErr?await loadRiderDeliveryProofStates([...(open||[]),...(mine||[])].map(j=>j.id)):{};
+    const openRows=(open||[]).map(j=>Object.assign(j,{delivery_proof_state:allProof[String(j.id)]||null}));
+    $('#openJobs').innerHTML=openErr?`<div class="notice">${esc(openErr.message)}</div>`:openRows.map(j=>jobCard(j,'open')).join('')||'<div class="notice">ยังไม่มีงานใหม่</div>';
     let mineRows=mine||[];
     if(!mineErr&&mineRows.length){
-      const proof=await loadRiderDeliveryProofStates(mineRows.map(j=>j.id));
-      mineRows=mineRows.map(j=>Object.assign(j,{delivery_proof_state:proof[String(j.id)]||null}));
+      mineRows=mineRows.map(j=>Object.assign(j,{delivery_proof_state:allProof[String(j.id)]||null}));
     }
     $('#riderJobs').innerHTML=mineErr?`<div class="notice">${esc(mineErr.message)}</div>`:mineRows.map(j=>jobCard(j,'rider')).join('')||'<div class="notice">ยังไม่มีงานที่กำลังทำ</div>';
   }
@@ -770,7 +771,7 @@
         }else if(pod.delivery_issue_status==='open'){
           actions+=`<div class="notice compact">⚠️ ส่งหลักฐานแล้ว แต่ลูกค้าแจ้งปัญหา · รูปถูกเก็บไว้ตรวจสอบ</div>`;
         }else{
-          actions+=`<div class="notice compact">✅ ส่งหลักฐานแล้ว${pod.proof_uploaded_at?` · ${fmtTime(pod.proof_uploaded_at)}`:''}<br>⏳ รอลูกค้ายืนยันรับสินค้า</div>`;
+          actions+=`<div class="notice compact">✅ ส่งหลักฐานแล้ว${pod.proof_uploaded_at?` · ${fmtTime(pod.proof_uploaded_at)}`:''}<br>⏱ ระบบจะปิดงานอัตโนมัติภายใน 1 ชั่วโมง</div>`;
         }
       }
       actions += `<button class="ghost" data-action="route" data-id="${j.id}">ดูเส้นทางทั้งหมด</button>`;
@@ -779,7 +780,9 @@
     const extra=j.extra_stop_fee?`<span>ค่าจุดเพิ่ม ${j.extra_stop_fee} บาท</span>`:'';
     const reassigned=Number(j.reassign_count||0)>0;
     const reassignNotice=reassigned&&j.status==='open'?`<div class="notice compact">♻️ Rider ก่อนหน้าถอนตัว กำลังค้นหา Rider คนใหม่${Number(j.reassign_count)>1?` · ครั้งที่ ${j.reassign_count}`:''}</div>`:'';
-    return `<article class="job-card" data-job-id="${j.id}"><div class="job-top"><div><b>${title}</b><div class="job-meta"><span>${pickupCount} จุดรับ</span><span>${fmt(j.distance_km)} กม.</span><span>ประมาณ ${j.fare_estimate} บาท</span>${extra}<span>${payer}จ่าย</span>${reassigned?`<span>♻️ เปิดหา Rider ใหม่ ${j.reassign_count} ครั้ง</span>`:''}</div></div><span class="status ${j.status}">${statusText[j.status]||j.status}</span></div>${reassignNotice}${stops.length?routeMarkup(stops,mode):`<div class="route-summary">รายละเอียดพิกัดจะแสดงหลังรับงาน</div>`}<div class="job-meta"><span>สร้าง ${fmtTime(j.created_at)}</span>${j.assigned_rider_name?`<span>Rider: ${esc(j.assigned_rider_name)}</span>`:''}</div><div class="job-actions">${actions}</div></article>`;
+    const noteRef=String(j.job_note||'').match(/ชุดคำสั่งซื้อ\s+([a-f0-9-]{8,36})/i)?.[1]||'';
+    const commonRef=String(j.delivery_proof_state?.group_id||noteRef||j.id).replace(/-/g,'').slice(0,8).toUpperCase();
+    return `<article class="job-card" data-job-id="${j.id}"><div class="job-top"><div><div class="job-reference">เลขอ้างอิง #${esc(commonRef)}</div><b>${title}</b><div class="job-meta"><span>${pickupCount} จุดรับ</span><span>${fmt(j.distance_km)} กม.</span><span>ประมาณ ${j.fare_estimate} บาท</span>${extra}<span>${payer}จ่าย</span>${reassigned?`<span>♻️ เปิดหา Rider ใหม่ ${j.reassign_count} ครั้ง</span>`:''}</div></div><span class="status ${j.status}">${statusText[j.status]||j.status}</span></div>${reassignNotice}${stops.length?routeMarkup(stops,mode):`<div class="route-summary">รายละเอียดพิกัดจะแสดงหลังรับงาน</div>`}<div class="job-meta"><span>สร้าง ${fmtTime(j.created_at)}</span>${j.assigned_rider_name?`<span>Rider: ${esc(j.assigned_rider_name)}</span>`:''}</div><div class="job-actions">${actions}</div></article>`;
   }
 
   async function riderCompressProof(file){
@@ -822,7 +825,7 @@
     if(action==='start-delivery'){const {error}=await db.rpc('rider_start_delivery',{p_job_id:id});if(error)return alert(error.message);await Promise.all([loadRiderJobs(),loadMyJobs()]);}
     if(action==='complete-delivery'){
       if(b.disabled)return;
-      if(!confirm('ยืนยันว่าถึงปลายทางและกำลังส่งมอบสินค้า? ระบบจะให้ถ่ายรูปหลักฐาน และรอลูกค้ายืนยันก่อนปิดงาน'))return;
+      if(!confirm('ยืนยันว่าถึงปลายทางและกำลังส่งมอบสินค้า? ระบบจะให้ถ่ายรูปหลักฐาน และปิดงานอัตโนมัติภายใน 1 ชั่วโมง'))return;
       let proofPath=null;
       const oldText=b.textContent;
       b.disabled=true;b.textContent='⏳ กำลังถ่าย/ส่งหลักฐาน...';
@@ -832,7 +835,7 @@
         b.textContent='⏳ กำลังบันทึกหลักฐาน...';
         const {error}=await db.rpc('rider_mark_delivery_arrived',{p_job_id:id,p_proof_path:proofPath});
         if(error)throw error;
-        b.textContent='✅ ส่งหลักฐานแล้ว · รอลูกค้ายืนยัน';
+        b.textContent='✅ ส่งหลักฐานแล้ว · ปิดอัตโนมัติภายใน 1 ชั่วโมง';
         alert('✅ ส่งหลักฐานเรียบร้อยแล้ว\nระบบบันทึกเวลาแล้ว และจะไม่ให้กดส่งซ้ำ');
       }catch(err){
         if(proofPath)try{await db.storage.from('rider-delivery-proof').remove([proofPath])}catch(_e){}
