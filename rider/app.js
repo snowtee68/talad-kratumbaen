@@ -1,5 +1,5 @@
 (() => {
-  console.info('Talad Krathumbaen Rider v0.5.22.108 Background Push Repair loaded');
+  console.info('Talad Krathumbaen Rider v0.5.22.118 History and Income loaded');
   const cfg = window.APP_CONFIG || {};
   const db = supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
   let session = null;
@@ -35,6 +35,8 @@
   const PUSH_VAPID_PUBLIC_KEY = cfg.RIDER_PUSH_VAPID_PUBLIC_KEY || '';
   let pushRegistration = null;
   let pushSubscription = null;
+  let riderHistoryRows = [];
+  let riderHistoryFilter = 'completed';
   const RIDER_PUSH_SUBSCRIPTION_VERSION = '0.5.22.108';
 
   function haversine(lat1,lng1,lat2,lng2){
@@ -87,7 +89,23 @@
     $('#heroRiderBtn').onclick=goRider;
     $('#refreshMyJobs').onclick=loadMyJobs;
     $('#refreshOpenJobs').onclick=loadRiderJobs;
+    $('#riderCurrentTab').onclick=()=>showRiderPage('current');
+    $('#riderHistoryTab').onclick=()=>showRiderPage('history');
+    $('#refreshRiderHistory').onclick=loadRiderHistory;
+    $$('.rider-history-filter-btn').forEach(btn=>btn.onclick=()=>{
+      riderHistoryFilter=btn.dataset.riderHistoryFilter||'completed';
+      renderRiderHistory();
+    });
     document.addEventListener('click',handleAction);
+  }
+
+  function showRiderPage(page){
+    const history=page==='history';
+    $('#riderCurrentPage').classList.toggle('hidden',history);
+    $('#riderHistoryPage').classList.toggle('hidden',!history);
+    $('#riderCurrentTab').classList.toggle('active',!history);
+    $('#riderHistoryTab').classList.toggle('active',history);
+    if(history)loadRiderHistory();
   }
 
   function renderPickupStops(count){ $('#pickupStops').innerHTML=''; for(let i=0;i<count;i++) addPickupStop(); }
@@ -760,6 +778,46 @@
       mineRows=mineRows.map(j=>Object.assign(j,{delivery_proof_state:allProof[String(j.id)]||null}));
     }
     $('#riderJobs').innerHTML=mineErr?`<div class="notice">${esc(mineErr.message)}</div>`:mineRows.map(j=>jobCard(j,'rider')).join('')||'<div class="notice">ยังไม่มีงานที่กำลังทำ</div>';
+  }
+
+  function riderHistoryTime(j){return j.delivery_proof_state?.completed_at||j.updated_at||j.created_at}
+  function sameLocalDay(value,date){const d=new Date(value);return d.getFullYear()===date.getFullYear()&&d.getMonth()===date.getMonth()&&d.getDate()===date.getDate()}
+  function riderHistoryIncome(rows,predicate){return rows.filter(j=>j.status==='completed'&&predicate(j)).reduce((sum,j)=>sum+Number(j.fare_estimate||0),0)}
+  async function loadRiderHistory(){
+    if(!session||!riderProfile||riderProfile.approval_status!=='approved')return;
+    const list=$('#riderHistoryList');
+    if(list)list.innerHTML='<div class="notice">กำลังโหลดประวัติงาน…</div>';
+    const {data,error}=await db.from('rider_jobs').select('id,status,job_note,distance_km,fare_estimate,created_at,updated_at')
+      .eq('assigned_rider_id',session.user.id)
+      .in('status',['completed','cancelled'])
+      .order('updated_at',{ascending:false}).limit(1000);
+    if(error){if(list)list.innerHTML=`<div class="notice">โหลดประวัติไม่สำเร็จ: ${esc(error.message)}</div>`;return}
+    const proof=await loadRiderDeliveryProofStates((data||[]).map(j=>j.id));
+    riderHistoryRows=(data||[]).map(j=>Object.assign(j,{delivery_proof_state:proof[String(j.id)]||null}))
+      .sort((a,b)=>new Date(riderHistoryTime(b))-new Date(riderHistoryTime(a)));
+    renderRiderHistory();
+  }
+  function renderRiderHistory(){
+    const now=new Date(),todayStart=new Date(now.getFullYear(),now.getMonth(),now.getDate()),sevenStart=new Date(todayStart);sevenStart.setDate(sevenStart.getDate()-6);
+    const monthStart=new Date(now.getFullYear(),now.getMonth(),1),completed=riderHistoryRows.filter(j=>j.status==='completed');
+    const today=riderHistoryIncome(completed,j=>sameLocalDay(riderHistoryTime(j),now));
+    const seven=riderHistoryIncome(completed,j=>new Date(riderHistoryTime(j))>=sevenStart);
+    const month=riderHistoryIncome(completed,j=>new Date(riderHistoryTime(j))>=monthStart);
+    const summary=$('#riderIncomeSummary');
+    if(summary)summary.innerHTML=`
+      <article class="rider-income-card"><small>รายได้วันนี้</small><strong>${fmt(today)} บาท</strong></article>
+      <article class="rider-income-card"><small>รายได้ 7 วัน</small><strong>${fmt(seven)} บาท</strong></article>
+      <article class="rider-income-card"><small>รายได้เดือนนี้</small><strong>${fmt(month)} บาท</strong></article>
+      <article class="rider-income-card"><small>งานสำเร็จในประวัติ</small><strong>${completed.length} งาน</strong></article>`;
+    $$('.rider-history-filter-btn').forEach(btn=>btn.classList.toggle('active',btn.dataset.riderHistoryFilter===riderHistoryFilter));
+    const rows=riderHistoryRows.filter(j=>j.status===riderHistoryFilter),list=$('#riderHistoryList');
+    if(list)list.innerHTML=rows.map(riderHistoryCard).join('')||`<div class="notice">ยังไม่มี${riderHistoryFilter==='completed'?'งานสำเร็จ':'งานยกเลิก'}</div>`;
+  }
+  function riderHistoryCard(j){
+    const noteRef=String(j.job_note||'').match(/ชุดคำสั่งซื้อ\s+([a-f0-9-]{8,36})/i)?.[1]||'';
+    const commonRef=String(j.delivery_proof_state?.group_id||noteRef||j.id).replace(/-/g,'').slice(0,8).toUpperCase();
+    const done=j.status==='completed',when=riderHistoryTime(j);
+    return `<article class="job-card rider-history-card"><div class="job-top"><div><div class="job-reference">เลขอ้างอิง #${esc(commonRef)}</div><b>${done?'ส่งงานสำเร็จ':'งานยกเลิก'}</b><div class="job-meta"><span>📅 ${fmtTime(when)}</span><span>📍 ${fmt(j.distance_km)} กม.</span>${done?`<span>💵 ค่าจัดส่ง ${fmt(Number(j.fare_estimate||0))} บาท</span>`:''}</div></div><span class="status ${j.status}">${statusText[j.status]||j.status}</span></div><small class="history-privacy-note">ข้อมูลติดต่อและที่อยู่ลูกค้าถูกซ่อนหลังจบงาน</small></article>`;
   }
 
   function routeMarkup(stops,mode){

@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=0.5.22.108">
+  <link rel="stylesheet" href="styles.css?v=0.5.22.118">
 </head>
 <body>
 <header class="topbar">
@@ -140,10 +140,28 @@
     </div>
 
     <div id="riderWorkArea" class="hidden">
-      <div class="section-head"><div><span class="eyebrow">งานใหม่</span><h2>งานที่รอ Rider รับ</h2></div><button id="refreshOpenJobs" class="ghost">รีเฟรช</button></div>
-      <div id="openJobs" class="job-list"></div>
-      <div class="section-head"><div><span class="eyebrow">งานของฉัน</span><h2>งานที่กำลังทำ</h2></div></div>
-      <div id="riderJobs" class="job-list"></div>
+      <nav class="rider-page-tabs" aria-label="เมนูงาน Rider">
+        <button id="riderCurrentTab" type="button" class="rider-page-tab active">🛵 งานปัจจุบัน</button>
+        <button id="riderHistoryTab" type="button" class="rider-page-tab">📊 ประวัติและรายได้</button>
+      </nav>
+
+      <div id="riderCurrentPage">
+        <div class="section-head"><div><span class="eyebrow">งานใหม่</span><h2>งานที่รอ Rider รับ</h2></div><button id="refreshOpenJobs" class="ghost">รีเฟรช</button></div>
+        <div id="openJobs" class="job-list"></div>
+        <div class="section-head"><div><span class="eyebrow">งานของฉัน</span><h2>งานที่กำลังทำ</h2></div></div>
+        <div id="riderJobs" class="job-list"></div>
+      </div>
+
+      <div id="riderHistoryPage" class="hidden">
+        <div class="section-head"><div><span class="eyebrow">สรุปเฉพาะงานที่ส่งสำเร็จ</span><h2>ประวัติและรายได้</h2></div><button id="refreshRiderHistory" type="button" class="ghost">รีเฟรช</button></div>
+        <div id="riderIncomeSummary" class="rider-income-grid"></div>
+        <p class="muted rider-income-note">ยอดนี้รวมจากค่าจัดส่งของงานที่ระบบบันทึกว่าสำเร็จเท่านั้น และเป็นเงินที่ผู้จ่ายชำระให้ Rider โดยตรง</p>
+        <div class="rider-history-filter" role="tablist" aria-label="ประเภทประวัติงาน">
+          <button type="button" class="rider-history-filter-btn active" data-rider-history-filter="completed">✅ งานสำเร็จ</button>
+          <button type="button" class="rider-history-filter-btn" data-rider-history-filter="cancelled">❌ งานยกเลิก</button>
+        </div>
+        <div id="riderHistoryList" class="job-list"></div>
+      </div>
     </div>
 
     <div id="adminRiderArea" class="hidden public-admin-disabled" aria-hidden="true">
@@ -187,6 +205,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
-<script src="app.js?v=0.5.22.108"></script>
+<script src="app.js?v=0.5.22.118"></script>
 </body>
 </html>

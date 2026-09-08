@@ -40,3 +40,14 @@
 .availability-btn:disabled{cursor:not-allowed;opacity:.55}
 @media(max-width:720px){.rider-availability{width:100%;display:grid}.availability-btn{width:100%;min-height:48px}}
 .job-reference{display:inline-flex;align-items:center;margin:0 0 6px;padding:5px 9px;border-radius:999px;background:#e9f2ff;color:#123f73;font-size:12px;font-weight:900;letter-spacing:.03em}
+
+/* V0.5.22.118: separate Rider history and income page */
+.rider-page-tabs{position:sticky;top:65px;z-index:12;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:18px 0;padding:7px;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 22px rgba(78,37,38,.06)}
+.rider-page-tab,.rider-history-filter-btn{border:0;border-radius:11px;padding:11px 13px;background:#f5f2f2;color:var(--ink);font-weight:800;cursor:pointer}
+.rider-page-tab.active,.rider-history-filter-btn.active{background:var(--red);color:#fff}
+.rider-income-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:16px}
+.rider-income-card{display:grid;gap:5px;padding:15px;background:#fff;border:1px solid var(--line);border-radius:16px}
+.rider-income-card small{color:var(--muted)}.rider-income-card strong{font-size:1.18rem;color:var(--green)}
+.rider-income-note{margin:-4px 0 16px}
+.rider-history-filter{display:flex;gap:8px;margin:8px 0 14px}.rider-history-card{gap:8px}.history-privacy-note{color:var(--muted);font-size:12px}
+@media(max-width:720px){.rider-page-tabs{top:74px}.rider-income-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.rider-history-filter{display:grid;grid-template-columns:1fr 1fr}}
