@@ -10,6 +10,7 @@
   const ORDER_TEST_EMAILS=['snowtee68@gmail.com'];
   const MAX_PICKUPS=5, MAX_ROUTE_KM=5, EXTRA_PICKUP_FEE=10;
   let session=null, productShopIds=new Set(), productOptionDraft=[];
+  let pendingOrderNotificationUrl=null,orderDeepLinkOpening=false;
   const ORDER_NOTIFY_KEY='talad_order_notify_v042';
   let orderNotifyTimer=null,orderNotifyRealtime=null,orderDeliveryRealtime=null,orderNotifyRealtimeDebounce=null,orderNotifyBusy=false,orderNotifyBaseline=false,orderNotifyAudioArmed=false,orderNotifySoundRepeatTimer=null;
   let customerOrderTab='waiting',sellerOrderTab='action',customerOrderPage=1,sellerOrderPage=1,orderSearchTerm='',orderDateFilter='today',customerFocusGroupId=null,customerFocusOrderId=null;
@@ -83,6 +84,9 @@
         if(ev.data?.type!=='MARKET_NOTIFICATION_DEEPLINK')return;
         try{
           const target=ev.data?.url||location.href;
+          // Keep the route even if iOS wakes this PWA before auth/session setup
+          // finishes. A later auth/focus/pageshow retry will consume it.
+          if(orderDeepLink(target))pendingOrderNotificationUrl=String(target);
           const u=new URL(target,location.href);
           history.replaceState(null,'',u.pathname+u.search+u.hash);
           await openOrderDeepLink(target);
@@ -1114,7 +1118,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=0.5.22.124',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=0.5.22.125',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
@@ -1479,13 +1483,16 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
     return null;
   }
   async function openOrderDeepLink(sourceUrl=null){
-    let effectiveUrl=sourceUrl||location.href;
+    if(orderDeepLinkOpening)return false;
+    let effectiveUrl=sourceUrl||pendingOrderNotificationUrl||location.href;
     let d=orderDeepLink(effectiveUrl);
     if(!d){
       const persisted=await readPersistedOrderNotificationRoute();
       if(persisted){effectiveUrl=persisted;d=orderDeepLink(persisted);}
     }
     if(!d||!session)return false;
+    orderDeepLinkOpening=true;
+    try{
     orderDateFilter='all';
     // Older push payloads sometimes contain only order_id (or default to the
     // customer tab). If the signed-in user owns that order's shop, the seller
@@ -1495,6 +1502,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
         const destination=await resolveSellerDestinationFromDeepLink(d);
         if(destination?.shopId){
           await openSellerOrders(destination.shopId,destination.orderId||d.orderId);
+          pendingOrderNotificationUrl=null;
           clearOrderDeepLink();
           await clearPersistedOrderNotificationRoute();
           return true;
@@ -1517,15 +1525,26 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
       }
       await openAccountHub('customer');
     }
+    pendingOrderNotificationUrl=null;
     clearOrderDeepLink();
     await clearPersistedOrderNotificationRoute();
     return true;
+    }catch(err){
+      console.warn('Open order notification deep link failed',err?.message||err);
+      return false;
+    }finally{
+      orderDeepLinkOpening=false;
+    }
   }
 
   window.addEventListener('focus',()=>setTimeout(()=>openOrderDeepLink(),350));
+  window.addEventListener('pageshow',()=>setTimeout(()=>openOrderDeepLink(),450));
   document.addEventListener('visibilitychange',()=>{
     if(document.visibilityState==='visible')setTimeout(()=>openOrderDeepLink(),300);
   });
+  // iOS Home Screen may restore the shell before auth and Cache Storage are
+  // both ready. Short bounded retries avoid requiring a second user tap.
+  [700,1600,3200].forEach(delay=>setTimeout(()=>openOrderDeepLink(),delay));
   async function openAccountHub(tab='customer'){
     if(!canUseOrders())return;
     if(!session)return requireLogin();
