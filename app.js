@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.117 Completed Orders Newest First loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.119 Rider History and Income loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -173,6 +173,7 @@
           <div><span>ทะเบียนรถ</span><b>${esc(a.vehicle_plate||'-')}</b></div>
         `;
         renderRiderAvailability();
+        showMainRiderPage('current');
         loadRiderJobInbox();
         if(myRiderOnline)startRiderJobRealtime(); else stopRiderJobRealtime();
       }else{
@@ -197,7 +198,66 @@
   let riderWaitingJobsBaseline=false;
   let riderSoundRepeatTimer=null;
   let riderWaitingJobPollTimer=null;
+  let mainRiderHistoryRows=[];
+  let mainRiderHistoryFilter='completed';
   const RIDER_WAITING_SEEN_KEY='market_rider_waiting_seen_v1';
+
+  function showMainRiderPage(page){
+    const history=page==='history';
+    $('mainRiderCurrentPage')?.classList.toggle('hidden',history);
+    $('mainRiderHistoryPage')?.classList.toggle('hidden',!history);
+    $('mainRiderCurrentTab')?.classList.toggle('active',!history);
+    $('mainRiderHistoryTab')?.classList.toggle('active',history);
+    if(history)loadMainRiderHistory();
+  }
+
+  function mainRiderHistoryTime(job){return job.completed_at||job.cancelled_at||job.updated_at||job.created_at}
+  function mainRiderSameDay(value,date){const d=new Date(value);return d.getFullYear()===date.getFullYear()&&d.getMonth()===date.getMonth()&&d.getDate()===date.getDate()}
+  function mainRiderIncome(rows,predicate){return rows.filter(j=>j.status==='completed'&&predicate(j)).reduce((sum,j)=>sum+Number(j.delivery_fee||0),0)}
+
+  async function loadMainRiderHistory(){
+    const box=$('mainRiderHistoryList');
+    if(!db||!session||myRiderApplication?.status!=='approved'){
+      if(box)box.innerHTML='<p class="muted">บัญชีนี้ยังไม่ได้รับสิทธิ์เป็น Rider</p>';
+      return;
+    }
+    if(box)box.innerHTML='<p class="muted">กำลังโหลดประวัติ...</p>';
+    try{
+      const {data,error}=await db.from('market_delivery_batches')
+        .select('id,group_id,status,delivery_fee,distance_km,created_at,updated_at,accepted_at,completed_at,cancelled_at')
+        .eq('rider_user_id',session.user.id)
+        .in('status',['completed','cancelled'])
+        .order('updated_at',{ascending:false}).limit(1000);
+      if(error)throw error;
+      mainRiderHistoryRows=(data||[]).sort((a,b)=>new Date(mainRiderHistoryTime(b))-new Date(mainRiderHistoryTime(a)));
+      renderMainRiderHistory();
+    }catch(err){
+      if(box)box.innerHTML=`<p class="muted">โหลดประวัติไม่สำเร็จ: ${esc(err?.message||err)}</p>`;
+    }
+  }
+
+  function renderMainRiderHistory(){
+    const now=new Date(),todayStart=new Date(now.getFullYear(),now.getMonth(),now.getDate()),sevenStart=new Date(todayStart);sevenStart.setDate(sevenStart.getDate()-6);
+    const monthStart=new Date(now.getFullYear(),now.getMonth(),1),completed=mainRiderHistoryRows.filter(j=>j.status==='completed');
+    const today=mainRiderIncome(completed,j=>mainRiderSameDay(mainRiderHistoryTime(j),now));
+    const seven=mainRiderIncome(completed,j=>new Date(mainRiderHistoryTime(j))>=sevenStart);
+    const month=mainRiderIncome(completed,j=>new Date(mainRiderHistoryTime(j))>=monthStart);
+    const summary=$('mainRiderIncomeSummary');
+    if(summary)summary.innerHTML=`
+      <article><small>รายได้วันนี้</small><strong>${today.toLocaleString('th-TH')} บาท</strong></article>
+      <article><small>รายได้ 7 วัน</small><strong>${seven.toLocaleString('th-TH')} บาท</strong></article>
+      <article><small>รายได้เดือนนี้</small><strong>${month.toLocaleString('th-TH')} บาท</strong></article>
+      <article><small>งานสำเร็จในประวัติ</small><strong>${completed.length} งาน</strong></article>`;
+    document.querySelectorAll('[data-main-rider-history-filter]').forEach(btn=>btn.classList.toggle('active',btn.dataset.mainRiderHistoryFilter===mainRiderHistoryFilter));
+    const rows=mainRiderHistoryRows.filter(j=>j.status===mainRiderHistoryFilter),box=$('mainRiderHistoryList');
+    if(box)box.innerHTML=rows.length?rows.map(mainRiderHistoryCard).join(''):`<div class="rider-job-empty">ยังไม่มี${mainRiderHistoryFilter==='completed'?'งานสำเร็จ':'งานยกเลิก'}</div>`;
+  }
+
+  function mainRiderHistoryCard(job){
+    const done=job.status==='completed',ref=String(job.group_id||job.id||'').replace(/-/g,'').slice(0,8).toUpperCase();
+    const fee=Number(job.delivery_fee||0),km=Number(job.distance_km||0),when=mainRiderHistoryTime(job);
+    return `<article class="rider-job-card main-rider-history-card"><div class="rider-job-card-head"><div><b>เลขอ้างอิง #${esc(ref)}</b><small>${done?'ส่งงานสำเร็จ':'งานยกเลิก'}</small></div><div class="rider-job-price">${done?fee.toLocaleString('th-TH')+' บาท':'-'}</div></div><div class="rider-job-meta">📅 ${new Date(when).toLocaleString('th-TH')}${km?` · 📏 ${km.toFixed(1)} กม.`:''}</div><small class="main-rider-privacy-note">ข้อมูลติดต่อและที่อยู่ลูกค้าถูกซ่อนหลังจบงาน</small></article>`;
+  }
 
   function armRiderAlertAudio(){
     if(riderAlertAudioArmed)return;
@@ -2742,6 +2802,13 @@
     $('riderApplyForm')?.addEventListener('submit',submitRiderApplication);
     $('riderEditProfileBtn')?.addEventListener('click',editApprovedRiderProfile);
     $('riderAvailabilityBtn')?.addEventListener('click',toggleMainRiderAvailability);
+    $('mainRiderCurrentTab')?.addEventListener('click',()=>showMainRiderPage('current'));
+    $('mainRiderHistoryTab')?.addEventListener('click',()=>showMainRiderPage('history'));
+    $('refreshMainRiderHistoryBtn')?.addEventListener('click',loadMainRiderHistory);
+    document.querySelectorAll('[data-main-rider-history-filter]').forEach(btn=>btn.addEventListener('click',()=>{
+      mainRiderHistoryFilter=btn.dataset.mainRiderHistoryFilter||'completed';
+      renderMainRiderHistory();
+    }));
     $('riderCloseApprovedBtn')?.addEventListener('click',()=>closeModal('riderApplyModal'));
     $('adminRiderApplicantList')?.addEventListener('click',ev=>{
       const approve=ev.target.closest('[data-rider-approve]');
@@ -3275,7 +3342,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.22.117', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.22.119', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
