@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.120 Rider History Identity Fix loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.121 Rider Fare and Customer Charge loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -345,8 +345,11 @@
       playRiderNewJobSound();
       try{
         if('Notification' in window&&Notification.permission==='granted'){
+          const addedJobs=(Array.isArray(jobs)?jobs:[]).filter(j=>added.includes(String(j?.batch_id||'')));
+          const fares=addedJobs.map(j=>Number(j?.delivery_fee||0)).filter(n=>n>0);
+          const fareText=fares.length===1?` · รายได้ ${fares[0].toLocaleString('th-TH')} บาท`:fares.length>1?` · รายได้รวม ${fares.reduce((s,n)=>s+n,0).toLocaleString('th-TH')} บาท`:'';
           new Notification('🛵 มีงาน Rider ใหม่',{
-            body:`มีงานใหม่รอรับ ${added.length} งาน`,
+            body:`มีงานใหม่รอรับ ${added.length} งาน${fareText}`,
             tag:'market-rider-new-job',
             renotify:true,
             requireInteraction:true,
@@ -354,7 +357,9 @@
           });
         }
       }catch(_e){}
-      showNotice(`🛵 มีงาน Rider ใหม่ ${added.length} งาน`);
+      const addedJobs=(Array.isArray(jobs)?jobs:[]).filter(j=>added.includes(String(j?.batch_id||'')));
+      const totalFare=addedJobs.reduce((sum,j)=>sum+Number(j?.delivery_fee||0),0);
+      showNotice(`🛵 มีงาน Rider ใหม่ ${added.length} งาน${totalFare>0?` · รายได้ ${totalFare.toLocaleString('th-TH')} บาท`:''}`);
     }
   }
 
@@ -413,7 +418,7 @@
     return `<article class="rider-job-card ${waiting?'waiting':mine?'mine':''}" data-rider-job-batch="${esc(job.batch_id)}">
       <div class="rider-job-card-head">
         <div><b>งาน #${esc(String(job?.batch_id||'').slice(0,8).toUpperCase())}</b><small>${esc(riderJobInboxStatusLabel(job?.status))}</small></div>
-        <div class="rider-job-price">${fee?fee.toLocaleString('th-TH')+' บาท':'-'}</div>
+        <div class="rider-job-price">${fee?'รายได้ '+fee.toLocaleString('th-TH')+' บาท':'รอข้อมูลค่าจัดส่ง'}</div>
       </div>
       <div class="rider-job-meta">${km?`📏 ${km.toFixed(1)} กม.`:''}${shops.length?` · 🏪 ${shops.length} จุดรับ`:''}</div>
 
@@ -435,6 +440,28 @@
     </article>`;
   }
 
+  async function fillRiderInboxFareFallback(jobs){
+    const rows=Array.isArray(jobs)?jobs:[];
+    const ids=[...new Set(rows.map(j=>j?.rider_job_id).filter(Boolean).map(String))];
+    if(!ids.length)return rows;
+    try{
+      const {data,error}=await db.from('rider_jobs').select('id,fare_estimate,distance_km').in('id',ids);
+      if(error)throw error;
+      const fares=new Map((data||[]).map(j=>[String(j.id),j]));
+      return rows.map(job=>{
+        const fallback=fares.get(String(job.rider_job_id||''));
+        if(!fallback)return job;
+        return {...job,
+          delivery_fee:Number(job.delivery_fee||0)>0?job.delivery_fee:fallback.fare_estimate,
+          distance_km:Number(job.distance_km||0)>0?job.distance_km:fallback.distance_km
+        };
+      });
+    }catch(err){
+      console.warn('โหลดค่าจัดส่งสำรองไม่สำเร็จ',err?.message||err);
+      return rows;
+    }
+  }
+
   async function loadRiderJobInbox({quiet=false}={}){
     const box=$('riderJobInbox');
     if(!db||!session||myRiderApplication?.status!=='approved'){
@@ -445,7 +472,7 @@
     try{
       const {data,error}=await db.rpc('market_my_rider_job_inbox');
       if(error)throw error;
-      const jobs=Array.isArray(data)?data:(data?.jobs||[]);
+      const jobs=await fillRiderInboxFareFallback(Array.isArray(data)?data:(data?.jobs||[]));
       syncRiderWaitingJobs(jobs,{notify:true});
       if(box)box.innerHTML=jobs.length?jobs.map(riderJobCard).join(''):'<div class="rider-job-empty">✅ ตอนนี้ยังไม่มีงานใหม่</div>';
       return jobs;
@@ -3339,7 +3366,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.22.120', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.22.121', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });

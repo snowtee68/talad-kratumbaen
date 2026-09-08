@@ -428,7 +428,7 @@
     if(!batchId)return;
     try{
       const {data:batch}=await db.from('market_delivery_batches')
-        .select('id,status,group_id,accepted_at,pickup_started_at,picked_up_at,delivering_at,delivery_arrived_at,customer_confirmed_at,delivery_issue_status,delivery_issue_note,reassign_count,group:market_delivery_groups(customer_id)')
+        .select('id,status,group_id,delivery_fee,distance_km,accepted_at,pickup_started_at,picked_up_at,delivering_at,delivery_arrived_at,customer_confirmed_at,delivery_issue_status,delivery_issue_note,reassign_count,group:market_delivery_groups(customer_id)')
         .eq('id',batchId).maybeSingle();
       if(!batch)return;
 
@@ -464,10 +464,11 @@
       // customer-facing and would otherwise drown out new-order/payment alerts.
       if(sellerTarget&&!isCustomer&&!riderAccepted&&!deliveryCancelled&&!riderReassigned&&!deliveryIssue)return;
 
+      const fareDetail=Number(batch.delivery_fee||0)>0?` · ค่าจัดส่ง ${money(batch.delivery_fee)} บาท`:'';
       const detail=deliveryIssue?`พบปัญหาการจัดส่ง${batch.delivery_issue_note?' · '+batch.delivery_issue_note:''}`:
         riderReassigned?'Rider ถอนตัว · ระบบกำลังหา Rider ใหม่':
         deliveryCancelled?'งาน Delivery ถูกยกเลิก กรุณาตรวจสอบ':
-        riderAccepted?'Rider รับงานแล้ว':
+        riderAccepted?`Rider รับงานแล้ว${fareDetail}`:
         batch.delivery_arrived_at?'Rider ถึงจุดส่งแล้ว · รอยืนยันรับสินค้า':
         status==='pickup_started'?'Rider กำลังไปรับสินค้า':
         status==='picked_up'?'Rider รับสินค้าครบแล้ว':
@@ -1113,7 +1114,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=0.5.22.120',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=0.5.22.121',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
@@ -1582,7 +1583,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
     const switchToPickup=(!b.accepted_at&&['creating','waiting_rider','created','open'].includes(String(b.status||'')))?`<div class="mo-actions switch-pickup-wrap"><button type="button" class="mo-secondary switch-pickup-btn" data-switch-pickup-batch="${b.id}">🏪 เปลี่ยนเป็นมารับเองที่ร้าน</button></div><div class="mo-muted"><small>เปลี่ยนได้เฉพาะก่อน Rider รับงาน · ออเดอร์สินค้าไม่ถูกยกเลิก</small></div>`:'';
     const issueBox=issue?`<div class="warning-banner"><b>⚠️ แจ้งปัญหาการส่งมอบแล้ว</b><br>${esc(b.delivery_issue_note||'')}<br><small>รูปหลักฐานจะถูกเก็บไว้จนกว่าปัญหาจะถูกแก้ไข</small></div>`:'';
     const times=`<div class="mo-muted" style="margin-top:6px">${b.accepted_at?`รับงาน ${new Date(b.accepted_at).toLocaleString('th-TH')} · `:''}${b.picked_up_at?`รับสินค้าครบ ${new Date(b.picked_up_at).toLocaleString('th-TH')} · `:''}${b.delivery_arrived_at?`ถึงปลายทาง ${new Date(b.delivery_arrived_at).toLocaleString('th-TH')} · `:''}${b.customer_confirmed_at?`ลูกค้ายืนยัน ${new Date(b.customer_confirmed_at).toLocaleString('th-TH')}`:b.auto_confirmed_at?`ระบบยืนยันอัตโนมัติ ${new Date(b.auto_confirmed_at).toLocaleString('th-TH')}`:''}</div>`;
-    return `<div class="delivery-track"><div class="order-card-head"><b>${done?'✅':'🛵'} ${esc(effective)}</b><span class="status-pill">เลขอ้างอิง #${esc(sharedOrderRef(groupId||b.group_id))}</span></div>${b.rider_name||phone?`<div class="rider-contact"><b>Rider: ${esc(b.rider_name||'ไม่ระบุชื่อ')}</b>${phone?` · ${esc(phone)} <a href="tel:${esc(phone)}">📞 โทรหา Rider</a>`:''}</div>`:`<div class="mo-muted">รอ Rider รับงานและส่งข้อมูลติดต่อ</div>`}<div class="delivery-steps"><span class="${['accepted','pickup_started','picked_up','delivering','completed'].includes(b.status)?'done':''}">Rider รับงาน</span><span class="${['picked_up','delivering','completed'].includes(b.status)?'done':b.status==='pickup_started'?'active':''}">รับสินค้า</span><span class="${arrived||done?'done':b.status==='delivering'?'active':''}">ถึงปลายทาง</span><span class="${done?'done':arrived?'active':''}">ลูกค้ายืนยัน</span></div>${b.delivery_fee?`<small>ค่าส่งประมาณ ${money(b.delivery_fee)} บาท${b.distance_km?` · ${Number(b.distance_km).toFixed(1)} กม.`:''}</small>`:''}${times}${issueBox}<div class="mo-actions">${proof}</div>${switchToPickup}${customerActions}</div>`;
+    return `<div class="delivery-track"><div class="order-card-head"><b>${done?'✅':'🛵'} ${esc(effective)}</b><span class="status-pill">เลขอ้างอิง #${esc(sharedOrderRef(groupId||b.group_id))}</span></div>${b.rider_name||phone?`<div class="rider-contact"><b>Rider: ${esc(b.rider_name||'ไม่ระบุชื่อ')}</b>${phone?` · ${esc(phone)} <a href="tel:${esc(phone)}">📞 โทรหา Rider</a>`:''}</div>`:`<div class="mo-muted">รอ Rider รับงานและส่งข้อมูลติดต่อ</div>`}${b.delivery_fee?`<div class="delivery-charge-notice"><small>ค่าจัดส่งที่ชำระให้ Rider</small><b>${money(b.delivery_fee)} บาท</b>${b.distance_km?`<span>${Number(b.distance_km).toFixed(1)} กม.</span>`:''}</div>`:''}<div class="delivery-steps"><span class="${['accepted','pickup_started','picked_up','delivering','completed'].includes(b.status)?'done':''}">Rider รับงาน</span><span class="${['picked_up','delivering','completed'].includes(b.status)?'done':b.status==='pickup_started'?'active':''}">รับสินค้า</span><span class="${arrived||done?'done':b.status==='delivering'?'active':''}">ถึงปลายทาง</span><span class="${done?'done':arrived?'active':''}">ลูกค้ายืนยัน</span></div>${times}${issueBox}<div class="mo-actions">${proof}</div>${switchToPickup}${customerActions}</div>`;
   }
   function deliveryProgress(g,activeOrders){
     if(g.fulfillment_method==='pickup')return '';
