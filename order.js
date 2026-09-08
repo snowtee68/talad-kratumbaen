@@ -269,11 +269,12 @@
     if(b)b.textContent=n>99?'99+':String(n);
     nav?.classList.toggle('has-order-notify',n>0);
   }
-  function showOrderNotifyBanner(title,detail,count=1,{repeatSellerSound=false}={}){
+  function showOrderNotifyBanner(title,detail,count=1,{repeatSellerSound=false,target=null}={}){
     const b=document.getElementById('orderNotifyBanner');if(!b)return;
     b.querySelector('.order-notify-title').textContent=title;b.querySelector('.order-notify-detail').textContent=detail||'แตะเพื่อดูออเดอร์';
     b.classList.add('show');clearTimeout(b._hideTimer);b._hideTimer=setTimeout(()=>b.classList.remove('show'),6500);
     orderNotifyState.unread=Math.min(999,Number(orderNotifyState.unread||0)+Math.max(1,count));saveOrderNotifyState();renderOrderNotifyBadge();
+    orderNotifyState.bannerTarget=target||null;saveOrderNotifyState();
     // Every real event sounds once; seller action events may also start the alarm loop.
     playOrderNotificationSound();
     if(repeatSellerSound)startOrderSoundRepeat();
@@ -340,7 +341,8 @@
           const paymentCount=unseenSellerActions.filter(o=>o.status==='payment_review').length;
           const orderCount=unseenSellerActions.length-paymentCount;
           const parts=[];if(orderCount)parts.push('ออเดอร์ใหม่ '+orderCount);if(paymentCount)parts.push('สลิปรอตรวจ '+paymentCount);
-          showOrderNotifyBanner('🔔 ร้านมีรายการรอตรวจ',parts.join(' · '),unseenSellerActions.length,{repeatSellerSound:true});
+          const latest=unseenSellerActions[0];
+          showOrderNotifyBanner('🔔 ร้านมีรายการรอตรวจ',parts.join(' · '),unseenSellerActions.length,{repeatSellerSound:true,target:latest?{role:'seller',orderId:latest.id,shopId:latest.shop_id}:null});
         }
         return;
       }
@@ -357,7 +359,9 @@
         if(counts.customer_ready)parts.push('สินค้าพร้อม '+counts.customer_ready);
         if(counts.customer_cancelled)parts.push('ออเดอร์ยกเลิก '+counts.customer_cancelled);
         const repeatSellerSound=Boolean(counts.seller_new||counts.seller_payment||counts.seller_reminder);
-        showOrderNotifyBanner(title,parts.join(' · '),events.length,{repeatSellerSound});
+        const sellerEvent=events.find(x=>['seller_new','seller_payment','seller_reminder'].includes(x.type));
+        const sellerOrder=sellerEvent?sellerOrders.find(x=>String(x.id)===String(sellerEvent.id)):null;
+        showOrderNotifyBanner(title,parts.join(' · '),events.length,{repeatSellerSound,target:sellerOrder?{role:'seller',orderId:sellerOrder.id,shopId:sellerOrder.shop_id}:null});
       }
       saveOrderNotifyState();
     }catch(err){console.warn('Order notification poll:',err?.message||err)}
@@ -487,9 +491,12 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
         if(!session)return requireLogin();
         // This banner is raised for seller actions (new order / payment slip).
         // Open the dedicated seller inbox instead of the customer order history.
-        return Number(orderNotifyState.activeSellerOrders||0)>0
-          ? openSellerOrdersFromNav()
-          : openAccountHub('customer');
+        if(Number(orderNotifyState.activeSellerOrders||0)>0){
+          const target=orderNotifyState.bannerTarget;
+          return resolveSellerDestinationFromDeepLink({tab:'seller',orderId:target?.orderId||null,shopId:target?.shopId||null,groupId:null})
+            .then(destination=>destination?.shopId?openSellerOrders(destination.shopId,destination.orderId||null):openSellerOrdersFromNav());
+        }
+        return openAccountHub('customer');
       }
     });
     // Bottom navigation in the base app may have its own click handlers.
@@ -1072,7 +1079,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=0.5.22.110',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=0.5.22.111',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;

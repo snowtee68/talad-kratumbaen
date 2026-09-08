@@ -1,4 +1,4 @@
-const CACHE_NAME = 'talad-kratumbaen-v0.5.22.110';
+const CACHE_NAME = 'talad-kratumbaen-v0.5.22.111';
 const IMAGE_CACHE_NAME = 'talad-supabase-public-images-v1';
 const CORE = [
   './',
@@ -6,10 +6,10 @@ const CORE = [
   './styles.css',
   './app.js',
   './manifest.webmanifest',
-  './icons/icon-192.png?v=0.5.22.110',
-  './icons/icon-512.png?v=0.5.22.110',
-  './icons/icon-maskable-512.png?v=0.5.22.110',
-  './icons/apple-touch-icon.png?v=0.5.22.110'
+  './icons/icon-192.png?v=0.5.22.111',
+  './icons/icon-512.png?v=0.5.22.111',
+  './icons/icon-maskable-512.png?v=0.5.22.111',
+  './icons/apple-touch-icon.png?v=0.5.22.111'
 ];
 
 self.addEventListener('install', (event) => {
@@ -74,7 +74,13 @@ self.addEventListener('push', event => {
     renotify: true,
     requireInteraction: true,
     silent: false,
-    data: { url: data.url || './' },
+    data: {
+      url: data.url || './',
+      event: data.event || null,
+      order_id: data.order_id || null,
+      shop_id: data.shop_id || null,
+      group_id: data.group_id || null
+    },
     vibrate: [400,150,400,150,700,180,700]
   };
 
@@ -86,7 +92,17 @@ self.addEventListener('push', event => {
 self.addEventListener('notificationclick', event => {
   event.notification.close();
   event.waitUntil((async () => {
-    const raw=event.notification.data?.url||'./';
+    const notificationData=event.notification.data||{};
+    const eventName=String(notificationData.event||'').toLowerCase();
+    const sellerEvent=eventName.includes('seller')||['new_order','order_created','payment_submitted','payment_reminder'].includes(eventName);
+    let raw=notificationData.url||'./';
+    if(sellerEvent&&!String(raw).includes('order_tab=')){
+      const q=new URLSearchParams({order_tab:'seller'});
+      if(notificationData.shop_id)q.set('shop_id',notificationData.shop_id);
+      if(notificationData.order_id)q.set('order_id',notificationData.order_id);
+      if(notificationData.group_id)q.set('group_id',notificationData.group_id);
+      raw=`./?${q.toString()}`;
+    }
     let target;
     try{target=new URL(raw,self.registration.scope).href}catch(_e){target=self.registration.scope}
 
