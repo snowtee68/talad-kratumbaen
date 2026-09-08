@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.121 Rider Fare and Customer Charge loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.122 Rider Open Job Fare loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -442,17 +442,18 @@
 
   async function fillRiderInboxFareFallback(jobs){
     const rows=Array.isArray(jobs)?jobs:[];
-    const ids=[...new Set(rows.map(j=>j?.rider_job_id).filter(Boolean).map(String))];
+    const ids=[...new Set(rows.map(j=>j?.batch_id).filter(Boolean).map(String))];
     if(!ids.length)return rows;
     try{
-      const {data,error}=await db.from('rider_jobs').select('id,fare_estimate,distance_km').in('id',ids);
+      const {data,error}=await db.rpc('market_my_rider_job_fares',{p_batch_ids:ids});
       if(error)throw error;
-      const fares=new Map((data||[]).map(j=>[String(j.id),j]));
+      const fareRows=Array.isArray(data)?data:(data?.jobs||[]);
+      const fares=new Map(fareRows.map(j=>[String(j.batch_id),j]));
       return rows.map(job=>{
-        const fallback=fares.get(String(job.rider_job_id||''));
+        const fallback=fares.get(String(job.batch_id||''));
         if(!fallback)return job;
         return {...job,
-          delivery_fee:Number(job.delivery_fee||0)>0?job.delivery_fee:fallback.fare_estimate,
+          delivery_fee:Number(job.delivery_fee||0)>0?job.delivery_fee:fallback.delivery_fee,
           distance_km:Number(job.distance_km||0)>0?job.distance_km:fallback.distance_km
         };
       });
@@ -3366,7 +3367,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.22.121', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.22.122', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
