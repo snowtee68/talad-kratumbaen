@@ -1,4 +1,4 @@
-const CACHE_NAME = 'talad-kratumbaen-v0.5.22.111';
+const CACHE_NAME = 'talad-kratumbaen-v0.5.22.112';
 const IMAGE_CACHE_NAME = 'talad-supabase-public-images-v1';
 const CORE = [
   './',
@@ -6,10 +6,10 @@ const CORE = [
   './styles.css',
   './app.js',
   './manifest.webmanifest',
-  './icons/icon-192.png?v=0.5.22.111',
-  './icons/icon-512.png?v=0.5.22.111',
-  './icons/icon-maskable-512.png?v=0.5.22.111',
-  './icons/apple-touch-icon.png?v=0.5.22.111'
+  './icons/icon-192.png?v=0.5.22.112',
+  './icons/icon-512.png?v=0.5.22.112',
+  './icons/icon-maskable-512.png?v=0.5.22.112',
+  './icons/apple-touch-icon.png?v=0.5.22.112'
 ];
 
 self.addEventListener('install', (event) => {
@@ -79,7 +79,9 @@ self.addEventListener('push', event => {
       event: data.event || null,
       order_id: data.order_id || null,
       shop_id: data.shop_id || null,
-      group_id: data.group_id || null
+      group_id: data.group_id || null,
+      title: data.title || '',
+      body: data.body || ''
     },
     vibrate: [400,150,400,150,700,180,700]
   };
@@ -94,7 +96,9 @@ self.addEventListener('notificationclick', event => {
   event.waitUntil((async () => {
     const notificationData=event.notification.data||{};
     const eventName=String(notificationData.event||'').toLowerCase();
-    const sellerEvent=eventName.includes('seller')||['new_order','order_created','payment_submitted','payment_reminder'].includes(eventName);
+    const notificationText=`${notificationData.title||event.notification.title||''} ${notificationData.body||event.notification.body||''}`;
+    const sellerText=/ออเดอร์ใหม่|ร้านมีรายการ|สลิปรอตรวจ|รอตรวจเงิน|รอร้าน|new order|seller/i.test(notificationText);
+    const sellerEvent=sellerText||eventName.includes('seller')||['new_order','order_created','payment_submitted','payment_reminder'].includes(eventName);
     let raw=notificationData.url||'./';
     if(sellerEvent&&!String(raw).includes('order_tab=')){
       const q=new URLSearchParams({order_tab:'seller'});
