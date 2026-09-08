@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.122 Rider Open Job Fare loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.123 Rider Fare Sync and Push Restore loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -3367,7 +3367,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.22.122', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.22.123', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
