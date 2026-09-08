@@ -1072,7 +1072,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=0.5.22.108',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=0.5.22.109',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
@@ -1373,6 +1373,26 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
       history.replaceState(null,'',u.pathname+(u.searchParams.toString()?'?'+u.searchParams.toString():'')+u.hash);
     }catch(_e){}
   }
+  async function readPersistedOrderNotificationRoute(){
+    if(!('caches' in window))return null;
+    try{
+      const cache=await caches.open('market-notification-route-v1');
+      const key=new URL('./__notification_route__',location.href).href;
+      const res=await cache.match(key);
+      if(!res)return null;
+      const data=await res.json();
+      const age=Date.now()-Number(data?.at||0);
+      if(!data?.url||age<0||age>10*60*1000){await cache.delete(key);return null;}
+      return orderDeepLink(String(data.url))?String(data.url):null;
+    }catch(_e){return null}
+  }
+  async function clearPersistedOrderNotificationRoute(){
+    if(!('caches' in window))return;
+    try{
+      const cache=await caches.open('market-notification-route-v1');
+      await cache.delete(new URL('./__notification_route__',location.href).href);
+    }catch(_e){}
+  }
   async function resolveSellerShopFromDeepLink(d){
     if(d.shopId)return d.shopId;
     try{
@@ -1392,7 +1412,12 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
     return null;
   }
   async function openOrderDeepLink(sourceUrl=null){
-    const d=orderDeepLink(sourceUrl||location.href);
+    let effectiveUrl=sourceUrl||location.href;
+    let d=orderDeepLink(effectiveUrl);
+    if(!d){
+      const persisted=await readPersistedOrderNotificationRoute();
+      if(persisted){effectiveUrl=persisted;d=orderDeepLink(persisted);}
+    }
     if(!d||!session)return false;
     orderDateFilter='all';
     // Older push payloads sometimes contain only order_id (or default to the
@@ -1404,6 +1429,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
         if(sid){
           await openSellerOrders(sid,d.orderId);
           clearOrderDeepLink();
+          await clearPersistedOrderNotificationRoute();
           return true;
         }
       }catch(_e){}
@@ -1425,8 +1451,14 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
       await openAccountHub('customer');
     }
     clearOrderDeepLink();
+    await clearPersistedOrderNotificationRoute();
     return true;
   }
+
+  window.addEventListener('focus',()=>setTimeout(()=>openOrderDeepLink(),350));
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible')setTimeout(()=>openOrderDeepLink(),300);
+  });
   async function openAccountHub(tab='customer'){
     if(!canUseOrders())return;
     if(!session)return requireLogin();
