@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.119 Rider History and Income loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.120 Rider History Identity Fix loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -223,13 +223,10 @@
     }
     if(box)box.innerHTML='<p class="muted">กำลังโหลดประวัติ...</p>';
     try{
-      const {data,error}=await db.from('market_delivery_batches')
-        .select('id,group_id,status,delivery_fee,distance_km,created_at,updated_at,accepted_at,completed_at,cancelled_at')
-        .eq('rider_user_id',session.user.id)
-        .in('status',['completed','cancelled'])
-        .order('updated_at',{ascending:false}).limit(1000);
+      const {data,error}=await db.rpc('market_my_rider_job_history');
       if(error)throw error;
-      mainRiderHistoryRows=(data||[]).sort((a,b)=>new Date(mainRiderHistoryTime(b))-new Date(mainRiderHistoryTime(a)));
+      const rows=Array.isArray(data)?data:(data?.jobs||[]);
+      mainRiderHistoryRows=rows.sort((a,b)=>new Date(mainRiderHistoryTime(b))-new Date(mainRiderHistoryTime(a)));
       renderMainRiderHistory();
     }catch(err){
       if(box)box.innerHTML=`<p class="muted">โหลดประวัติไม่สำเร็จ: ${esc(err?.message||err)}</p>`;
@@ -3342,7 +3339,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.22.119', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.22.120', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
