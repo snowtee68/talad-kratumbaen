@@ -1,4 +1,4 @@
-const CACHE_NAME = 'talad-kratumbaen-v0.5.22.113';
+const CACHE_NAME = 'talad-kratumbaen-v0.5.22.114';
 const IMAGE_CACHE_NAME = 'talad-supabase-public-images-v1';
 const CORE = [
   './',
@@ -6,10 +6,10 @@ const CORE = [
   './styles.css',
   './app.js',
   './manifest.webmanifest',
-  './icons/icon-192.png?v=0.5.22.113',
-  './icons/icon-512.png?v=0.5.22.113',
-  './icons/icon-maskable-512.png?v=0.5.22.113',
-  './icons/apple-touch-icon.png?v=0.5.22.113'
+  './icons/icon-192.png?v=0.5.22.114',
+  './icons/icon-512.png?v=0.5.22.114',
+  './icons/icon-maskable-512.png?v=0.5.22.114',
+  './icons/apple-touch-icon.png?v=0.5.22.114'
 ];
 
 self.addEventListener('install', (event) => {
@@ -68,26 +68,32 @@ self.addEventListener('push', event => {
     data = { title: 'อัปเดตออเดอร์', body: event.data?.text() || '' };
   }
 
+  // Unsupported Declarative Web Push browsers receive the same JSON through
+  // the legacy push event. Read the nested notification as a fallback.
+  const proposed=data.notification&&typeof data.notification==='object'?data.notification:{};
+  const proposedData=proposed.data&&typeof proposed.data==='object'?proposed.data:{};
+  const title=proposed.title||data.title||'ตลาดกระทุ่มแบน';
+  const body=proposed.body||data.body||'มีอัปเดตคำสั่งซื้อ';
   const options = {
-    body: data.body || 'มีอัปเดตคำสั่งซื้อ',
-    tag: data.tag || 'market-order',
+    body,
+    tag: proposed.tag || data.tag || 'market-order',
     renotify: true,
     requireInteraction: true,
     silent: false,
     data: {
-      url: data.url || './',
-      event: data.event || null,
-      order_id: data.order_id || null,
-      shop_id: data.shop_id || null,
-      group_id: data.group_id || null,
-      title: data.title || '',
-      body: data.body || ''
+      url: proposed.navigate || proposedData.url || data.url || './',
+      event: proposedData.event || data.event || null,
+      order_id: proposedData.order_id || data.order_id || null,
+      shop_id: proposedData.shop_id || data.shop_id || null,
+      group_id: proposedData.group_id || data.group_id || null,
+      title,
+      body
     },
     vibrate: [400,150,400,150,700,180,700]
   };
 
   event.waitUntil(
-    self.registration.showNotification(data.title || 'ตลาดกระทุ่มแบน', options)
+    self.registration.showNotification(title, options)
   );
 });
 
