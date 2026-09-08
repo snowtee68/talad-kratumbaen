@@ -1113,7 +1113,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=0.5.22.116',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=0.5.22.117',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
@@ -1643,6 +1643,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
     const filtered=(groups||[]).filter(g=>orderDateMatches(g.created_at)&&orderSearchMatchesGroup(g));
     const buckets={waiting:[],processing:[],shipping:[],done:[]};
     for(const g of filtered)buckets[customerGroupBucket(g)].push(g);
+    buckets.done.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
 
     const focused=customerFocusGroupId?(groups||[]).find(g=>String(g.id)===String(customerFocusGroupId)):null;
     const focusedOrder=customerFocusOrderId?(groups||[]).flatMap(g=>(g.orders||[]).map(o=>({g,o}))).find(x=>String(x.o.id)===String(customerFocusOrderId)):null;
@@ -1849,7 +1850,11 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
   function renderSellerOrderSections(orders){
     const b={action:[],preparing:[],ready:[],done:[]};
     for(const o of (orders||[]).filter(x=>orderDateMatches(x.created_at)&&sellerOrderSearchMatches(x)))b[sellerOrderBucket(o)].push(o);
-    for(const key of Object.keys(b))b[key].sort((a,c)=>sellerOrderPriority(a)-sellerOrderPriority(c)||new Date(a.created_at)-new Date(c.created_at));
+    for(const key of Object.keys(b)){
+      b[key].sort(key==='done'
+        ?(a,c)=>new Date(c.created_at)-new Date(a.created_at)
+        :(a,c)=>sellerOrderPriority(a)-sellerOrderPriority(c)||new Date(a.created_at)-new Date(c.created_at));
+    }
 
     if(!b[sellerOrderTab])sellerOrderTab='action';
     const active=b[sellerOrderTab],limit=10*sellerOrderPage,shown=active.slice(0,limit);
