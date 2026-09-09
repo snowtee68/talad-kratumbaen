@@ -1,4 +1,4 @@
-const CACHE_NAME = 'talad-kratumbaen-v0.5.22.128-r1';
+const CACHE_NAME = 'talad-kratumbaen-v0.5.22.129-r1';
 const IMAGE_CACHE_NAME = 'talad-supabase-public-images-v1';
 const CORE = [
   './',
@@ -6,10 +6,10 @@ const CORE = [
   './styles.css',
   './app.js',
   './manifest.webmanifest',
-  './icons/icon-192.png?v=0.5.22.128-r1',
-  './icons/icon-512.png?v=0.5.22.128-r1',
-  './icons/icon-maskable-512.png?v=0.5.22.128-r1',
-  './icons/apple-touch-icon.png?v=0.5.22.128-r1'
+  './icons/icon-192.png?v=0.5.22.129-r1',
+  './icons/icon-512.png?v=0.5.22.129-r1',
+  './icons/icon-maskable-512.png?v=0.5.22.129-r1',
+  './icons/apple-touch-icon.png?v=0.5.22.129-r1'
 ];
 
 self.addEventListener('install', (event) => {
@@ -105,6 +105,8 @@ self.addEventListener('notificationclick', event => {
     const notificationText=`${notificationData.title||event.notification.title||''} ${notificationData.body||event.notification.body||''}`;
     const sellerText=/ออเดอร์ใหม่|ร้านมีรายการ|สลิปรอตรวจ|รอตรวจเงิน|รอร้าน|new order|seller/i.test(notificationText);
     const sellerEvent=sellerText||eventName.includes('seller')||['new_order','order_created','payment_submitted','payment_reminder'].includes(eventName);
+    const customerText=/สินค้าพร้อม|พร้อมรับสินค้า|ร้านรับออเดอร์|ยืนยันรายการ|ตรวจสอบเงินแล้ว|ชำระเงินแล้ว|customer|พร้อมมารับ|ready for pickup/i.test(notificationText);
+    const customerEvent=customerText||eventName.includes('customer')||['shop_accepted','revision_requested','payment_confirmed','order_ready','refund_submitted'].includes(eventName);
     let raw=notificationData.url||'./';
     let existing;
     try{existing=new URL(raw,self.registration.scope)}catch(_e){existing=new URL('./',self.registration.scope)}
@@ -115,6 +117,15 @@ self.addEventListener('notificationclick', event => {
       const q=new URLSearchParams({rider_jobs:'1',notification_click:'1'});
       const batchId=existing.searchParams.get('rider_batch')||notificationData.batch_id||notificationData.rider_batch||null;
       if(batchId)q.set('rider_batch',batchId);
+      raw=`./?${q.toString()}`;
+    }else if(customerEvent){
+      // V0.5.22.129: customer notifications must never be promoted to seller AUTO,
+      // even when the signed-in customer also owns a shop.
+      const q=new URLSearchParams({order_tab:'customer',notification_click:'1'});
+      const orderId=notificationData.order_id||existing.searchParams.get('order_id');
+      const groupId=notificationData.group_id||existing.searchParams.get('group_id');
+      if(orderId)q.set('order_id',orderId);
+      if(groupId)q.set('group_id',groupId);
       raw=`./?${q.toString()}`;
     }else if(sellerEvent){
       // V0.5.22.128: seller notifications must always land in the seller order flow.

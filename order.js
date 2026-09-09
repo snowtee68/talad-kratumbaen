@@ -1130,7 +1130,7 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
   }
   async function getOrderPushRegistration(){
     if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ Push Notification');
-    return navigator.serviceWorker.register('./sw.js?v=0.5.22.128',{scope:'./',updateViaCache:'none'});
+    return navigator.serviceWorker.register('./sw.js?v=0.5.22.129-r1',{scope:'./',updateViaCache:'none'});
   }
   async function getOrderPushSubscription(){
     if(!('serviceWorker' in navigator))return null;
@@ -1540,21 +1540,10 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
       await clearPersistedOrderNotificationRoute();
       return true;
     }
-    // Older push payloads sometimes contain only order_id (or default to the
-    // customer tab). If the signed-in user owns that order's shop, the seller
-    // destination is authoritative.
-    if(d.orderId&&d.tab!=='seller'){
-      try{
-        const destination=await resolveSellerDestinationFromDeepLink(d);
-        if(destination?.shopId){
-          await openSellerOrders(destination.shopId,destination.orderId||d.orderId);
-          pendingOrderNotificationUrl=null;
-          clearOrderDeepLink();
-          await clearPersistedOrderNotificationRoute();
-          return true;
-        }
-      }catch(_e){}
-    }
+    // V0.5.22.129: explicit customer routes are authoritative.
+    // A buyer may also own a shop; order_id alone must never change a customer
+    // notification into the seller workspace. Seller promotion is allowed only
+    // for an explicit seller route / seller_action handled above.
     if(d.tab==='seller'){
       const destination=await resolveSellerDestinationFromDeepLink(d);
       if(destination?.shopId)await openSellerOrders(destination.shopId,destination.orderId||d.orderId||null);
