@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.129 Notification Role Routing loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.130 Mission Welcome UI loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -1725,6 +1725,11 @@
     try{
       if(localStorage.getItem(storageKey)===dayKey)return;
     }catch(_e){}
+    const rewardBox=$('missionWelcomeReward');
+    if(rewardBox){
+      if(settings?.reward_active&&settings?.reward_title){rewardBox.innerHTML=`<small>🎁 รางวัลเมื่อทำ Mission ครบ</small><b>${esc(settings.reward_title)}</b>${settings.reward_detail?`<p>${esc(settings.reward_detail)}</p>`:''}`;rewardBox.classList.remove('hidden');}
+      else{rewardBox.innerHTML='';rewardBox.classList.add('hidden');}
+    }
     setTimeout(()=>{
       // Do not interrupt another modal that is already open (e.g. password recovery/direct-link flow).
       const anotherOpen=[...document.querySelectorAll('.modal:not(.hidden)')].some(x=>x.id!=='missionWelcomeModal');
@@ -3380,7 +3385,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=0.5.22.129-r1', {scope:'./',updateViaCache:'none'}).catch((err) => {
+      navigator.serviceWorker.register('./sw.js?v=0.5.22.130-r1', {scope:'./',updateViaCache:'none'}).catch((err) => {
         console.warn('Service worker registration failed:', err);
       });
     });
