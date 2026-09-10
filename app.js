@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.130 Mission Welcome UI loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.131 Usage Optimization loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(
@@ -613,7 +613,7 @@
       if(!riderWaitingJobPollTimer){
         riderWaitingJobPollTimer=setInterval(()=>{
           if(document.visibilityState==='visible'&&myRiderApplication?.status==='approved'&&myRiderOnline)loadRiderJobInbox({quiet:true});
-        },30000);
+        },180000);
       }
     }catch(err){console.warn('rider realtime skipped',err);}
   }
