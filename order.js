@@ -316,10 +316,16 @@
         const {data}=await db.from('market_orders').select('id,status,created_at,updated_at,shop_id').eq('customer_id',session.user.id).order('created_at',{ascending:false}).limit(100);
         customerOrders=data||[];
       }
+      const sellerShopIdSet=new Set(sellerIds.map(String));
       const all=[...sellerOrders.map(o=>({role:'seller',...o})),...customerOrders.map(o=>({role:'customer',...o}))];
       for(const o of all){
         const key=o.role+':'+o.id,prev=orderNotifyState.statuses[key],cur=o.status;
-        if(orderNotifyBaseline&&prev!==undefined&&prev!==cur){
+        // V0.5.22.133: if this signed-in account owns the shop of the same order,
+        // do not mirror buyer-side popup events back onto the seller device.
+        // The status is still tracked, so real customer notifications on other shops
+        // and all server-side Push notifications remain unchanged.
+        const suppressOwnShopCustomerPopup=o.role==='customer'&&sellerShopIdSet.has(String(o.shop_id||''));
+        if(orderNotifyBaseline&&prev!==undefined&&prev!==cur&&!suppressOwnShopCustomerPopup){
           if(o.role==='seller'&&cur==='payment_review')events.push({type:'seller_payment',id:o.id});
           if(o.role==='customer'&&cur==='awaiting_payment')events.push({type:'customer_pay',id:o.id});
           if(o.role==='customer'&&cur==='awaiting_customer_confirmation')events.push({type:'customer_revision',id:o.id});

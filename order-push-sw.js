@@ -22,7 +22,7 @@ self.addEventListener('notificationclick',event=>{
       const text=`${d.title||event.notification.title||''} ${d.body||event.notification.body||''}`;
       const rider=u.searchParams.get('rider_jobs')==='1'||eventName.includes('rider')||/rider|ไรเดอร์|งานใหม่เข้ามา|งาน delivery|มีงานใหม่/i.test(text);
       const customer=eventName.includes('customer')||['shop_accepted','revision_requested','payment_confirmed','order_ready','refund_submitted'].includes(eventName)||/สินค้าพร้อม|พร้อมรับสินค้า|ร้านรับออเดอร์|พร้อมมารับ|ready for pickup/i.test(text);
-      const seller=eventName.includes('seller')||['new_order','order_created','payment_submitted','payment_reminder'].includes(eventName)||/ออเดอร์ใหม่|สลิปรอตรวจ|รอตรวจเงิน|new order|seller/i.test(text);
+      const sellerEvents=['new_order','order_created','payment_submitted','payment_reminder','revision_confirmed','order_cancelled','refund_destination']; const customerEvents=['shop_accepted','revision_requested','payment_confirmed','order_ready','refund_submitted']; const sellerExact=sellerEvents.includes(eventName)||eventName.includes('seller'); const customerExact=customerEvents.includes(eventName)||eventName.includes('customer'); const sellerText=/ออเดอร์ใหม่|สลิปรอตรวจ|รอตรวจเงิน|ลูกค้า.*ส่งสลิป|ส่งสลิป|หลักฐานชำระ|payment submitted|new order|seller/i.test(text); const seller=sellerExact||(!customerExact&&sellerText);
       if(rider){
         const q=new URLSearchParams({rider_jobs:'1',notification_click:'1'}); raw=`./?${q}`;
       }else if(customer){

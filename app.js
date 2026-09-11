@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  console.info('Talad Krathumbaen Main v0.5.22.131 Usage Optimization loaded');
+  console.info('Talad Krathumbaen Main v0.5.22.133 Usage Optimization loaded');
 
   const cfg = window.APP_CONFIG || {};
   const configured = Boolean(

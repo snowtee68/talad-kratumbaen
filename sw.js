@@ -1,4 +1,4 @@
-const CACHE_NAME = 'talad-kratumbaen-v0.5.22.131-r1';
+const CACHE_NAME = 'talad-kratumbaen-v0.5.22.133-r1';
 const IMAGE_CACHE_NAME = 'talad-supabase-public-images-v1';
 const CORE = [
   './',
@@ -6,10 +6,10 @@ const CORE = [
   './styles.css',
   './app.js',
   './manifest.webmanifest',
-  './icons/icon-192.png?v=0.5.22.131-r1',
-  './icons/icon-512.png?v=0.5.22.131-r1',
-  './icons/icon-maskable-512.png?v=0.5.22.131-r1',
-  './icons/apple-touch-icon.png?v=0.5.22.131-r1'
+  './icons/icon-192.png?v=0.5.22.133-r1',
+  './icons/icon-512.png?v=0.5.22.133-r1',
+  './icons/icon-maskable-512.png?v=0.5.22.133-r1',
+  './icons/apple-touch-icon.png?v=0.5.22.133-r1'
 ];
 
 self.addEventListener('install', (event) => {
@@ -103,10 +103,20 @@ self.addEventListener('notificationclick', event => {
     const notificationData=event.notification.data||{};
     const eventName=String(notificationData.event||'').toLowerCase();
     const notificationText=`${notificationData.title||event.notification.title||''} ${notificationData.body||event.notification.body||''}`;
-    const sellerText=/ออเดอร์ใหม่|ร้านมีรายการ|สลิปรอตรวจ|รอตรวจเงิน|รอร้าน|new order|seller/i.test(notificationText);
-    const sellerEvent=sellerText||eventName.includes('seller')||['new_order','order_created','payment_submitted','payment_reminder'].includes(eventName);
-    const customerText=/สินค้าพร้อม|พร้อมรับสินค้า|ร้านรับออเดอร์|ยืนยันรายการ|ตรวจสอบเงินแล้ว|ชำระเงินแล้ว|customer|พร้อมมารับ|ready for pickup/i.test(notificationText);
-    const customerEvent=customerText||eventName.includes('customer')||['shop_accepted','revision_requested','payment_confirmed','order_ready','refund_submitted'].includes(eventName);
+    // V0.5.22.133: classify the notification recipient explicitly before routing.
+    // Seller events and customer events are different workflows and must never
+    // fall through to the other side merely because a title/body contains a
+    // generic word such as "customer".
+    const sellerEventNames=['new_order','order_created','payment_submitted','payment_reminder','revision_confirmed','order_cancelled','refund_destination'];
+    const customerEventNames=['shop_accepted','revision_requested','payment_confirmed','order_ready','refund_submitted'];
+    const sellerEventExact=sellerEventNames.includes(eventName)||eventName.includes('seller');
+    const customerEventExact=customerEventNames.includes(eventName)||eventName.includes('customer');
+    const sellerText=/ออเดอร์ใหม่|ร้านมีรายการ|สลิปรอตรวจ|รอตรวจเงิน|รอร้าน|ลูกค้า.*ส่งสลิป|ส่งสลิป|หลักฐานชำระ|payment submitted|new order|seller/i.test(notificationText);
+    const customerText=/สินค้าพร้อม|พร้อมรับสินค้า|ร้านรับออเดอร์|ยืนยันรายการ|ตรวจสอบเงินแล้ว|ชำระเงินแล้ว|พร้อมมารับ|ready for pickup/i.test(notificationText);
+    // Explicit business-event mapping wins. For ambiguous/legacy payloads,
+    // seller-action text wins before customer text because it requires shop action.
+    const sellerEvent=sellerEventExact||(!customerEventExact&&sellerText);
+    const customerEvent=!sellerEvent&&(customerEventExact||customerText);
     let raw=notificationData.url||'./';
     let existing;
     try{existing=new URL(raw,self.registration.scope)}catch(_e){existing=new URL('./',self.registration.scope)}
