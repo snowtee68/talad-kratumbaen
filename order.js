@@ -617,6 +617,16 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
       if(e.target.closest('#enableSellerPushBtn'))return enableSellerPush();
       if(e.target.closest('#disableSellerPushBtn'))return disableSellerPush();
       if(e.target.closest('#testSellerPushBtn'))return testSellerPush();
+      if(e.target.closest('#testSellerNativeAudioBtn')){
+        if(window.MarketNativeAlert?.testOrderAlert)window.MarketNativeAlert.testOrderAlert();
+        else{armOrderNotificationAudio();playOrderNotificationSound();}
+        return;
+      }
+      if(e.target.closest('#stopSellerNativeAudioBtn')){
+        try{if(window.MarketNativeAlert?.stopAlert)window.MarketNativeAlert.stopAlert();else window.MarketNativeAlert?.stopOrderAlert?.();}catch(_e){}
+        stopOrderSoundRepeat();
+        return;
+      }
       const rd=e.target.closest('[data-refund-destination]');if(rd)return openRefundDestination(rd.dataset.refundDestination);
       if(e.target.closest('#saveRefundDestinationBtn'))return saveRefundDestination();
       const rtype=e.target.closest('#refundDestinationType');if(rtype)return renderRefundDestinationFields();
@@ -1831,6 +1841,8 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
           <button id="enableSellerPushBtn" class="mo-primary">เปิดแจ้งเตือนออเดอร์ร้าน</button>
           <button id="disableSellerPushBtn" class="mo-secondary" style="display:none">ปิดการแจ้งเตือนเครื่องนี้</button>
           <button id="testSellerPushBtn" class="mo-secondary" style="display:none">🔔 ส่งแจ้งเตือนทดสอบ</button>
+          <button id="testSellerNativeAudioBtn" class="mo-primary">🔊 ทดสอบเสียงออเดอร์</button>
+          <button id="stopSellerNativeAudioBtn" class="mo-secondary">⏹ หยุดเสียง</button>
         </div>
         <div class="mo-muted"><small>การเปิด/ปิดเป็นสิทธิ์ของอุปกรณ์และบัญชีนี้ จึงใช้ Push subscription เดียวกับการแจ้งเตือนฝั่งลูกค้าและ Rider บนเครื่องเดียวกัน</small></div>
       </div>
@@ -1838,6 +1850,14 @@ if(e.target.closest('#showDeliveryFareInfoBtn'))return showDeliveryFareInfo(fals
         ${renderSellerOrderSections(orders||[])}
       </section>
     `,true);
+
+    // Native Android alert stops only when the seller Order page is really open.
+    try{
+      if(window.MarketNativeAlert?.stopOrderAlert){
+        window.MarketNativeAlert.stopOrderAlert();
+      }
+    }catch(_e){}
+
     await refreshSellerPushUI();
 
     if(focusOrderId){

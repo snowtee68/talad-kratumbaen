@@ -173,6 +173,15 @@
           <div><span>ทะเบียนรถ</span><b>${esc(a.vehicle_plate||'-')}</b></div>
         `;
         renderRiderAvailability();
+        // R16.1: local sound test controls for approved Rider. No job/order/push is created.
+        if(approved&&!approved.querySelector('#riderNativeAudioTestBox')){
+          const testBox=document.createElement('div');
+          testBox.id='riderNativeAudioTestBox';
+          testBox.className='payment-card';
+          testBox.style.marginTop='12px';
+          testBox.innerHTML=`<b>🔊 ทดสอบเสียงแจ้งเตือน Rider</b><div class="muted" style="margin-top:4px">ทดสอบเฉพาะเครื่องนี้ ไม่สร้างงาน Rider และไม่ส่งแจ้งเตือนไปหาคนอื่น</div><div class="actions" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button type="button" id="testRiderNativeAudioBtn" class="primary">🔊 ทดสอบเสียงงาน Rider</button><button type="button" id="stopRiderNativeAudioBtn" class="secondary">⏹ หยุดเสียง</button></div>`;
+          approved.prepend(testBox);
+        }
         showMainRiderPage('current');
         loadRiderJobInbox();
         if(myRiderOnline)startRiderJobRealtime(); else stopRiderJobRealtime();
@@ -2322,6 +2331,68 @@
     setTimeout(()=>form?.elements?.display_name?.focus(),80);
   }
 
+  function nativePushAppId(){
+    try{
+      const appId=String(window.MarketNativeAlert?.getAppId?.()||'').trim();
+      if(appId==='com.krathumbaen.together'||appId==='com.krathumbaen.together.test') return appId;
+    }catch(_err){}
+    // Existing TEST Android builds do not expose getAppId(), so keep their current identity.
+    return 'com.krathumbaen.together.test';
+  }
+
+  // R16: local Native audio test helper. No order is created and no Push is sent.
+  // This is intentionally exposed only as a diagnostic API; normal web/PWA behavior is unchanged.
+  window.marketNativeAudioTest={
+    appId:()=>nativePushAppId(),
+    order:()=>{try{window.MarketNativeAlert?.testOrderAlert?.();return true}catch(_err){return false}},
+    rider:()=>{try{window.MarketNativeAlert?.testRiderAlert?.();return true}catch(_err){return false}},
+    stop:()=>{try{if(window.MarketNativeAlert?.stopAlert)window.MarketNativeAlert.stopAlert();else window.MarketNativeAlert?.stopRiderAlert?.();return true}catch(_err){return false}}
+  };
+
+  async function syncNativePushToken(){
+    if(!db || !session?.user?.id) return;
+    const token=String(window.marketNativeFcmToken||'').trim();
+    if(!token) return;
+    try{
+      const payload={
+        user_id:session.user.id,
+        fcm_token:token,
+        platform:'android',
+        app_id:nativePushAppId(),
+        device_name:String(navigator.userAgent||'Android').slice(0,250),
+        is_active:true,
+        updated_at:new Date().toISOString()
+      };
+      const {error}=await db.from('market_native_push_tokens')
+        .upsert(payload,{onConflict:'fcm_token'});
+      if(error) throw error;
+      console.log('[NativePush] token synced for signed-in user');
+    }catch(err){
+      console.warn('[NativePush] token sync failed',err);
+    }
+  }
+
+  window.addEventListener('market:native-push-registration',()=>{
+    setTimeout(()=>syncNativePushToken(),0);
+  });
+
+  async function deactivateNativePushToken(){
+    if(!db || !session?.user?.id) return;
+    const token=String(window.marketNativeFcmToken||'').trim();
+    if(!token) return;
+    try{
+      const {error}=await db.from('market_native_push_tokens')
+        .update({is_active:false,updated_at:new Date().toISOString()})
+        .eq('fcm_token',token)
+        .eq('user_id',session.user.id);
+      if(error) throw error;
+      console.log('[NativePush] token deactivated before sign-out');
+    }catch(err){
+      console.warn('[NativePush] token deactivate failed',err);
+    }
+  }
+
+
   async function refreshAuth(){
     if(!db){ updateAccountUI(); return; }
     const {data}=await db.auth.getSession(); session=data.session;
@@ -2339,7 +2410,10 @@
     if(myRiderApplication?.status==='approved'&&myRiderOnline)startRiderJobRealtime(); else stopRiderJobRealtime();
     await loadFavorites();
     renderShops(); renderRecommended();
-    if(session) await loadDashboard();
+    if(session){
+      await loadDashboard();
+      await syncNativePushToken();
+    }
   }
 
   function updateAccountUI(){
@@ -2822,12 +2896,14 @@
         alert('เปลี่ยนรหัสผ่านเรียบร้อยแล้ว กรุณาเข้าสู่ระบบด้วยรหัสผ่านใหม่');
         form.reset();closeModal('resetPasswordModal');
         history.replaceState(null,'',window.location.pathname);
+        await deactivateNativePushToken();
         await db.auth.signOut();session=null;profile=null;updateAccountUI();openModal('authModal');
       }catch(err){alert('เปลี่ยนรหัสผ่านไม่สำเร็จ: '+friendlyAuthError(err.message));}
       finally{btn.disabled=false;btn.textContent='บันทึกรหัสผ่านใหม่';}
     });
     $('signOutBtn').addEventListener('click',async()=>{
       if(!db)return;
+      await deactivateNativePushToken();
       const {error}=await db.auth.signOut();
       if(error)return alert('ออกจากระบบไม่สำเร็จ: '+friendlyAuthError(error.message));
       session=null;profile=null;updateAccountUI();
@@ -3006,6 +3082,21 @@
   start();
 
   document.addEventListener('click',e=>{
+    if(e.target.closest?.('#testRiderNativeAudioBtn')){
+      e.preventDefault();
+      if(window.MarketNativeAlert?.testRiderAlert){
+        window.MarketNativeAlert.testRiderAlert();
+      }else{
+        armRiderAlertAudio();playRiderAlertSound();
+      }
+      return;
+    }
+    if(e.target.closest?.('#stopRiderNativeAudioBtn')){
+      e.preventDefault();
+      try{window.marketNativeAudioTest?.stop?.();window.MarketNativeAlert?.stopRiderAlert?.();}catch(_e){}
+      stopRiderSoundRepeat?.();
+      return;
+    }
     const accept=e.target.closest?.('[data-rider-accept-batch]');
     if(accept){e.preventDefault();acceptRiderJob(accept.dataset.riderAcceptBatch);return;}
     const advance=e.target.closest?.('[data-rider-advance-batch]');
@@ -3034,6 +3125,15 @@
     const st=$('riderPushStatus'),btn=$('riderEnablePushBtn');
     if(!st||!btn)return;
     try{
+      if(window.marketIsNativeApp?.()){
+        await window.marketDisableWebPushForNativeApp?.({silent:true});
+        st.textContent='✅ Android App ใช้ Native Push (FCM) สำหรับงาน Rider — ไม่ใช้ Web Push ซ้ำ';
+        btn.textContent='✅ Native Push พร้อมใช้งาน';
+        btn.disabled=true;
+        btn.dataset.pushEnabled='true';
+        btn.dataset.pushVerified='true';
+        return {ok:true,reason:'native_app_uses_fcm'};
+      }
       if(!('Notification' in window)||!('serviceWorker' in navigator)||!('PushManager' in window)){
         st.textContent='อุปกรณ์/เบราว์เซอร์นี้ไม่รองรับ Web Push';
         btn.style.display='none';return;
@@ -3107,6 +3207,7 @@
     if(b.disabled)return;
     b.disabled=true;
     try{
+      if(window.marketIsNativeApp?.()){await window.marketDisableWebPushForNativeApp?.({silent:true});return;}
       if(Notification.permission==='granted'&&typeof window.marketEnsurePushSubscription==='function'){
         const state=await window.marketEnsurePushSubscription({repair:true});
         if(state?.ok)return;
